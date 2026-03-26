@@ -10,7 +10,9 @@
     "vscode": "^1.85.0"
   },
   "main": "./dist/extension.js",
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
   "contributes": {
     "viewsContainers": {
@@ -39,12 +41,7 @@
     "commands": [
       {
         "command": "sideChick.generateTour",
-        "title": "Generate Tour",
-        "category": "Side Chick"
-      },
-      {
-        "command": "sideChick.askQuestion",
-        "title": "Ask About Codebase",
+        "title": "Ask About a Feature",
         "category": "Side Chick"
       },
       {
@@ -166,13 +163,24 @@
       "properties": {
         "sideChick.model": {
           "type": "string",
-          "default": "sonnet",
-          "description": "Claude model to use for tour generation"
+          "default": "haiku",
+          "description": "Claude model for tour generation (haiku = fast, sonnet = balanced, opus = thorough)"
         },
         "sideChick.maxBudgetUsd": {
           "type": "number",
           "default": 0.5,
           "description": "Max cost (USD) per tour or feature scan"
+        },
+        "sideChick.celebrations": {
+          "type": "string",
+          "enum": ["auto", "on", "off"],
+          "default": "auto",
+          "enumDescriptions": [
+            "Follow system preference (respects Reduce Motion)",
+            "Always show confetti and animations",
+            "Never show confetti or animations"
+          ],
+          "description": "Control confetti and celebration animations"
         }
       }
     },
@@ -184,8 +192,8 @@
       },
       {
         "view": "sideChick.featureTree",
-        "contents": "Discover what this codebase does, then walk through it step by step.\n[Discover Features](command:sideChick.discoverFeatures)\n[Generate Tour](command:sideChick.generateTour)",
-        "when": "workbenchState != empty && !sideChick.featuresLoaded"
+        "contents": "Understand this codebase with AI-guided walkthroughs.\n[Ask About a Feature](command:sideChick.generateTour)\n[Discover All Features](command:sideChick.discoverFeatures)",
+        "when": "workbenchState != empty && !sideChick.hasTours && !sideChick.featuresLoaded"
       }
     ]
   },
@@ -206,5 +214,8 @@
     "oxlint": "latest",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.84"
   }
 }
