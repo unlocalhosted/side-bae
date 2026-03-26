@@ -1,20 +1,24 @@
 import * as vscode from "vscode";
 import type { TourNode } from "../../types/tour.js";
 
-const HIGHLIGHT_COLOR = new vscode.ThemeColor(
-  "editor.findMatchHighlightBackground"
-);
-const BORDER_COLOR = new vscode.ThemeColor("focusBorder");
+let highlightDecoration: vscode.TextEditorDecorationType | null = null;
 
-const highlightDecoration = vscode.window.createTextEditorDecorationType({
-  backgroundColor: HIGHLIGHT_COLOR,
-  borderWidth: "0 0 0 3px",
-  borderStyle: "solid",
-  borderColor: BORDER_COLOR,
-  isWholeLine: true,
-  overviewRulerColor: BORDER_COLOR,
-  overviewRulerLane: vscode.OverviewRulerLane.Left,
-});
+function getDecoration(): vscode.TextEditorDecorationType {
+  if (!highlightDecoration) {
+    highlightDecoration = vscode.window.createTextEditorDecorationType({
+      backgroundColor: new vscode.ThemeColor(
+        "editor.findMatchHighlightBackground"
+      ),
+      borderWidth: "0 0 0 3px",
+      borderStyle: "solid",
+      borderColor: new vscode.ThemeColor("focusBorder"),
+      isWholeLine: true,
+      overviewRulerColor: new vscode.ThemeColor("focusBorder"),
+      overviewRulerLane: vscode.OverviewRulerLane.Left,
+    });
+  }
+  return highlightDecoration;
+}
 
 export function applyDecorations(
   editor: vscode.TextEditor,
@@ -28,7 +32,7 @@ export function applyDecorations(
     new vscode.Position(endLine, Number.MAX_SAFE_INTEGER)
   );
 
-  editor.setDecorations(highlightDecoration, [
+  editor.setDecorations(getDecoration(), [
     {
       range,
       renderOptions: {
@@ -44,9 +48,12 @@ export function applyDecorations(
 }
 
 export function clearDecorations(editor: vscode.TextEditor): void {
-  editor.setDecorations(highlightDecoration, []);
+  if (highlightDecoration) {
+    editor.setDecorations(highlightDecoration, []);
+  }
 }
 
 export function disposeDecorations(): void {
-  highlightDecoration.dispose();
+  highlightDecoration?.dispose();
+  highlightDecoration = null;
 }

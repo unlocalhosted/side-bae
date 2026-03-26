@@ -10,8 +10,6 @@ export class TourPlayer {
   private workspaceRoot: string;
   private webviewProvider: TourCardWebviewProvider;
   private activeEditor?: vscode.TextEditor;
-  private visitedNodes = new Set<string>();
-  private isNewTour = false;
 
   constructor(
     workspaceRoot: string,
@@ -34,19 +32,18 @@ export class TourPlayer {
         case "stop":
           this.stopTour();
           break;
+        case "dismissSummary":
+          // Summary was shown on first card; re-send card state without summary
+          this.resendCurrentCard();
+          break;
       }
     });
   }
 
   async startTour(tour: TourDocument): Promise<void> {
-    this.engine.load(tour);
-    this.visitedNodes.clear();
-    this.isNewTour = true;
+    const node = this.engine.load(tour);
     this.setTourActiveContext(true);
-    const node = this.engine.navigateToEntry();
-    if (node) {
-      await this.showNode(node);
-    }
+    await this.showNode(node);
   }
 
   async navigateToNode(nodeId: string): Promise<void> {
@@ -75,13 +72,20 @@ export class TourPlayer {
       clearDecorations(this.activeEditor);
     }
     this.engine.reset();
-    this.visitedNodes.clear();
     this.webviewProvider.clear();
     this.setTourActiveContext(false);
   }
 
   isActive(): boolean {
     return this.engine.isLoaded();
+  }
+
+  /** Re-send the current card state (e.g., after dismissing the summary) */
+  private resendCurrentCard(): void {
+    const node = this.engine.getCurrentNode();
+    if (node) {
+      this.webviewProvider.updateCard(this.engine.getCardState());
+    }
   }
 
   getAvailableEdges(): TourEdge[] {
@@ -130,28 +134,6 @@ export class TourPlayer {
     editor.selection = new vscode.Selection(range.start, range.start);
 
     applyDecorations(editor, node);
-
-    // Track visited nodes for celebration triggers
-    const tour = this.engine.getTour()!;
-    const nodeIds = Object.keys(tour.nodes);
-    const currentId = this.engine.getCurrentNodeId()!;
-    this.visitedNodes.add(currentId);
-
-    const currentIndex = nodeIds.indexOf(currentId) + 1;
-    const totalNodes = nodeIds.length;
-
-    this.webviewProvider.updateCard(
-      node,
-      this.engine.getBreadcrumb(),
-      this.engine.canGoBack(),
-      this.engine.canGoForward(),
-      currentIndex,
-      totalNodes,
-      this.visitedNodes.size,
-      this.isNewTour
-    );
-
-    // Only true for the very first showNode call after startTour
-    this.isNewTour = false;
+    this.webviewProvider.updateCard(this.engine.getCardState());
   }
 }

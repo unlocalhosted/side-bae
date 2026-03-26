@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { TourNode } from "../../types/tour.js";
-import type { BreadcrumbEntry } from "../../engine/tour-engine.js";
+import type { TourCardState } from "../../engine/tour-engine.js";
 
 export type NavigationCallback = (
   action:
@@ -10,6 +9,7 @@ export type NavigationCallback = (
     | { type: "back" }
     | { type: "forward" }
     | { type: "stop" }
+    | { type: "dismissSummary" }
 ) => void;
 
 export class TourCardWebviewProvider implements vscode.WebviewViewProvider {
@@ -43,32 +43,23 @@ export class TourCardWebviewProvider implements vscode.WebviewViewProvider {
         this.onNavigation(message);
       }
     });
+
+    // Send celebration setting on init
+    this.sendCelebrationSetting();
   }
 
-  updateCard(
-    node: TourNode,
-    breadcrumb: BreadcrumbEntry[],
-    canGoBack: boolean,
-    canGoForward: boolean,
-    currentIndex: number,
-    totalNodes: number,
-    visitedCount: number,
-    isNewTour: boolean
-  ): void {
+  sendCelebrationSetting(): void {
     if (this.view) {
-      this.view.webview.postMessage({
-        type: "update",
-        data: {
-          node,
-          breadcrumb,
-          canGoBack,
-          canGoForward,
-          currentIndex,
-          totalNodes,
-          visitedCount,
-          isNewTour,
-        },
-      });
+      const setting = vscode.workspace
+        .getConfiguration("sideChick")
+        .get<string>("celebrations", "auto");
+      this.view.webview.postMessage({ type: "config", celebrations: setting });
+    }
+  }
+
+  updateCard(state: TourCardState): void {
+    if (this.view) {
+      this.view.webview.postMessage({ type: "update", data: state });
       this.view.show?.(true);
     }
   }
@@ -80,7 +71,6 @@ export class TourCardWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtmlForWebview(webview: vscode.Webview): string {
-    // Load from dist/webview/ — works both in dev (after build) and in packaged VSIX
     const webviewDir = join(this.extensionUri.fsPath, "dist", "webview");
 
     const htmlTemplate = readFileSync(
