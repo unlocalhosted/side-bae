@@ -1,20 +1,11 @@
 import * as vscode from "vscode";
-import { execFile } from "node:child_process";
-import { ClaudeAdapter } from "./claude/adapter.js";
+import { ClaudeAdapter, checkClaudeStatus, type ClaudeStatus } from "./claude/adapter.js";
 import { TourPlayer } from "./views/tour-player/tour-player.js";
 import { TourCardWebviewProvider } from "./views/tour-player/webview-provider.js";
 import { FeatureTreeProvider } from "./views/feature-tree-provider.js";
 import { registerGenerateTourCommand } from "./commands/generate-tour.js";
 import { registerNavigationCommands } from "./commands/navigate.js";
 import { disposeDecorations } from "./views/tour-player/decorations.js";
-
-function checkClaudeCli(): Promise<boolean> {
-  return new Promise((resolve) => {
-    execFile("claude", ["--version"], (error) => {
-      resolve(!error);
-    });
-  });
-}
 
 function getAdapter(workspaceRoot: string): ClaudeAdapter {
   const config = vscode.workspace.getConfiguration("sideChick");
@@ -25,6 +16,36 @@ function getAdapter(workspaceRoot: string): ClaudeAdapter {
   });
 }
 
+async function handleClaudeStatus(
+  status: ClaudeStatus
+): Promise<boolean> {
+  if (!status.available) {
+    const action = await vscode.window.showErrorMessage(
+      `Claude CLI is not available: ${status.error ?? "unknown error"}`,
+      "How to Install"
+    );
+    if (action === "How to Install") {
+      vscode.env.openExternal(
+        vscode.Uri.parse("https://docs.anthropic.com/en/docs/claude-code")
+      );
+    }
+    return false;
+  }
+  if (!status.authenticated) {
+    const action = await vscode.window.showErrorMessage(
+      "Claude CLI is not logged in. Run 'claude login' in your terminal.",
+      "Open Terminal"
+    );
+    if (action === "Open Terminal") {
+      const terminal = vscode.window.createTerminal("Claude Login");
+      terminal.show();
+      terminal.sendText("claude login");
+    }
+    return false;
+  }
+  return true;
+}
+
 export async function activate(context: vscode.ExtensionContext) {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
@@ -33,28 +54,23 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const workspaceRoot = workspaceFolder.uri.fsPath;
 
-  // Check Claude CLI availability
-  const claudeAvailable = await checkClaudeCli();
-  if (!claudeAvailable) {
-    const action = await vscode.window.showWarningMessage(
-      "Side Chick requires the Claude CLI to generate tours. Install it to get started.",
-      "How to Install"
-    );
-    if (action === "How to Install") {
-      vscode.env.openExternal(
-        vscode.Uri.parse("https://docs.anthropic.com/en/docs/claude-code")
-      );
-    }
-  }
-
   // Create adapter — recreated on config changes
   let adapter = getAdapter(workspaceRoot);
+
+  // Reusable pre-flight check using the SDK itself
+  const checkClaude = () => checkClaudeStatus(workspaceRoot);
+
+  // Check on activation (non-blocking — don't await the dialog)
+  checkClaude().then((status) => {
+    if (!status.available || !status.authenticated) {
+      handleClaudeStatus(status);
+    }
+  });
 
   // Create webview provider and tour player
   const webviewProvider = new TourCardWebviewProvider(context.extensionUri);
   const player = new TourPlayer(workspaceRoot, webviewProvider);
 
-  // Register webview provider
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       TourCardWebviewProvider.viewType,
@@ -62,8 +78,12 @@ export async function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // Create and register feature tree
-  const featureTreeProvider = new FeatureTreeProvider(adapter, workspaceRoot);
+  // Feature tree
+  const featureTreeProvider = new FeatureTreeProvider(
+    () => adapter,
+    checkClaude,
+    workspaceRoot
+  );
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(
       "sideChick.featureTree",
@@ -71,8 +91,8 @@ export async function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // Register commands
-  registerGenerateTourCommand(context, () => adapter, player, workspaceRoot);
+  // Commands
+  registerGenerateTourCommand(context, () => adapter, player, workspaceRoot, checkClaude);
   registerNavigationCommands(context, player, workspaceRoot);
 
   context.subscriptions.push(
@@ -84,29 +104,24 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Re-apply decorations when switching editors
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       player.onDidChangeActiveTextEditor(editor);
     })
   );
 
-  // Recreate adapter on config changes so new settings take effect
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("sideChick")) {
         adapter = getAdapter(workspaceRoot);
+        webviewProvider.sendCelebrationSetting();
       }
     })
   );
 
-  // Initialize context values
   vscode.commands.executeCommand("setContext", "sideChick.tourActive", false);
-  vscode.commands.executeCommand(
-    "setContext",
-    "sideChick.featuresLoaded",
-    false
-  );
+  vscode.commands.executeCommand("setContext", "sideChick.featuresLoaded", false);
+  // sideChick.hasTours is set inside FeatureTreeProvider.getChildren() on every render
 }
 
 export function deactivate() {

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { ClaudeAdapter } from "../claude/adapter.js";
+import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
 import * as tourStore from "../engine/tour-store.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
 
@@ -7,12 +7,36 @@ export function registerGenerateTourCommand(
   context: vscode.ExtensionContext,
   getAdapter: () => ClaudeAdapter,
   player: TourPlayer,
-  workspaceRoot: string
+  workspaceRoot: string,
+  checkClaude?: () => Promise<ClaudeStatus>
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "sideChick.generateTour",
       async (featureName?: string) => {
+        // Pre-flight Claude check
+        if (checkClaude) {
+          const status = await checkClaude();
+          if (!status.available) {
+            vscode.window.showErrorMessage(
+              "Claude CLI is not installed. Visit https://docs.anthropic.com/en/docs/claude-code"
+            );
+            return;
+          }
+          if (!status.authenticated) {
+            const action = await vscode.window.showErrorMessage(
+              "Claude CLI is not logged in. Run 'claude login' in your terminal.",
+              "Open Terminal"
+            );
+            if (action === "Open Terminal") {
+              const terminal = vscode.window.createTerminal("Claude Login");
+              terminal.show();
+              terminal.sendText("claude login");
+            }
+            return;
+          }
+        }
+
         const query =
           featureName ??
           (await vscode.window.showInputBox({
@@ -38,6 +62,8 @@ export function registerGenerateTourCommand(
               });
 
               await tourStore.saveTour(workspaceRoot, tour);
+              vscode.commands.executeCommand("setContext", "sideChick.hasTours", true);
+              vscode.commands.executeCommand("sideChick.refreshFeatures");
 
               await player.startTour(tour);
 
@@ -63,16 +89,5 @@ export function registerGenerateTourCommand(
     )
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand("sideChick.askQuestion", async () => {
-      const query = await vscode.window.showInputBox({
-        prompt: "Ask anything about this codebase",
-        placeHolder:
-          "e.g., where does the user object get the role field before hitting billing?",
-      });
-      if (query) {
-        vscode.commands.executeCommand("sideChick.generateTour", query);
-      }
-    })
-  );
+  // sideChick.askQuestion removed — merged into generateTour (one command, one input box)
 }
