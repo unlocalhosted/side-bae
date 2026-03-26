@@ -1,0 +1,11 @@
+{
+  "plugins": ["import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "env": {
+    "node": true
+  }
+}

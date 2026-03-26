@@ -1,0 +1,23 @@
+{
+  "name": "side-chick",
+  "version": "0.1.0",
+  "description": "A vscode extension that will help navigate and understand new a codebase with help of claude. ",
+  "type": "module",
+  "packageManager": "pnpm@10.29.3",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint src --fix"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "oxlint": "latest",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  },
+  "license": "UNLICENSED"
+}
