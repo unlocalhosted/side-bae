@@ -10,7 +10,9 @@ Rules:
 - Line numbers must be accurate and 1-based
 - The entryNode must be the most logical starting point for understanding this feature
 - Edges should represent actual code flow (function calls, imports, data flow)
-- Explanations should be concise but illuminating — explain WHY, not just WHAT
+- Edge labels should describe the relationship clearly — they appear as navigation buttons (e.g., "calls validateToken()", "imports UserModel", "handles the error case")
+- Explanations should be concise but illuminating — explain WHY this code exists, not just WHAT it does
+- Each explanation should reference how it connects to the previous step — the user arrives via an edge label, so the explanation should continue that narrative (e.g., "This function is called by the auth middleware to verify the JWT signature...")
 - Use 4-10 nodes for a typical tour (fewer for simple features, more for complex ones)
 - Node IDs should be kebab-case descriptive names
 - The id field should be a kebab-case slug derived from the query

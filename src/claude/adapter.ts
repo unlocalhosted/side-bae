@@ -1,5 +1,28 @@
-import { spawn } from "node:child_process";
-import type { TourDocument } from "../types/tour.js";
+/**
+ * Claude Agent SDK integration.
+ *
+ * Uses @anthropic-ai/claude-agent-sdk to run queries against the user's
+ * Claude subscription. The SDK spawns a Claude Code subprocess internally.
+ *
+ * @see https://platform.claude.com/docs/en/agent-sdk/typescript
+ * @see https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+ */
+
+import { execFileSync } from "node:child_process";
+import { validateTourDocument, type TourDocument } from "../types/tour.js";
+
+/**
+ * Resolve the user's installed `claude` binary path.
+ * The SDK bundles its own CLI, but the user's system binary is already
+ * authenticated — so we use theirs instead.
+ */
+function resolveClaudePath(): string | undefined {
+  try {
+    return execFileSync("which", ["claude"], { encoding: "utf-8" }).trim();
+  } catch {
+    return undefined;
+  }
+}
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA } from "./schema.js";
 import {
@@ -18,9 +41,13 @@ export interface GenerationProgress {
   onCancel: (callback: () => void) => void;
 }
 
-// Honest, specific messages about what's actually happening during generation.
-// Rotated on a timer so the user sees forward momentum, not a frozen spinner.
-const TOUR_GENERATION_MESSAGES = [
+export interface ClaudeStatus {
+  available: boolean;
+  authenticated: boolean;
+  error?: string;
+}
+
+const TOUR_PROGRESS = [
   "Reading source files...",
   "Tracing code paths related to your query...",
   "Identifying entry points and call chains...",
@@ -30,13 +57,68 @@ const TOUR_GENERATION_MESSAGES = [
   "Finalizing tour structure...",
 ];
 
-const FEATURE_DISCOVERY_MESSAGES = [
+const FEATURE_PROGRESS = [
   "Scanning directory structure...",
   "Reading entry points and route definitions...",
   "Identifying major features...",
   "Grouping related functionality...",
   "Building feature tree...",
 ];
+
+/**
+ * Check if the Claude Agent SDK can connect and authenticate.
+ * Uses the SDK itself (not execFile) so it tests the exact same code path.
+ */
+export async function checkClaudeStatus(
+  workspaceRoot: string
+): Promise<ClaudeStatus> {
+  try {
+    const { query } = await import("@anthropic-ai/claude-agent-sdk");
+    const claudePath = resolveClaudePath();
+
+    const q = query({
+      prompt: "respond with the single word: ok",
+      options: {
+        cwd: workspaceRoot,
+        maxTurns: 1,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        persistSession: false,
+        pathToClaudeCodeExecutable: claudePath,
+        settingSources: ["user", "project"],
+        disallowedTools: [
+          "Read",
+          "Edit",
+          "Write",
+          "Bash",
+          "Grep",
+          "Glob",
+          "Agent",
+        ],
+      },
+    });
+
+    for await (const message of q) {
+      if (message.type === "result") {
+        const isError = "is_error" in message && message.is_error === true;
+        if (message.subtype === "success" && !isError) {
+          return { available: true, authenticated: true };
+        }
+        return {
+          available: true,
+          authenticated: false,
+          error: "result" in message ? String(message.result) : message.subtype,
+        };
+      }
+    }
+
+    return { available: true, authenticated: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Don't guess the cause — pass the raw error so the user sees what actually failed
+    return { available: false, authenticated: false, error: msg };
+  }
+}
 
 export class ClaudeAdapter {
   private workspaceRoot: string;
@@ -45,141 +127,123 @@ export class ClaudeAdapter {
 
   constructor(options: ClaudeAdapterOptions) {
     this.workspaceRoot = options.workspaceRoot;
-    this.model = options.model ?? "sonnet";
+    this.model = options.model ?? "haiku";
     this.maxBudgetUsd = options.maxBudgetUsd ?? 0.5;
   }
 
   async generateTour(
-    query: string,
+    queryText: string,
     progress: GenerationProgress
   ): Promise<TourDocument> {
-    const prompt = buildTourGenerationPrompt(query);
-    const result = await this.runClaude(
+    const prompt = buildTourGenerationPrompt(queryText);
+    const result = await this.runStructuredQuery(
       prompt,
       TOUR_DOCUMENT_SCHEMA,
       progress,
-      TOUR_GENERATION_MESSAGES
+      TOUR_PROGRESS
     );
-    return result as TourDocument;
+    return validateTourDocument(result);
   }
 
   async discoverFeatures(
     progress: GenerationProgress
   ): Promise<FeatureTreeNode[]> {
     const prompt = buildFeatureDiscoveryPrompt();
-    const result = await this.runClaude(
+    const result = await this.runStructuredQuery(
       prompt,
       FEATURE_TREE_SCHEMA,
       progress,
-      FEATURE_DISCOVERY_MESSAGES
+      FEATURE_PROGRESS
     );
     return (result as { features: FeatureTreeNode[] }).features;
   }
 
-  buildArgs(prompt: string, schema: object): string[] {
-    return [
-      "-p",
-      "--output-format",
-      "json",
-      "--json-schema",
-      JSON.stringify(schema),
-      "--model",
-      this.model,
-      "--max-turns",
-      "10",
-      "--max-budget-usd",
-      String(this.maxBudgetUsd),
-      prompt,
-    ];
-  }
-
-  private runClaude(
+  private async runStructuredQuery(
     prompt: string,
-    schema: object,
+    schema: Record<string, unknown>,
     progress: GenerationProgress,
-    messages: string[]
+    progressMessages: string[]
   ): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-      const args = this.buildArgs(prompt, schema);
+    const { query } = await import("@anthropic-ai/claude-agent-sdk");
+    const claudePath = resolveClaudePath();
 
-      const child = spawn("claude", args, {
-        cwd: this.workspaceRoot,
-        stdio: ["ignore", "pipe", "pipe"],
+    const abortController = new AbortController();
+    progress.onCancel(() => abortController.abort());
+
+    let msgIdx = 0;
+    progress.onProgress(progressMessages[0]!);
+    const timer = setInterval(() => {
+      msgIdx++;
+      if (msgIdx < progressMessages.length) {
+        progress.onProgress(progressMessages[msgIdx]!);
+      }
+    }, 6000);
+
+    try {
+      const q = query({
+        prompt,
+        options: {
+          cwd: this.workspaceRoot,
+          model: this.model,
+          pathToClaudeCodeExecutable: claudePath,
+          maxTurns: 10,
+          maxBudgetUsd: this.maxBudgetUsd,
+          effort: "low",
+          abortController,
+          allowedTools: ["Read", "Grep", "Glob", "Bash"],
+          permissionMode: "bypassPermissions",
+          allowDangerouslySkipPermissions: true,
+          outputFormat: { type: "json_schema", schema },
+          persistSession: false,
+          settingSources: ["user", "project"],
+        },
       });
 
-      // Rotate progress messages on a timer so the user sees momentum
-      let messageIndex = 0;
-      progress.onProgress(messages[0]!);
-      const messageTimer = setInterval(() => {
-        messageIndex++;
-        if (messageIndex < messages.length) {
-          progress.onProgress(messages[messageIndex]!);
+      for await (const message of q) {
+        if (message.type !== "result") continue;
+
+        switch (message.subtype) {
+          case "success":
+            if ("structured_output" in message && message.structured_output) {
+              return message.structured_output;
+            }
+            if ("result" in message && typeof message.result === "string") {
+              return JSON.parse(message.result);
+            }
+            throw new Error("Claude completed but returned no output.");
+
+          case "error_max_turns":
+            throw new Error(
+              "Claude ran out of turns. Try a more specific query."
+            );
+
+          case "error_max_budget_usd":
+            throw new Error(
+              `Query exceeded the $${this.maxBudgetUsd} budget. Increase sideChick.maxBudgetUsd in settings.`
+            );
+
+          case "error_max_structured_output_retries":
+            throw new Error(
+              "Claude couldn't produce valid output after multiple attempts. Try rephrasing."
+            );
+
+          default:
+            throw new Error(
+              `Claude stopped: ${message.subtype}${
+                "result" in message ? ` — ${message.result}` : ""
+              }`
+            );
         }
-      }, 6000);
+      }
 
-      progress.onCancel(() => {
-        clearInterval(messageTimer);
-        child.kill("SIGTERM");
-      });
-
-      const stdoutChunks: Buffer[] = [];
-      const stderrChunks: Buffer[] = [];
-
-      child.stdout.on("data", (chunk: Buffer) => {
-        stdoutChunks.push(chunk);
-      });
-
-      child.stderr.on("data", (chunk: Buffer) => {
-        stderrChunks.push(chunk);
-      });
-
-      child.on("error", (err) => {
-        clearInterval(messageTimer);
-        reject(
-          new Error(
-            `Could not find the Claude CLI (${err.message}). Make sure it's installed and on your PATH.`
-          )
-        );
-      });
-
-      child.on("close", (code) => {
-        clearInterval(messageTimer);
-
-        if (code !== 0) {
-          const stderr = Buffer.concat(stderrChunks).toString("utf-8");
-          // Extract the most useful part of the error
-          const shortError =
-            stderr.split("\n").find((line) => line.trim().length > 0) ||
-            "No details available";
-          reject(
-            new Error(
-              `Claude couldn't complete the request: ${shortError}`
-            )
-          );
-          return;
-        }
-
-        try {
-          const stdout = Buffer.concat(stdoutChunks).toString("utf-8");
-          const response = JSON.parse(stdout);
-
-          if (response.result) {
-            const parsed =
-              typeof response.result === "string"
-                ? JSON.parse(response.result)
-                : response.result;
-            resolve(parsed);
-          } else {
-            resolve(response);
-          }
-        } catch {
-          reject(
-            new Error(
-              `Claude returned an unexpected response. Try again — if this persists, the query may be too broad.`
-            )
-          );
-        }
-      });
-    });
+      throw new Error("Claude did not return a result.");
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error("Query cancelled.", { cause: err });
+      }
+      throw err;
+    } finally {
+      clearInterval(timer);
+    }
   }
 }
