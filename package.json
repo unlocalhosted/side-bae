@@ -1,23 +1,210 @@
 {
   "name": "side-chick",
+  "displayName": "Side Chick",
   "version": "0.1.0",
-  "description": "A vscode extension that will help navigate and understand new a codebase with help of claude. ",
-  "type": "module",
+  "description": "AI-powered codebase onboarding via guided code tours",
+  "publisher": "side-chick",
+  "license": "UNLICENSED",
   "packageManager": "pnpm@10.29.3",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./dist/extension.js",
+  "categories": ["Other"],
+  "activationEvents": [],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "side-chick",
+          "title": "Side Chick",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "side-chick": [
+        {
+          "id": "sideChick.featureTree",
+          "name": "Features",
+          "type": "tree"
+        },
+        {
+          "id": "sideChick.tourCard",
+          "name": "Tour",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "sideChick.generateTour",
+        "title": "Generate Tour",
+        "category": "Side Chick"
+      },
+      {
+        "command": "sideChick.askQuestion",
+        "title": "Ask About Codebase",
+        "category": "Side Chick"
+      },
+      {
+        "command": "sideChick.startTour",
+        "title": "Start Saved Tour",
+        "category": "Side Chick"
+      },
+      {
+        "command": "sideChick.nextEdge",
+        "title": "Follow Path",
+        "category": "Side Chick"
+      },
+      {
+        "command": "sideChick.previousNode",
+        "title": "Go Back",
+        "category": "Side Chick"
+      },
+      {
+        "command": "sideChick.goForward",
+        "title": "Go Forward",
+        "category": "Side Chick"
+      },
+      {
+        "command": "sideChick.stopTour",
+        "title": "Stop Tour",
+        "category": "Side Chick"
+      },
+      {
+        "command": "sideChick.refreshFeatures",
+        "title": "Refresh Features",
+        "category": "Side Chick",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "sideChick.discoverFeatures",
+        "title": "Scan Codebase for Features",
+        "category": "Side Chick",
+        "icon": "$(search)"
+      },
+      {
+        "command": "sideChick.openTour",
+        "title": "Open Tour",
+        "category": "Side Chick"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "sideChick.previousNode",
+        "key": "alt+left",
+        "when": "sideChick.tourActive"
+      },
+      {
+        "command": "sideChick.goForward",
+        "key": "alt+right",
+        "when": "sideChick.tourActive"
+      },
+      {
+        "command": "sideChick.nextEdge",
+        "key": "alt+down",
+        "when": "sideChick.tourActive"
+      },
+      {
+        "command": "sideChick.stopTour",
+        "key": "escape",
+        "when": "sideChick.tourActive && !editorHasSelection && !findInputFocussed && !inQuickOpen"
+      },
+      {
+        "command": "sideChick.generateTour",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "sideChick.refreshFeatures",
+          "when": "view == sideChick.featureTree",
+          "group": "navigation"
+        },
+        {
+          "command": "sideChick.discoverFeatures",
+          "when": "view == sideChick.featureTree",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "sideChick.nextEdge",
+          "when": "sideChick.tourActive"
+        },
+        {
+          "command": "sideChick.previousNode",
+          "when": "sideChick.tourActive"
+        },
+        {
+          "command": "sideChick.goForward",
+          "when": "sideChick.tourActive"
+        },
+        {
+          "command": "sideChick.stopTour",
+          "when": "sideChick.tourActive"
+        },
+        {
+          "command": "sideChick.openTour",
+          "when": "false"
+        },
+        {
+          "command": "sideChick.refreshFeatures",
+          "when": "false"
+        },
+        {
+          "command": "sideChick.discoverFeatures",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Side Chick",
+      "properties": {
+        "sideChick.model": {
+          "type": "string",
+          "default": "sonnet",
+          "description": "Claude model to use for tour generation"
+        },
+        "sideChick.maxBudgetUsd": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Max cost (USD) per tour or feature scan"
+        }
+      }
+    },
+    "viewsWelcome": [
+      {
+        "view": "sideChick.featureTree",
+        "contents": "Open a folder to start exploring with Side Chick.\n[Open Folder](command:vscode.openFolder)",
+        "when": "workbenchState == empty"
+      },
+      {
+        "view": "sideChick.featureTree",
+        "contents": "Discover what this codebase does, then walk through it step by step.\n[Discover Features](command:sideChick.discoverFeatures)\n[Generate Tour](command:sideChick.generateTour)",
+        "when": "workbenchState != empty && !sideChick.featuresLoaded"
+      }
+    ]
+  },
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
-    "build": "tsc --noEmit",
+    "vscode:prepublish": "node esbuild.mjs --production",
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "oxlint src",
     "lint:fix": "oxlint src --fix"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.0",
     "oxlint": "latest",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
-  },
-  "license": "UNLICENSED"
+  }
 }
