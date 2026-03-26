@@ -57,18 +57,16 @@ describe("TourEngine", () => {
     expect(engine.getBreadcrumb()).toEqual([]);
   });
 
-  it("loads a tour", () => {
-    engine.load(MOCK_TOUR);
+  it("load() returns the entry node and sets it as current", () => {
+    const node = engine.load(MOCK_TOUR);
+    expect(node.title).toBe("Entry Point");
     expect(engine.isLoaded()).toBe(true);
-    expect(engine.getCurrentNode()).toBeNull();
+    expect(engine.getCurrentNodeId()).toBe("node-a");
   });
 
-  it("navigates to entry node", () => {
-    engine.load(MOCK_TOUR);
-    const node = engine.navigateToEntry();
-    expect(node).not.toBeNull();
-    expect(node!.title).toBe("Entry Point");
-    expect(engine.getCurrentNodeId()).toBe("node-a");
+  it("load() throws when entry node does not exist", () => {
+    const bad = { ...MOCK_TOUR, entryNode: "nonexistent" };
+    expect(() => engine.load(bad)).toThrow("does not exist");
   });
 
   it("navigates to a specific node", () => {
@@ -85,7 +83,6 @@ describe("TourEngine", () => {
 
   it("builds breadcrumb from navigation history", () => {
     engine.load(MOCK_TOUR);
-    engine.navigateToEntry();
     engine.navigateToNode("node-b");
     engine.navigateToNode("node-c");
 
@@ -99,7 +96,6 @@ describe("TourEngine", () => {
 
   it("navigates back", () => {
     engine.load(MOCK_TOUR);
-    engine.navigateToEntry();
     engine.navigateToNode("node-b");
     engine.navigateToNode("node-c");
 
@@ -110,7 +106,6 @@ describe("TourEngine", () => {
 
   it("navigates forward after going back", () => {
     engine.load(MOCK_TOUR);
-    engine.navigateToEntry();
     engine.navigateToNode("node-b");
     engine.navigateBack();
 
@@ -121,26 +116,21 @@ describe("TourEngine", () => {
 
   it("cannot go back at start", () => {
     engine.load(MOCK_TOUR);
-    engine.navigateToEntry();
     expect(engine.canGoBack()).toBe(false);
     expect(engine.navigateBack()).toBeNull();
   });
 
   it("cannot go forward at end", () => {
     engine.load(MOCK_TOUR);
-    engine.navigateToEntry();
     expect(engine.canGoForward()).toBe(false);
     expect(engine.navigateForward()).toBeNull();
   });
 
   it("truncates forward history on new navigation", () => {
     engine.load(MOCK_TOUR);
-    engine.navigateToEntry();
     engine.navigateToNode("node-b");
     engine.navigateBack();
-    // Now at node-a, with node-b in forward history
     engine.navigateToNode("node-c");
-    // Forward history (node-b) should be gone
     expect(engine.canGoForward()).toBe(false);
     expect(engine.getBreadcrumb()).toEqual([
       { id: "node-a", title: "Entry Point" },
@@ -150,26 +140,94 @@ describe("TourEngine", () => {
 
   it("returns available edges for current node", () => {
     engine.load(MOCK_TOUR);
-    engine.navigateToEntry();
     const edges = engine.getAvailableEdges();
     expect(edges).toHaveLength(2);
     expect(edges[0]!.target).toBe("node-b");
     expect(edges[1]!.target).toBe("node-c");
   });
 
-  it("returns empty edges when no node is selected", () => {
+  it("returns empty edges for leaf node", () => {
     engine.load(MOCK_TOUR);
+    engine.navigateToNode("node-c");
     expect(engine.getAvailableEdges()).toEqual([]);
   });
 
   it("resets fully", () => {
     engine.load(MOCK_TOUR);
-    engine.navigateToEntry();
     engine.navigateToNode("node-b");
     engine.reset();
 
     expect(engine.isLoaded()).toBe(false);
     expect(engine.getCurrentNode()).toBeNull();
     expect(engine.getBreadcrumb()).toEqual([]);
+  });
+
+  describe("getCardState", () => {
+    it("returns complete state for current node", () => {
+      engine.load(MOCK_TOUR);
+      const state = engine.getCardState();
+
+      expect(state.node.title).toBe("Entry Point");
+      expect(state.totalNodes).toBe(3);
+      expect(state.visitedCount).toBe(1);
+      expect(state.canGoBack).toBe(false);
+      expect(state.canGoForward).toBe(false);
+      expect(state.breadcrumb).toHaveLength(1);
+    });
+
+    it("isNewTour is true only on first getCardState after load", () => {
+      engine.load(MOCK_TOUR);
+      const first = engine.getCardState();
+      expect(first.isNewTour).toBe(true);
+      expect(first.summary).not.toBeNull();
+      expect(first.summary!.totalNodes).toBe(3);
+      expect(first.summary!.totalFiles).toBe(2);
+      expect(engine.getCardState().isNewTour).toBe(false);
+      expect(engine.getCardState().summary).toBeNull();
+    });
+
+    it("tracks visited nodes across navigation", () => {
+      engine.load(MOCK_TOUR);
+      engine.getCardState(); // consume newTour flag
+      engine.navigateToNode("node-b");
+      const state = engine.getCardState();
+      expect(state.visitedCount).toBe(2);
+    });
+
+    it("tracks arrivedVia edge label", () => {
+      engine.load(MOCK_TOUR);
+      expect(engine.getCardState().arrivedVia).toBeNull(); // entry has no edge
+      engine.navigateToNode("node-b");
+      expect(engine.getCardState().arrivedVia).toBe("calls B");
+    });
+
+    it("throws when no tour is loaded", () => {
+      expect(() => engine.getCardState()).toThrow();
+    });
+
+    it("edgeInfo shows 'new' for unvisited targets with reachable count", () => {
+      engine.load(MOCK_TOUR);
+      const state = engine.getCardState();
+      expect(state.edgeInfo["node-b"]!.state).toBe("new");
+      expect(state.edgeInfo["node-b"]!.reachableCount).toBe(2); // node-b + node-c
+      expect(state.edgeInfo["node-c"]!.state).toBe("new");
+      expect(state.edgeInfo["node-c"]!.reachableCount).toBe(1); // just node-c
+    });
+
+    it("edgeInfo shows 'complete' for visited leaf", () => {
+      engine.load(MOCK_TOUR);
+      engine.navigateToNode("node-c");
+      engine.navigateToNode("node-a");
+      const state = engine.getCardState();
+      expect(state.edgeInfo["node-c"]!.state).toBe("complete");
+    });
+
+    it("edgeInfo shows 'partial' for visited node with unvisited children", () => {
+      engine.load(MOCK_TOUR);
+      engine.navigateToNode("node-b"); // visited, but node-b -> node-c is unvisited
+      engine.navigateToNode("node-a"); // go back
+      const state = engine.getCardState();
+      expect(state.edgeInfo["node-b"]!.state).toBe("partial");
+    });
   });
 });

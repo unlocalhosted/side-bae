@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { TourDocument } from "../types/tour.js";
+import { validateTourDocument, type TourDocument } from "../types/tour.js";
 
 const TOUR_DIR = ".side-chick";
 
@@ -29,7 +29,7 @@ export async function loadTour(
 ): Promise<TourDocument> {
   const filePath = getTourPath(workspaceRoot, tourId);
   const content = await readFile(filePath, "utf-8");
-  return JSON.parse(content) as TourDocument;
+  return validateTourDocument(JSON.parse(content));
 }
 
 export interface TourSummary {
@@ -37,6 +37,7 @@ export interface TourSummary {
   name: string;
   query: string;
   generatedAt: string;
+  nodeCount: number;
 }
 
 export async function listTours(
@@ -61,6 +62,7 @@ export async function listTours(
           name: tour.name,
           query: tour.query,
           generatedAt: tour.generatedAt,
+          nodeCount: tour.nodes ? Object.keys(tour.nodes).length : 0,
         } satisfies TourSummary;
       } catch {
         return null;
