@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "description": "AI-powered codebase onboarding via guided code tours",
   "publisher": "side-bae",
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unlocalhosted/side-bae.git"
+  },
   "packageManager": "pnpm@10.29.3",
   "engines": {
     "vscode": "^1.85.0"
