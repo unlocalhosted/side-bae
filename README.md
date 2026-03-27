@@ -10,9 +10,20 @@ Each stop highlights a code region, explains what it does and why, and offers cl
 
 ## Install
 
+Download the latest `.vsix` and install for your editor:
+
 ```bash
+# VS Code
 curl -sL https://github.com/unlocalhosted/side-bae/releases/latest/download/side-bae.vsix -o /tmp/side-bae.vsix && code --install-extension /tmp/side-bae.vsix
+
+# Cursor
+curl -sL https://github.com/unlocalhosted/side-bae/releases/latest/download/side-bae.vsix -o /tmp/side-bae.vsix && cursor --install-extension /tmp/side-bae.vsix
+
+# Windsurf
+curl -sL https://github.com/unlocalhosted/side-bae/releases/latest/download/side-bae.vsix -o /tmp/side-bae.vsix && windsurf --install-extension /tmp/side-bae.vsix
 ```
+
+Or install manually: download `side-bae.vsix` from [Releases](https://github.com/unlocalhosted/side-bae/releases), then in your editor run `Extensions: Install from VSIX...` from the command palette.
 
 Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) to be installed and authenticated (`claude login`).
 

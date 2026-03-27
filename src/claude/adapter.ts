@@ -8,40 +8,32 @@
  * @see https://platform.claude.com/docs/en/agent-sdk/structured-outputs
  */
 
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { execFileSync, execSync } from "node:child_process";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
 
 /**
  * Resolve the user's installed `claude` binary path.
- * Tries `which` first, then checks common install locations.
- * VS Code/Cursor extension hosts often have a stripped PATH.
+ * Spawns the user's login shell to get the full PATH,
+ * since VS Code/Cursor extension hosts often strip it.
  */
 function resolveClaudePath(): string | undefined {
-  // Try PATH first
+  // Try the extension host's PATH first (fastest)
   try {
     return execFileSync("which", ["claude"], { encoding: "utf-8" }).trim();
   } catch {
-    // which failed — check common locations
+    // Stripped PATH — fall back to user's login shell
   }
 
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
-  const candidates = [
-    join(home, ".claude", "local", "claude"),
-    join(home, ".local", "bin", "claude"),
-    "/usr/local/bin/claude",
-    "/opt/homebrew/bin/claude",
-    join(home, ".npm-global", "bin", "claude"),
-    "/Applications/Claude.app/Contents/Resources/bin/claude",
-    "/Applications/cmux.app/Contents/Resources/bin/claude",
-  ];
-
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
+  // Ask the user's actual shell where claude is
+  const shell = process.env.SHELL || "/bin/sh";
+  try {
+    return execSync(`${shell} -ilc "which claude" 2>/dev/null`, {
+      encoding: "utf-8",
+      timeout: 5000,
+    }).trim();
+  } catch {
+    return undefined;
   }
-
-  return undefined;
 }
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
