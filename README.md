@@ -8,11 +8,17 @@ You join a new project. You open Side Bae. You type "how does authentication wor
 
 Each stop highlights a code region, explains what it does and why, and offers clickable links to follow the code flow deeper. When you're done, the walkthrough is saved as a `.tour.json` file you can replay instantly or share with teammates.
 
+## Install
+
+```bash
+curl -sL https://github.com/unlocalhosted/side-bae/releases/latest/download/side-bae.vsix -o /tmp/side-bae.vsix && code --install-extension /tmp/side-bae.vsix
+```
+
+Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) to be installed and authenticated (`claude login`).
+
 ## Quick start
 
-1. Install the extension (F5 from this repo for development)
-2. Make sure the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) is installed and authenticated
-3. Open any codebase in VS Code
+1. Open any codebase in VS Code
 4. Press `Cmd+Shift+T` (Mac) / `Ctrl+Shift+T` (Windows) and ask a question
 5. Wait ~30s for the walkthrough to generate, then follow the stops
 
