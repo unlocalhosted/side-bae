@@ -1,11 +1,12 @@
-name: CI
+name: Release
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ["v*"]
 jobs:
-  ci:
+  release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,8 +23,13 @@ jobs:
       - run: pnpm build
       - name: Package extension
         run: pnpm exec vsce package --no-dependencies -o side-bae.vsix
-      - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish to VS Code Marketplace
+        if: env.VSCE_PAT != ''
+        run: pnpm exec vsce publish --no-dependencies --packagePath side-bae.vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: side-bae-vsix
-          path: side-bae.vsix
+          files: side-bae.vsix
+          generate_release_notes: true

@@ -185,7 +185,11 @@
         },
         "sideChick.celebrations": {
           "type": "string",
-          "enum": ["auto", "on", "off"],
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
           "default": "auto",
           "enumDescriptions": [
             "Follow system preference (respects Reduce Motion)",
@@ -222,6 +226,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.24.0",
     "oxlint": "latest",
     "typescript": "^5.0.0",
