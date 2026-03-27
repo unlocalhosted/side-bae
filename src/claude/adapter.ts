@@ -9,19 +9,39 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
 
 /**
  * Resolve the user's installed `claude` binary path.
- * The SDK bundles its own CLI, but the user's system binary is already
- * authenticated — so we use theirs instead.
+ * Tries `which` first, then checks common install locations.
+ * VS Code/Cursor extension hosts often have a stripped PATH.
  */
 function resolveClaudePath(): string | undefined {
+  // Try PATH first
   try {
     return execFileSync("which", ["claude"], { encoding: "utf-8" }).trim();
   } catch {
-    return undefined;
+    // which failed — check common locations
   }
+
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+  const candidates = [
+    join(home, ".claude", "local", "claude"),
+    join(home, ".local", "bin", "claude"),
+    "/usr/local/bin/claude",
+    "/opt/homebrew/bin/claude",
+    join(home, ".npm-global", "bin", "claude"),
+    "/Applications/Claude.app/Contents/Resources/bin/claude",
+    "/Applications/cmux.app/Contents/Resources/bin/claude",
+  ];
+
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+
+  return undefined;
 }
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
