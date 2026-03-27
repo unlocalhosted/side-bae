@@ -2,40 +2,26 @@ import * as vscode from "vscode";
 import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
 import * as tourStore from "../engine/tour-store.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
+import { requireClaude } from "./preflight.js";
 
 export function registerGenerateTourCommand(
   context: vscode.ExtensionContext,
   getAdapter: () => ClaudeAdapter,
   player: TourPlayer,
   workspaceRoot: string,
-  checkClaude?: () => Promise<ClaudeStatus>
+  checkClaude: () => Promise<ClaudeStatus>
 ): void {
+  let generating = false;
+
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "sideChick.generateTour",
       async (featureName?: string) => {
-        // Pre-flight Claude check
-        if (checkClaude) {
-          const status = await checkClaude();
-          if (!status.available) {
-            vscode.window.showErrorMessage(
-              "Claude CLI is not installed. Visit https://docs.anthropic.com/en/docs/claude-code"
-            );
-            return;
-          }
-          if (!status.authenticated) {
-            const action = await vscode.window.showErrorMessage(
-              "Claude CLI is not logged in. Run 'claude login' in your terminal.",
-              "Open Terminal"
-            );
-            if (action === "Open Terminal") {
-              const terminal = vscode.window.createTerminal("Claude Login");
-              terminal.show();
-              terminal.sendText("claude login");
-            }
-            return;
-          }
+        if (generating) {
+          vscode.window.showWarningMessage("A tour is already being generated.");
+          return;
         }
+        if (!(await requireClaude(checkClaude))) return;
 
         const query =
           featureName ??
@@ -46,48 +32,50 @@ export function registerGenerateTourCommand(
 
         if (!query) return;
 
-        await vscode.window.withProgress(
-          {
-            location: vscode.ProgressLocation.Notification,
-            title: "Side Chick",
-            cancellable: true,
-          },
-          async (progress, token) => {
-            try {
-              const adapter = getAdapter();
-              const tour = await adapter.generateTour(query, {
-                onProgress: (msg) => progress.report({ message: msg }),
-                onCancel: (callback) =>
-                  token.onCancellationRequested(callback),
-              });
+        generating = true;
+        try {
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: "Side Bae",
+              cancellable: true,
+            },
+            async (progress, token) => {
+              try {
+                const adapter = getAdapter();
+                const tour = await adapter.generateTour(query, {
+                  onProgress: (msg) => progress.report({ message: msg }),
+                  onCancel: (callback) =>
+                    token.onCancellationRequested(callback),
+                });
 
-              await tourStore.saveTour(workspaceRoot, tour);
-              vscode.commands.executeCommand("setContext", "sideChick.hasTours", true);
-              vscode.commands.executeCommand("sideChick.refreshFeatures");
+                await tourStore.saveTour(workspaceRoot, tour);
+                vscode.commands.executeCommand("sideChick.refreshFeatures");
 
-              await player.startTour(tour);
+                await player.startTour(tour);
 
-              vscode.window.showInformationMessage(
-                `Tour "${tour.name}" ready — ${Object.keys(tour.nodes).length} stops across ${new Set(Object.values(tour.nodes).map((n) => n.file)).size} files.`
-              );
-            } catch (err) {
-              if (token.isCancellationRequested) {
                 vscode.window.showInformationMessage(
-                  "Tour generation cancelled."
+                  `Tour "${tour.name}" ready — ${Object.keys(tour.nodes).length} stops across ${new Set(Object.values(tour.nodes).map((n) => n.file)).size} files.`
                 );
-                return;
+              } catch (err) {
+                if (token.isCancellationRequested) {
+                  vscode.window.showInformationMessage(
+                    "Tour generation cancelled."
+                  );
+                  return;
+                }
+                const message =
+                  err instanceof Error ? err.message : String(err);
+                vscode.window.showErrorMessage(
+                  `Failed to generate tour: ${message}`
+                );
               }
-              const message =
-                err instanceof Error ? err.message : String(err);
-              vscode.window.showErrorMessage(
-                `Failed to generate tour: ${message}`
-              );
             }
-          }
-        );
+          );
+        } finally {
+          generating = false;
+        }
       }
     )
   );
-
-  // sideChick.askQuestion removed — merged into generateTour (one command, one input box)
 }

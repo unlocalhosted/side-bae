@@ -10,13 +10,15 @@ export type NavigationCallback = (
     | { type: "forward" }
     | { type: "stop" }
     | { type: "dismissSummary" }
+    | { type: "applyFix"; nodeId: string; oldText: string; newText: string }
+    | { type: "copyReport"; report: string }
 ) => void;
 
-export class TourCardWebviewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "sideChick.tourCard";
-
-  private view?: vscode.WebviewView;
+export class TourCardPanelProvider {
+  private panel: vscode.WebviewPanel | null = null;
   private onNavigation?: NavigationCallback;
+  private ready = false;
+  private pendingMessages: Record<string, unknown>[] = [];
 
   constructor(private extensionUri: vscode.Uri) {}
 
@@ -24,49 +26,92 @@ export class TourCardWebviewProvider implements vscode.WebviewViewProvider {
     this.onNavigation = callback;
   }
 
-  resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ): void {
-    this.view = webviewView;
+  /** Open (or reveal) the tour card panel beside the active editor. */
+  open(title: string): void {
+    if (this.panel) {
+      this.panel.title = title;
+      this.panel.reveal(vscode.ViewColumn.Beside, true);
+      return;
+    }
 
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [this.extensionUri],
-    };
+    this.ready = false;
+    this.pendingMessages = [];
 
-    webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+    this.panel = vscode.window.createWebviewPanel(
+      "sideChick.tourCard",
+      title,
+      { viewColumn: vscode.ViewColumn.Two, preserveFocus: false },
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [this.extensionUri],
+      }
+    );
 
-    webviewView.webview.onDidReceiveMessage((message) => {
+    this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
+
+    this.panel.webview.onDidReceiveMessage((message) => {
+      if (message.type === "ready") {
+        this.ready = true;
+        for (const msg of this.pendingMessages) {
+          this.panel?.webview.postMessage(msg);
+        }
+        this.pendingMessages = [];
+        return;
+      }
       if (this.onNavigation) {
         this.onNavigation(message);
       }
     });
 
-    // Send celebration setting on init
+    this.panel.onDidDispose(() => {
+      const wasActive = this.panel !== null;
+      this.panel = null;
+      this.ready = false;
+      this.pendingMessages = [];
+      if (wasActive && this.onNavigation) {
+        this.onNavigation({ type: "stop" });
+      }
+    });
+
     this.sendCelebrationSetting();
   }
 
   sendCelebrationSetting(): void {
-    if (this.view) {
-      const setting = vscode.workspace
-        .getConfiguration("sideChick")
-        .get<string>("celebrations", "auto");
-      this.view.webview.postMessage({ type: "config", celebrations: setting });
-    }
+    const setting = vscode.workspace
+      .getConfiguration("sideChick")
+      .get<string>("celebrations", "auto");
+    this.post({ type: "config", celebrations: setting });
   }
 
   updateCard(state: TourCardState): void {
-    if (this.view) {
-      this.view.webview.postMessage({ type: "update", data: state });
-      this.view.show?.(true);
-    }
+    this.post({ type: "update", data: state });
+  }
+
+  /** Ensure the panel is visible without stealing focus from the editor. */
+  reveal(): void {
+    this.panel?.reveal(vscode.ViewColumn.Beside, true);
   }
 
   clear(): void {
-    if (this.view) {
-      this.view.webview.postMessage({ type: "clear" });
+    this.post({ type: "clear" });
+  }
+
+  dispose(): void {
+    if (this.panel) {
+      const p = this.panel;
+      this.panel = null;
+      this.ready = false;
+      this.pendingMessages = [];
+      p.dispose();
+    }
+  }
+
+  private post(msg: Record<string, unknown>): void {
+    if (this.ready && this.panel) {
+      this.panel.webview.postMessage(msg);
+    } else {
+      this.pendingMessages.push(msg);
     }
   }
 

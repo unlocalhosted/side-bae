@@ -3,6 +3,11 @@ export interface TourEdge {
   label: string;
 }
 
+export interface SuggestedEdit {
+  oldText: string;
+  newText: string;
+}
+
 export interface TourNode {
   file: string;
   startLine: number;
@@ -10,6 +15,8 @@ export interface TourNode {
   title: string;
   explanation: string;
   edges: TourEdge[];
+  kind?: "context" | "problem" | "solution";
+  suggestedEdit?: SuggestedEdit;
 }
 
 export interface TrackedFile {
@@ -26,6 +33,7 @@ export interface TourDocument {
   trackedFiles: TrackedFile[];
   entryNode: string;
   nodes: Record<string, TourNode>;
+  report?: string;
 }
 
 export class TourValidationError extends Error {
@@ -90,15 +98,10 @@ export function validateTourDocument(data: unknown): TourDocument {
         issues.push(`node '${id}': missing explanation`);
 
       if (Array.isArray(node.edges)) {
-        for (const edge of node.edges as Array<Record<string, unknown>>) {
-          if (typeof edge.target !== "string") {
-            issues.push(`node '${id}': edge missing target`);
-          } else if (!nodeIds.has(edge.target)) {
-            issues.push(
-              `node '${id}': edge target '${edge.target}' does not exist`
-            );
-          }
-        }
+        // Strip edges pointing to non-existent nodes instead of failing
+        node.edges = (node.edges as Array<Record<string, unknown>>).filter(
+          (edge) => typeof edge.target === "string" && nodeIds.has(edge.target)
+        );
       } else {
         issues.push(`node '${id}': missing edges array`);
       }
@@ -114,7 +117,7 @@ export function validateTourDocument(data: unknown): TourDocument {
 
   // Normalize: ensure version and optional fields
   const tour = data as TourDocument;
-  return {
+  const result: TourDocument = {
     version: 1,
     id: tour.id,
     name: tour.name,
@@ -123,5 +126,23 @@ export function validateTourDocument(data: unknown): TourDocument {
     trackedFiles: Array.isArray(tour.trackedFiles) ? tour.trackedFiles : [],
     entryNode: tour.entryNode,
     nodes: tour.nodes,
+    report: tour.report,
   };
+
+  // Enforce DAG: strip edges that create cycles (back-references to ancestors)
+  const visited = new Set<string>();
+  function stripCycles(nodeId: string) {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+    const node = result.nodes[nodeId];
+    if (!node) return;
+    node.edges = node.edges.filter((e) => !visited.has(e.target));
+    for (const edge of node.edges) {
+      stripCycles(edge.target);
+    }
+    visited.delete(nodeId); // allow visiting from different branches
+  }
+  stripCycles(result.entryNode);
+
+  return result;
 }

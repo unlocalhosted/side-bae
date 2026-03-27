@@ -4,11 +4,15 @@ body {
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
   color: var(--vscode-foreground);
-  background-color: var(--vscode-sideBar-background);
-  padding: 12px;
+  background-color: var(--vscode-editor-background);
   line-height: 1.5;
   position: relative;
-  max-width: 500px;
+  max-width: 640px;
+  display: flex; flex-direction: column;
+}
+
+#root {
+  display: flex; flex-direction: column; flex: 1; min-height: 0;
 }
 
 #confetti-canvas {
@@ -54,47 +58,43 @@ body {
   color: var(--vscode-keybindingLabel-foreground, inherit);
 }
 
-/* ── Summary card (shown before first stop) ── */
-.summary-card {
-  display: flex; flex-direction: column; gap: 14px;
+/* ── Panel header (fixed tour name) ── */
+.panel-header {
+  flex-shrink: 0;
+  background: var(--vscode-editor-background);
+  font-size: 13px; font-weight: 600; color: var(--vscode-foreground);
+  padding: 16px 20px 10px;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.summary-header { display: flex; flex-direction: column; gap: 4px; }
-.summary-title { font-size: 15px; font-weight: 600; color: var(--vscode-foreground); }
-.summary-query {
-  font-size: 12px; color: var(--vscode-descriptionForeground); font-style: italic;
+
+/* ── Scroll + Dock layout ── */
+.card-scroll {
+  flex: 1; overflow-y: auto; padding: 12px 20px 8px;
+  display: flex; flex-direction: column; gap: 10px;
 }
-.summary-stats {
-  font-size: 12px; color: var(--vscode-textLink-foreground); font-weight: 600;
-  display: flex; align-items: center; gap: 6px;
+.card-dock {
+  flex-shrink: 0; padding: 10px 20px 16px;
+  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  background: var(--vscode-editor-background);
+  display: flex; flex-direction: column; gap: 8px;
 }
-.stat-sep { opacity: 0.4; }
-.summary-files { display: flex; flex-direction: column; gap: 4px; }
-.summary-files-label {
-  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
-  color: var(--vscode-descriptionForeground);
-}
-.summary-file-list {
-  list-style: none; font-size: 11px; font-family: var(--vscode-editor-font-family);
-  color: var(--vscode-descriptionForeground);
-}
-.summary-file-list li { padding: 1px 0; }
-.summary-start-btn {
-  padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
-  font-size: 13px; font-family: var(--vscode-font-family); font-weight: 500;
-  background: var(--vscode-button-background); color: var(--vscode-button-foreground);
-  transition: background 0.1s;
-}
-.summary-start-btn:hover { background: var(--vscode-button-hoverBackground); }
-.summary-start-btn:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+
+/* (Summary card styles are below, after tour graph) */
 
 /* ── Tour card (explanation-dominant) ── */
-.tour-card { display: flex; flex-direction: column; gap: 10px; }
+.tour-card {
+  display: flex; flex-direction: column; gap: 10px;
+  border-left: 3px solid transparent; padding-left: 0;
+  transition: border-color 0.2s ease-out, padding-left 0.2s ease-out;
+}
 
 /* Connective context — "calls validateToken()" */
 .arrived-via {
-  font-size: 11px; color: var(--vscode-textLink-foreground);
+  font-size: 12px; color: var(--vscode-textLink-foreground);
   padding: 4px 8px; border-radius: 3px;
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+  border-left: 2px solid var(--vscode-textLink-foreground);
   font-family: var(--vscode-editor-font-family);
 }
 
@@ -112,26 +112,27 @@ body {
 /* Explanation — the main content, should dominate */
 .card-explanation {
   font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
-  padding: 8px 0;
+  padding: 8px 0; max-width: 65ch;
   border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
   border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
   overflow-wrap: break-word; word-break: break-word;
 }
-.card-explanation strong { font-weight: 600; }
-.card-explanation em { font-style: italic; }
-.card-explanation .md-inline-code {
+/* Shared markdown content styles */
+.card-explanation strong, .report-body strong { font-weight: 600; }
+.card-explanation em, .report-body em { font-style: italic; }
+.card-explanation .md-inline-code, .report-body .md-inline-code {
   font-family: var(--vscode-editor-font-family); font-size: 12px;
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   padding: 1px 4px; border-radius: 3px; word-break: break-all;
 }
-.card-explanation .md-code-block {
+.card-explanation .md-code-block, .report-body .md-code-block {
   font-family: var(--vscode-editor-font-family); font-size: 12px;
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   padding: 8px; border-radius: 4px; margin: 6px 0; overflow-x: auto; white-space: pre;
 }
-.card-explanation .md-list { list-style: none; padding-left: 0; margin: 4px 0; }
-.card-explanation .md-list-item { padding-left: 12px; position: relative; margin: 2px 0; }
-.card-explanation .md-list-item::before {
+.card-explanation .md-list, .report-body .md-list { list-style: none; padding-left: 0; margin: 4px 0; }
+.card-explanation .md-list-item, .report-body .md-list-item { padding-left: 12px; position: relative; margin: 2px 0; }
+.card-explanation .md-list-item::before, .report-body .md-list-item::before {
   content: "\2022"; position: absolute; left: 0; color: var(--vscode-descriptionForeground);
 }
 
@@ -191,14 +192,14 @@ body {
 .breadcrumb-item {
   background: none; border: none; color: var(--vscode-textLink-foreground); cursor: pointer;
   font-size: 11px; font-family: var(--vscode-font-family); padding: 1px 3px; border-radius: 2px;
-  transition: background 0.1s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;
+  transition: background 0.1s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;
 }
 .breadcrumb-item:hover { background: var(--vscode-toolbar-hoverBackground); }
 .breadcrumb-item.current { color: var(--vscode-foreground); font-weight: 600; cursor: default; }
 .breadcrumb-item.current:hover { background: none; }
 .breadcrumb-separator { color: var(--vscode-descriptionForeground); opacity: 0.5; flex-shrink: 0; }
 
-/* ── Footer (compact: back + end) ── */
+/* ── Footer (inside dock) ── */
 .card-footer { display: flex; gap: 8px; align-items: center; }
 .nav-back-btn {
   flex: 1; padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer;
@@ -218,9 +219,9 @@ body {
 }
 .stop-btn:hover { background: var(--vscode-toolbar-hoverBackground); color: var(--vscode-foreground); }
 
-/* ── Narrow sidebar ── */
-@media (max-width: 240px) {
-  body { padding: 8px; }
+/* ── Narrow panel ── */
+@media (max-width: 320px) {
+  body { padding: 10px; }
   .tour-card { gap: 8px; }
   .breadcrumb-item { max-width: 80px; }
   .nav-back-btn .nav-key { display: none; }
@@ -230,8 +231,195 @@ body {
   .edge-depth { display: none; }
 }
 
+/* ── Wide panel — use space well ── */
+@media (min-width: 500px) {
+  .breadcrumb-item { max-width: 180px; }
+  .card-edges { max-width: 480px; }
+  .card-footer { max-width: 480px; }
+}
+
+/* ── Kind badges (investigation tours) ── */
+@keyframes badgeFadeIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+.kind-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 2px 8px; border-radius: 3px; width: fit-content;
+}
+.badge-enter { animation: badgeFadeIn 0.2s ease-out 0.1s both; }
+.kind-context {
+  color: var(--vscode-textLink-foreground);
+  background: rgba(79, 193, 255, 0.1);
+}
+.kind-problem {
+  color: var(--vscode-errorForeground, #f14c4c);
+  background: rgba(241, 76, 76, 0.1);
+}
+.kind-solution {
+  color: var(--vscode-testing-iconPassed, #73c991);
+  background: rgba(115, 201, 145, 0.1);
+}
+
+/* Card border accent for investigation nodes */
+.tour-card.has-problem {
+  border-left: 3px solid var(--vscode-errorForeground, #f14c4c);
+  padding-left: 8px;
+}
+.tour-card.has-solution {
+  border-left: 3px solid var(--vscode-testing-iconPassed, #73c991);
+  padding-left: 8px;
+}
+
+/* ── Suggested edit (diff block) ── */
+.suggested-edit {
+  display: flex; flex-direction: column; gap: 6px;
+  margin: 4px 0;
+}
+.edit-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--vscode-descriptionForeground);
+}
+.edit-diff {
+  font-family: var(--vscode-editor-font-family); font-size: 12px;
+  border-radius: 4px; overflow-x: auto; margin: 0;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  padding: 0;
+}
+.diff-line {
+  padding: 1px 8px; white-space: pre; display: block;
+}
+.diff-enter { animation: edgeSlideIn 0.15s ease-out both; }
+.diff-remove {
+  background: rgba(241, 76, 76, 0.15);
+  color: var(--vscode-errorForeground, #f14c4c);
+}
+.diff-add {
+  background: rgba(115, 201, 145, 0.15);
+  color: var(--vscode-testing-iconPassed, #73c991);
+}
+.apply-fix-btn {
+  padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer;
+  font-size: 12px; font-family: var(--vscode-font-family); font-weight: 500;
+  background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+  transition: background 0.1s; width: 100%;
+}
+.apply-fix-btn:hover { background: var(--vscode-button-hoverBackground); }
+.apply-fix-btn:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.apply-fix-btn.applied {
+  background: var(--vscode-button-secondaryBackground); color: var(--vscode-testing-iconPassed, #73c991);
+  cursor: default; opacity: 0.7;
+}
+.apply-fix-btn.applied:hover { background: var(--vscode-button-secondaryBackground); }
+
+/* ── Investigation report ── */
+.investigation-report {
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  border-radius: 4px; padding: 12px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.05));
+}
+.report-toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  font-size: 13px; font-weight: 600; color: var(--vscode-foreground);
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-family: var(--vscode-font-family); text-align: left;
+}
+.report-toggle:hover { color: var(--vscode-textLink-foreground); }
+.report-toggle:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.report-arrow {
+  flex-shrink: 0; transition: transform 0.15s ease-out;
+}
+.report-toggle.expanded .report-arrow { transform: rotate(90deg); }
+.report-content { display: none; flex-direction: column; gap: 10px; padding-top: 8px; }
+.report-content.expanded { display: flex; }
+.report-icon { font-size: 16px; flex-shrink: 0; }
+.report-body {
+  font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
+  overflow-wrap: break-word; word-break: break-word;
+}
+.report-body h2 {
+  font-size: 13px; font-weight: 700; margin: 10px 0 4px; padding-top: 8px;
+  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-foreground);
+}
+.report-body h2:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.copy-report-btn {
+  padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer;
+  font-size: 12px; font-family: var(--vscode-font-family); font-weight: 500;
+  background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground);
+  transition: background 0.1s; width: 100%;
+}
+.copy-report-btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.copy-report-btn:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.copy-report-btn.copied {
+  color: var(--vscode-testing-iconPassed, #73c991); font-weight: 600;
+  transition: color 0.15s;
+}
+
+/* ── Tour graph (summary card) ── */
+.tour-graph {
+  width: 100%; min-height: 120px; max-height: 240px;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.05));
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
+}
+.tour-graph .graph-node {
+  cursor: pointer; transition: opacity 0.15s;
+}
+.tour-graph .graph-node:hover { opacity: 0.8; }
+.tour-graph .graph-node-rect {
+  rx: 4; ry: 4; stroke-width: 1.5;
+  stroke: var(--vscode-widget-border, rgba(128, 128, 128, 0.4));
+  fill: var(--vscode-button-secondaryBackground);
+}
+.tour-graph .graph-node-entry .graph-node-rect {
+  stroke: var(--vscode-textLink-foreground);
+  stroke-width: 2;
+}
+.tour-graph .graph-node-text {
+  font-size: 10px; font-family: var(--vscode-font-family);
+  fill: var(--vscode-foreground); text-anchor: middle; dominant-baseline: central;
+}
+.tour-graph .graph-edge {
+  stroke: var(--vscode-descriptionForeground); stroke-width: 1.2;
+  fill: none; opacity: 0.5;
+}
+.tour-graph .graph-arrow {
+  fill: var(--vscode-descriptionForeground); opacity: 0.5;
+}
+
+/* ── Redesigned summary ── */
+.summary-card {
+  display: flex; flex-direction: column; gap: 12px; flex: 1;
+}
+.summary-meta {
+  font-size: 12px; color: var(--vscode-descriptionForeground);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.summary-query { font-style: italic; }
+.summary-stats-line {
+  font-size: 12px; color: var(--vscode-textLink-foreground); font-weight: 600;
+}
+.summary-start-btn {
+  padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;
+  font-size: 13px; font-family: var(--vscode-font-family); font-weight: 600;
+  background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+  transition: background 0.1s; max-width: 260px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.summary-start-btn:hover { background: var(--vscode-button-hoverBackground); }
+.summary-start-btn:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.summary-start-btn .btn-arrow {
+  transition: transform 0.15s;
+}
+.summary-start-btn:hover .btn-arrow { transform: translateX(3px); }
+
 /* ── High contrast ── */
 @media (forced-colors: active) {
-  .edge-link, .nav-back-btn, .stop-btn, .breadcrumb-item, .summary-start-btn { border: 1px solid ButtonText; }
+  .edge-link, .nav-back-btn, .stop-btn, .breadcrumb-item, .summary-start-btn,
+  .apply-fix-btn, .copy-report-btn { border: 1px solid ButtonText; }
+  .kind-badge { border: 1px solid currentColor; }
   .complete-line { background: Highlight; }
+  .diff-remove { color: LinkText; background: transparent; }
+  .diff-add { color: Highlight; background: transparent; }
+  .investigation-report { border-color: ButtonText; }
 }

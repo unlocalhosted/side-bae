@@ -93,52 +93,151 @@
     `;
   }
 
-  function renderMarkdown(text) {
-    return escapeHtml(text)
+  function renderMarkdown(text, opts) {
+    let html = escapeHtml(text)
       .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="md-code-block"><code>$2</code></pre>')
       .replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>')
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>");
+    if (opts && opts.headings) html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+    return html
       .replace(/^- (.+)$/gm, '<li class="md-list-item">$1</li>')
       .replace(/(<li class="md-list-item">.*?<\/li>\n?)+/g, '<ul class="md-list">$&</ul>')
       .replace(/\n\n/g, "<br/><br/>")
       .replace(/\n/g, "<br/>");
   }
 
+  // ── Tour Graph Renderer ─────────────────────────────────────
+
+  function renderGraphSvg(graph) {
+    if (!graph || !graph.nodes.length) return "";
+
+    // BFS layering from entry node
+    const adj = {};
+    for (const n of graph.nodes) adj[n.id] = [];
+    for (const e of graph.edges) {
+      if (adj[e.from]) adj[e.from].push(e.to);
+    }
+
+    const layers = [];
+    const visited = new Set();
+    let queue = [graph.entryId];
+    visited.add(graph.entryId);
+
+    while (queue.length > 0) {
+      layers.push([...queue]);
+      const next = [];
+      for (const id of queue) {
+        for (const child of (adj[id] || [])) {
+          if (!visited.has(child)) {
+            visited.add(child);
+            next.push(child);
+          }
+        }
+      }
+      queue = next;
+    }
+    // Add any orphan nodes not reached by BFS
+    for (const n of graph.nodes) {
+      if (!visited.has(n.id)) {
+        layers[layers.length - 1] = layers[layers.length - 1] || [];
+        layers[layers.length - 1].push(n.id);
+      }
+    }
+
+    const nodeMap = {};
+    for (const n of graph.nodes) nodeMap[n.id] = n;
+
+    // Layout
+    const nodeW = 100, nodeH = 28, padX = 24, padY = 40, topPad = 16;
+    const maxPerLayer = Math.max(...layers.map(l => l.length));
+    const svgW = Math.max(200, maxPerLayer * (nodeW + padX) + padX);
+    const svgH = layers.length * (nodeH + padY) + topPad;
+
+    const positions = {};
+    layers.forEach((layer, li) => {
+      const totalW = layer.length * nodeW + (layer.length - 1) * padX;
+      const startX = (svgW - totalW) / 2;
+      layer.forEach((id, ni) => {
+        positions[id] = {
+          x: startX + ni * (nodeW + padX) + nodeW / 2,
+          y: topPad + li * (nodeH + padY) + nodeH / 2,
+        };
+      });
+    });
+
+    // Render edges
+    let edgeSvg = "";
+    for (const e of graph.edges) {
+      const from = positions[e.from];
+      const to = positions[e.to];
+      if (!from || !to) continue;
+      const midY = (from.y + to.y) / 2;
+      edgeSvg += `<path class="graph-edge" d="M${from.x},${from.y + nodeH / 2} C${from.x},${midY} ${to.x},${midY} ${to.x},${to.y - nodeH / 2}"/>`;
+      // Arrowhead
+      edgeSvg += `<polygon class="graph-arrow" points="${to.x - 4},${to.y - nodeH / 2 - 2} ${to.x + 4},${to.y - nodeH / 2 - 2} ${to.x},${to.y - nodeH / 2 + 3}"/>`;
+    }
+
+    // Render nodes
+    let nodeSvg = "";
+    for (const n of graph.nodes) {
+      const p = positions[n.id];
+      if (!p) continue;
+      const isEntry = n.id === graph.entryId;
+      const truncTitle = n.title.length > 14 ? n.title.slice(0, 12) + "\u2026" : n.title;
+      nodeSvg += `
+        <g class="graph-node ${isEntry ? "graph-node-entry" : ""}" data-node-id="${escapeHtml(n.id)}">
+          <rect class="graph-node-rect" x="${p.x - nodeW / 2}" y="${p.y - nodeH / 2}" width="${nodeW}" height="${nodeH}"/>
+          <text class="graph-node-text" x="${p.x}" y="${p.y}">${escapeHtml(truncTitle)}</text>
+        </g>`;
+    }
+
+    return `<svg class="tour-graph" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">${edgeSvg}${nodeSvg}</svg>`;
+  }
+
   /** Render the tour summary card (shown before the first stop) */
   function renderSummary(summary) {
-    const filesPreview = summary.fileList.slice(0, 5).map(f => escapeHtml(f)).join("</li><li>");
-    const moreFiles = summary.fileList.length > 5 ? `<li>+${summary.fileList.length - 5} more</li>` : "";
+    const graphHtml = renderGraphSvg(summary.graph);
 
     root.innerHTML = `
-      <div class="summary-card fade-in">
-        <div class="summary-header">
-          <div class="summary-title">${escapeHtml(summary.name)}</div>
-          <div class="summary-query">"${escapeHtml(summary.query)}"</div>
+      <div class="panel-header">${escapeHtml(summary.name)}</div>
+      <div class="card-scroll">
+        <div class="summary-card fade-in">
+          ${graphHtml}
+          <div class="summary-meta">
+            <div class="summary-query">"${escapeHtml(summary.query)}"</div>
+            <div class="summary-stats-line">${summary.totalNodes} stops across ${summary.totalFiles} file${summary.totalFiles === 1 ? "" : "s"}</div>
+          </div>
         </div>
-        <div class="summary-stats">
-          <span class="stat">${summary.totalNodes} locations</span>
-          <span class="stat-sep">&middot;</span>
-          <span class="stat">${summary.totalFiles} file${summary.totalFiles === 1 ? "" : "s"}</span>
-        </div>
-        <div class="summary-files">
-          <div class="summary-files-label">Files covered</div>
-          <ul class="summary-file-list">
-            <li>${filesPreview}</li>
-            ${moreFiles}
-          </ul>
-        </div>
-        <button class="summary-start-btn" id="btn-start-tour">Start walkthrough</button>
+      </div>
+      <div class="card-dock">
+        <button class="summary-start-btn" id="btn-start-tour">
+          Begin walkthrough
+          <svg class="btn-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       </div>
     `;
 
     document.getElementById("btn-start-tour").addEventListener("click", () => {
       vscode.postMessage({ type: "dismissSummary" });
     });
+
+    // Graph node click → jump to that stop
+    root.querySelectorAll(".graph-node").forEach((el) => {
+      el.addEventListener("click", () => {
+        vscode.postMessage({ type: "dismissSummary" });
+        setTimeout(() => {
+          vscode.postMessage({ type: "navigate", nodeId: el.getAttribute("data-node-id") });
+        }, 50);
+      });
+    });
   }
 
+  let currentReport = null;
+
   function renderCard(data) {
-    const { node, breadcrumb, canGoBack, totalNodes, visitedCount, edgeInfo, arrivedVia, summary, isNewTour } = data;
+    const { node, breadcrumb, canGoBack, totalNodes, visitedCount, edgeInfo, arrivedVia, summary, isNewTour, report } = data;
+    currentReport = report || null;
 
     // Show summary card on new tour instead of jumping straight to first stop
     if (isNewTour && summary) {
@@ -168,6 +267,33 @@
       hasSeenAllNodes = true;
     }
 
+    // ── Kind badge (investigation tours) ──
+    const kindSvgs = {
+      context: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>',
+      problem: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      solution: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>',
+    };
+    const kindLabels = { context: "Context", problem: "Problem", solution: "Suggested Fix" };
+    const kindBadgeHtml = node.kind
+      ? `<div class="kind-badge kind-${node.kind}${nodeChanged ? " badge-enter" : ""}">${kindSvgs[node.kind] || ""} ${kindLabels[node.kind] || node.kind}</div>`
+      : "";
+    const cardKindClass = node.kind === "problem" ? " has-problem" : node.kind === "solution" ? " has-solution" : "";
+
+    // ── Suggested edit (diff block for solution nodes) ──
+    let suggestedEditHtml = "";
+    if (node.suggestedEdit) {
+      let lineIdx = 0;
+      const oldLines = escapeHtml(node.suggestedEdit.oldText).split("\n").map(l => `<span class="diff-line diff-remove${nodeChanged ? " diff-enter" : ""}" ${nodeChanged ? `style="animation-delay:${lineIdx++ * 40}ms"` : ""}>- ${l}</span>`).join("");
+      const newLines = escapeHtml(node.suggestedEdit.newText).split("\n").map(l => `<span class="diff-line diff-add${nodeChanged ? " diff-enter" : ""}" ${nodeChanged ? `style="animation-delay:${lineIdx++ * 40}ms"` : ""}>+ ${l}</span>`).join("");
+      suggestedEditHtml = `
+        <div class="suggested-edit">
+          <div class="edit-label">Suggested Fix</div>
+          <pre class="edit-diff">${oldLines}${newLines}</pre>
+          <button class="apply-fix-btn">Apply Fix</button>
+        </div>
+      `;
+    }
+
     // ── Connective context (how you got here) ──
     const contextHtml = arrivedVia
       ? `<div class="arrived-via fade-in">${escapeHtml(arrivedVia)}</div>`
@@ -180,8 +306,8 @@
         ? `<svg class="checkmark-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="checkmark-path" d="M5 13l4 4L19 7"/></svg>`
         : "";
       const msg = allVisited
-        ? "You've explored every location."
-        : "End of this path. Use <strong>Back</strong> to explore other paths.";
+        ? "All explored \u2014 nice work."
+        : "End of this branch. Use <strong>Back</strong> to try another path.";
       edgesHtml = `
         <div class="tour-complete fade-in ${allVisited ? "all-visited" : ""}">
           <div class="complete-line"></div>
@@ -222,16 +348,36 @@
       </div>
     `;
 
-    // ── Card: explanation-dominant ──
+    // ── Card: scroll zone + fixed dock ──
     root.innerHTML = `
-      <div class="tour-card ${nodeChanged ? "card-enter" : ""}">
-        ${breadcrumbHtml}
-        ${contextHtml}
-        <div class="card-header">
-          <div class="card-title">${escapeHtml(node.title)}</div>
-          <div class="card-file">${escapeHtml(node.file)}:${node.startLine}-${node.endLine}</div>
+      <div class="panel-header">${escapeHtml(data.tourName)}</div>
+      <div class="card-scroll">
+        <div class="tour-card ${nodeChanged ? "card-enter" : ""}${cardKindClass}">
+          ${breadcrumbHtml}
+          ${kindBadgeHtml}
+          ${contextHtml}
+          <div class="card-header">
+            <div class="card-title">${escapeHtml(node.title)}</div>
+            <div class="card-file">${escapeHtml(node.file)}:${node.startLine}-${node.endLine}</div>
+          </div>
+          <div class="card-explanation">${renderMarkdown(node.explanation)}</div>
+          ${suggestedEditHtml}
+          ${currentReport && allVisited ? `
+            <div class="investigation-report fade-in">
+              <button class="report-toggle">
+                <svg class="report-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg class="report-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+                <span>Investigation Report</span>
+              </button>
+              <div class="report-content">
+                <div class="report-body">${renderMarkdown(currentReport, { headings: true })}</div>
+                <button class="copy-report-btn">Copy for PR</button>
+              </div>
+            </div>
+          ` : ""}
         </div>
-        <div class="card-explanation">${renderMarkdown(node.explanation)}</div>
+      </div>
+      <div class="card-dock">
         ${edgesHtml}
         <div class="card-footer">
           <button class="nav-back-btn" id="btn-back" ${canGoBack ? "" : "disabled"}><span class="nav-key">${backHint}</span> Back</button>
@@ -251,6 +397,50 @@
     if (backBtn) backBtn.addEventListener("click", () => vscode.postMessage({ type: "back" }));
     const stopBtn = document.getElementById("btn-stop");
     if (stopBtn) stopBtn.addEventListener("click", () => vscode.postMessage({ type: "stop" }));
+
+    // Apply Fix button
+    const applyBtn = root.querySelector(".apply-fix-btn");
+    if (applyBtn && node.suggestedEdit) {
+      applyBtn.addEventListener("click", () => {
+        applyBtn.textContent = "Applied \u2713";
+        applyBtn.disabled = true;
+        applyBtn.classList.add("applied");
+        vscode.postMessage({
+          type: "applyFix",
+          nodeId: breadcrumb[breadcrumb.length - 1]?.id ?? "",
+          oldText: node.suggestedEdit.oldText,
+          newText: node.suggestedEdit.newText,
+        });
+      });
+    }
+
+    // Report toggle (collapsible)
+    const reportToggle = root.querySelector(".report-toggle");
+    if (reportToggle) {
+      const reportContent = root.querySelector(".report-content");
+      reportToggle.addEventListener("click", () => {
+        const expanded = reportContent.classList.toggle("expanded");
+        reportToggle.classList.toggle("expanded", expanded);
+      });
+    }
+
+    // Copy Report button
+    const copyBtn = root.querySelector(".copy-report-btn");
+    if (copyBtn && currentReport) {
+      copyBtn.addEventListener("click", () => {
+        const original = copyBtn.textContent;
+        copyBtn.textContent = "Copied!";
+        copyBtn.classList.add("copied");
+        setTimeout(() => {
+          copyBtn.textContent = original;
+          copyBtn.classList.remove("copied");
+        }, 1500);
+        vscode.postMessage({
+          type: "copyReport",
+          report: currentReport,
+        });
+      });
+    }
   }
 
   function escapeHtml(text) {
@@ -272,6 +462,7 @@
       case "clear":
         previousNodeId = null;
         hasSeenAllNodes = false;
+        currentReport = null;
         particles = [];
         if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -282,4 +473,7 @@
 
   window.addEventListener("resize", resizeCanvas);
   renderEmpty();
+
+  // Signal to the extension that the webview is ready to receive messages
+  vscode.postMessage({ type: "ready" });
 })();

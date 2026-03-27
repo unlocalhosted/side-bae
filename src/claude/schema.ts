@@ -99,6 +99,75 @@ export const TOUR_DOCUMENT_SCHEMA = {
               },
             },
           },
+          kind: {
+            type: "string",
+            enum: ["context", "problem", "solution"],
+            description:
+              "Node role in investigation tours. Only used for investigate-issue tours.",
+          },
+          suggestedEdit: {
+            type: "object",
+            required: ["oldText", "newText"],
+            properties: {
+              oldText: {
+                type: "string",
+                description: "Current code to replace",
+              },
+              newText: {
+                type: "string",
+                description: "Suggested replacement code",
+              },
+            },
+            description:
+              "Code fix suggestion for solution nodes. Only used for investigate-issue tours.",
+          },
+        },
+      },
+    },
+    report: {
+      type: "string",
+      description:
+        "Markdown investigation report in PR-ready format. Only for investigation tours.",
+    },
+  },
+} as const;
+
+export const RECENT_CHANGES_SCHEMA = {
+  type: "object",
+  required: ["changes"],
+  properties: {
+    changes: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["name", "summary", "author", "date", "commits", "files"],
+        properties: {
+          name: {
+            type: "string",
+            description: "Short name for this logical change",
+          },
+          summary: {
+            type: "string",
+            description: "One-line description of what this change does",
+          },
+          author: {
+            type: "string",
+            description: "Primary author of this change",
+          },
+          date: {
+            type: "string",
+            description: "Relative date of the most recent commit (e.g., '3 days ago')",
+          },
+          commits: {
+            type: "array",
+            items: { type: "string" },
+            description: "Short commit SHAs included in this change",
+          },
+          files: {
+            type: "array",
+            items: { type: "string" },
+            description: "Files touched by this change (relative paths)",
+          },
         },
       },
     },
@@ -120,6 +189,11 @@ export const FEATURE_TREE_SCHEMA = {
             type: "string",
             description: "One-line description of the feature",
           },
+          icon: {
+            type: "string",
+            description:
+              "VS Code codicon name for this feature (e.g., 'shield', 'database', 'globe', 'gear', 'beaker', 'rocket'). Pick the most semantically relevant icon.",
+          },
           children: {
             type: "array",
             items: {
@@ -131,6 +205,10 @@ export const FEATURE_TREE_SCHEMA = {
                 path: {
                   type: "string",
                   description: "Primary file/directory for this sub-feature",
+                },
+                icon: {
+                  type: "string",
+                  description: "VS Code codicon name for this sub-feature",
                 },
               },
             },

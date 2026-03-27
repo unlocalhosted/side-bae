@@ -1,10 +1,10 @@
-# Side Chick
+# Side Bae
 
 AI-powered codebase onboarding for VS Code. Ask about a feature, get a guided walkthrough.
 
 ## What it does
 
-You join a new project. You open Side Chick. You type "how does authentication work?" Claude reads your codebase, traces the relevant code paths, and generates an interactive walkthrough — a graph of annotated stops across your source files that you navigate like a guided tour.
+You join a new project. You open Side Bae. You type "how does authentication work?" Claude reads your codebase, traces the relevant code paths, and generates an interactive walkthrough — a graph of annotated stops across your source files that you navigate like a guided tour.
 
 Each stop highlights a code region, explains what it does and why, and offers clickable links to follow the code flow deeper. When you're done, the walkthrough is saved as a `.tour.json` file you can replay instantly or share with teammates.
 

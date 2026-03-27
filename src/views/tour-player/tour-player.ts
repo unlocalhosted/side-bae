@@ -3,22 +3,22 @@ import { join } from "node:path";
 import { TourEngine } from "../../engine/tour-engine.js";
 import type { TourDocument, TourEdge, TourNode } from "../../types/tour.js";
 import { applyDecorations, clearDecorations } from "./decorations.js";
-import type { TourCardWebviewProvider } from "./webview-provider.js";
+import type { TourCardPanelProvider } from "./webview-provider.js";
 
 export class TourPlayer {
   private engine = new TourEngine();
   private workspaceRoot: string;
-  private webviewProvider: TourCardWebviewProvider;
+  private webviewProvider: TourCardPanelProvider;
   private activeEditor?: vscode.TextEditor;
 
   constructor(
     workspaceRoot: string,
-    webviewProvider: TourCardWebviewProvider
+    webviewProvider: TourCardPanelProvider
   ) {
     this.workspaceRoot = workspaceRoot;
     this.webviewProvider = webviewProvider;
 
-    this.webviewProvider.setNavigationCallback((action) => {
+    this.webviewProvider.setNavigationCallback(async (action) => {
       switch (action.type) {
         case "navigate":
           this.navigateToNode(action.nodeId);
@@ -32,18 +32,42 @@ export class TourPlayer {
         case "stop":
           this.stopTour();
           break;
-        case "dismissSummary":
-          // Summary was shown on first card; re-send card state without summary
-          this.resendCurrentCard();
+        case "dismissSummary": {
+          // User clicked "Begin walkthrough" — NOW open the file for the first time
+          const currentNode = this.engine.getCurrentNode();
+          if (currentNode) {
+            await this.showNode(currentNode);
+          }
+          break;
+        }
+        case "applyFix":
+          await this.applyFix(action.nodeId, action.oldText, action.newText);
+          break;
+        case "copyReport":
+          await vscode.env.clipboard.writeText(action.report);
+          vscode.window.showInformationMessage("Report copied to clipboard.");
           break;
       }
     });
   }
 
   async startTour(tour: TourDocument): Promise<void> {
-    const node = this.engine.load(tour);
+    const hasKindNodes = Object.values(tour.nodes).some((n) => n.kind);
+    const title = hasKindNodes
+      ? `Investigating: ${tour.query}`
+      : tour.name;
+
+    // 1. Open the panel — it gets focus, no competition
+    this.webviewProvider.open(title);
+
+    // 2. Load engine (navigates to entry node internally)
+    this.engine.load(tour);
     this.setTourActiveContext(true);
-    await this.showNode(node);
+
+    // 3. Send the summary card state — no file opened yet.
+    //    The panel is the only thing in the editor area, so the webview
+    //    loads immediately with no race condition.
+    this.webviewProvider.updateCard(this.engine.getCardState());
   }
 
   async navigateToNode(nodeId: string): Promise<void> {
@@ -72,7 +96,7 @@ export class TourPlayer {
       clearDecorations(this.activeEditor);
     }
     this.engine.reset();
-    this.webviewProvider.clear();
+    this.webviewProvider.dispose();
     this.setTourActiveContext(false);
   }
 
@@ -80,12 +104,51 @@ export class TourPlayer {
     return this.engine.isLoaded();
   }
 
-  /** Re-send the current card state (e.g., after dismissing the summary) */
-  private resendCurrentCard(): void {
-    const node = this.engine.getCurrentNode();
-    if (node) {
-      this.webviewProvider.updateCard(this.engine.getCardState());
+  private async applyFix(
+    nodeId: string,
+    oldText: string,
+    newText: string
+  ): Promise<void> {
+    const node = this.engine.getNode(nodeId);
+    if (!node) return;
+
+    const fileUri = vscode.Uri.file(join(this.workspaceRoot, node.file));
+    const doc = await vscode.workspace.openTextDocument(fileUri);
+    const text = doc.getText();
+
+    // Search within the node's line range first, fall back to full file
+    const rangeStart = doc.offsetAt(new vscode.Position(node.startLine - 1, 0));
+    const rangeEnd = doc.offsetAt(new vscode.Position(node.endLine, 0));
+    const regionText = text.slice(rangeStart, rangeEnd);
+    let idx = regionText.indexOf(oldText);
+    if (idx !== -1) {
+      idx += rangeStart; // adjust to absolute offset
+    } else {
+      idx = text.indexOf(oldText); // fall back to full file
     }
+
+    if (idx === -1) {
+      vscode.window.showWarningMessage(
+        "Could not find the code to replace \u2014 it may have changed."
+      );
+      return;
+    }
+
+    const startPos = doc.positionAt(idx);
+    const endPos = doc.positionAt(idx + oldText.length);
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(fileUri, new vscode.Range(startPos, endPos), newText);
+    await vscode.workspace.applyEdit(edit);
+
+    // Re-apply decorations so the highlight stays visible after the edit
+    const currentNode = this.engine.getCurrentNode();
+    if (this.activeEditor && currentNode) {
+      applyDecorations(this.activeEditor, currentNode);
+    }
+
+    vscode.window.showInformationMessage(
+      "Fix applied. Use Ctrl+Z to undo."
+    );
   }
 
   getAvailableEdges(): TourEdge[] {

@@ -1,49 +1,22 @@
 import * as vscode from "vscode";
-import { ClaudeAdapter, checkClaudeStatus, type ClaudeStatus } from "./claude/adapter.js";
+import { ClaudeAdapter, checkClaudeStatus } from "./claude/adapter.js";
 import { TourPlayer } from "./views/tour-player/tour-player.js";
-import { TourCardWebviewProvider } from "./views/tour-player/webview-provider.js";
+import { TourCardPanelProvider } from "./views/tour-player/webview-provider.js";
 import { FeatureTreeProvider } from "./views/feature-tree-provider.js";
 import { registerGenerateTourCommand } from "./commands/generate-tour.js";
 import { registerNavigationCommands } from "./commands/navigate.js";
+import { registerWhatsNewCommand } from "./commands/whats-new.js";
+import { registerInvestigateIssueCommand } from "./commands/investigate-issue.js";
 import { disposeDecorations } from "./views/tour-player/decorations.js";
+import { requireClaude } from "./commands/preflight.js";
 
 function getAdapter(workspaceRoot: string): ClaudeAdapter {
   const config = vscode.workspace.getConfiguration("sideChick");
   return new ClaudeAdapter({
     workspaceRoot,
-    model: config.get<string>("model", "sonnet"),
+    model: config.get<string>("model", "haiku"),
     maxBudgetUsd: config.get<number>("maxBudgetUsd", 0.5),
   });
-}
-
-async function handleClaudeStatus(
-  status: ClaudeStatus
-): Promise<boolean> {
-  if (!status.available) {
-    const action = await vscode.window.showErrorMessage(
-      `Claude CLI is not available: ${status.error ?? "unknown error"}`,
-      "How to Install"
-    );
-    if (action === "How to Install") {
-      vscode.env.openExternal(
-        vscode.Uri.parse("https://docs.anthropic.com/en/docs/claude-code")
-      );
-    }
-    return false;
-  }
-  if (!status.authenticated) {
-    const action = await vscode.window.showErrorMessage(
-      "Claude CLI is not logged in. Run 'claude login' in your terminal.",
-      "Open Terminal"
-    );
-    if (action === "Open Terminal") {
-      const terminal = vscode.window.createTerminal("Claude Login");
-      terminal.show();
-      terminal.sendText("claude login");
-    }
-    return false;
-  }
-  return true;
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -60,23 +33,12 @@ export async function activate(context: vscode.ExtensionContext) {
   // Reusable pre-flight check using the SDK itself
   const checkClaude = () => checkClaudeStatus(workspaceRoot);
 
-  // Check on activation (non-blocking — don't await the dialog)
-  checkClaude().then((status) => {
-    if (!status.available || !status.authenticated) {
-      handleClaudeStatus(status);
-    }
-  });
+  // Check on activation (non-blocking)
+  requireClaude(checkClaude);
 
-  // Create webview provider and tour player
-  const webviewProvider = new TourCardWebviewProvider(context.extensionUri);
+  // Create panel provider and tour player
+  const webviewProvider = new TourCardPanelProvider(context.extensionUri);
   const player = new TourPlayer(workspaceRoot, webviewProvider);
-
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      TourCardWebviewProvider.viewType,
-      webviewProvider
-    )
-  );
 
   // Feature tree
   const featureTreeProvider = new FeatureTreeProvider(
@@ -94,6 +56,8 @@ export async function activate(context: vscode.ExtensionContext) {
   // Commands
   registerGenerateTourCommand(context, () => adapter, player, workspaceRoot, checkClaude);
   registerNavigationCommands(context, player, workspaceRoot);
+  registerWhatsNewCommand(context, () => adapter, featureTreeProvider, checkClaude);
+  registerInvestigateIssueCommand(context, () => adapter, player, workspaceRoot, checkClaude);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("sideChick.refreshFeatures", () => {

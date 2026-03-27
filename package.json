@@ -1,9 +1,9 @@
 {
   "name": "side-chick",
-  "displayName": "Side Chick",
+  "displayName": "Side Bae",
   "version": "0.1.0",
   "description": "AI-powered codebase onboarding via guided code tours",
-  "publisher": "side-chick",
+  "publisher": "side-bae",
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.29.3",
   "engines": {
@@ -19,7 +19,7 @@
       "activitybar": [
         {
           "id": "side-chick",
-          "title": "Side Chick",
+          "title": "Side Bae",
           "icon": "media/icon.svg"
         }
       ]
@@ -30,11 +30,6 @@
           "id": "sideChick.featureTree",
           "name": "Features",
           "type": "tree"
-        },
-        {
-          "id": "sideChick.tourCard",
-          "name": "Tour",
-          "type": "webview"
         }
       ]
     },
@@ -42,49 +37,61 @@
       {
         "command": "sideChick.generateTour",
         "title": "Ask About a Feature",
-        "category": "Side Chick"
+        "category": "Side Bae"
       },
       {
         "command": "sideChick.startTour",
         "title": "Start Saved Tour",
-        "category": "Side Chick"
+        "category": "Side Bae"
       },
       {
         "command": "sideChick.nextEdge",
         "title": "Follow Path",
-        "category": "Side Chick"
+        "category": "Side Bae"
       },
       {
         "command": "sideChick.previousNode",
         "title": "Go Back",
-        "category": "Side Chick"
+        "category": "Side Bae"
       },
       {
         "command": "sideChick.goForward",
         "title": "Go Forward",
-        "category": "Side Chick"
+        "category": "Side Bae"
       },
       {
         "command": "sideChick.stopTour",
         "title": "Stop Tour",
-        "category": "Side Chick"
+        "category": "Side Bae"
       },
       {
         "command": "sideChick.refreshFeatures",
         "title": "Refresh Features",
-        "category": "Side Chick",
+        "category": "Side Bae",
         "icon": "$(refresh)"
       },
       {
         "command": "sideChick.discoverFeatures",
         "title": "Scan Codebase for Features",
-        "category": "Side Chick",
+        "category": "Side Bae",
         "icon": "$(search)"
       },
       {
         "command": "sideChick.openTour",
         "title": "Open Tour",
-        "category": "Side Chick"
+        "category": "Side Bae"
+      },
+      {
+        "command": "sideChick.whatsNew",
+        "title": "What's New",
+        "category": "Side Bae",
+        "icon": "$(history)"
+      },
+      {
+        "command": "sideChick.investigateIssue",
+        "title": "Investigate Issue",
+        "category": "Side Bae",
+        "icon": "$(search-fuzzy)"
       }
     ],
     "keybindings": [
@@ -125,6 +132,11 @@
           "command": "sideChick.discoverFeatures",
           "when": "view == sideChick.featureTree",
           "group": "navigation"
+        },
+        {
+          "command": "sideChick.whatsNew",
+          "when": "view == sideChick.featureTree",
+          "group": "navigation"
         }
       ],
       "commandPalette": [
@@ -159,7 +171,7 @@
       ]
     },
     "configuration": {
-      "title": "Side Chick",
+      "title": "Side Bae",
       "properties": {
         "sideChick.model": {
           "type": "string",
@@ -187,7 +199,7 @@
     "viewsWelcome": [
       {
         "view": "sideChick.featureTree",
-        "contents": "Open a folder to start exploring with Side Chick.\n[Open Folder](command:vscode.openFolder)",
+        "contents": "Open a folder to start exploring with Side Bae.\n[Open Folder](command:vscode.openFolder)",
         "when": "workbenchState == empty"
       },
       {

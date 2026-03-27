@@ -3,4 +3,5 @@ export interface FeatureTreeNode {
   description: string;
   children?: FeatureTreeNode[];
   path?: string;
+  icon?: string;
 }

@@ -13,15 +13,32 @@ export interface EdgeInfo {
   reachableCount: number;
 }
 
+export interface TourGraphNode {
+  id: string;
+  title: string;
+}
+
+export interface TourGraphEdge {
+  from: string;
+  to: string;
+  label: string;
+}
+
 export interface TourSummary {
   name: string;
   query: string;
   totalNodes: number;
   totalFiles: number;
   fileList: string[];
+  graph: {
+    nodes: TourGraphNode[];
+    edges: TourGraphEdge[];
+    entryId: string;
+  };
 }
 
 export interface TourCardState {
+  tourName: string;
   node: TourNode;
   breadcrumb: BreadcrumbEntry[];
   canGoBack: boolean;
@@ -35,6 +52,8 @@ export interface TourCardState {
   /** Tour summary — shown once at the start */
   summary: TourSummary | null;
   isNewTour: boolean;
+  /** Investigation report — shown at tour completion for investigation tours */
+  report: string | null;
 }
 
 export class TourEngine {
@@ -87,6 +106,11 @@ export class TourEngine {
     return this.tour.nodes[this.currentNodeId] ?? null;
   }
 
+  getNode(nodeId: string): TourNode | null {
+    if (!this.tour) return null;
+    return this.tour.nodes[nodeId] ?? null;
+  }
+
   getBreadcrumb(): BreadcrumbEntry[] {
     if (!this.tour) return [];
     return this.history.slice(0, this.historyIndex + 1).map((id) => ({
@@ -124,6 +148,7 @@ export class TourEngine {
     if (!this.tour || this.historyIndex <= 0) return null;
     this.historyIndex--;
     this.currentNodeId = this.history[this.historyIndex]!;
+    this.lastEdgeLabel = null;
     return this.tour.nodes[this.currentNodeId] ?? null;
   }
 
@@ -131,6 +156,7 @@ export class TourEngine {
     if (!this.tour || this.historyIndex >= this.history.length - 1) return null;
     this.historyIndex++;
     this.currentNodeId = this.history[this.historyIndex]!;
+    this.lastEdgeLabel = null;
     return this.tour.nodes[this.currentNodeId] ?? null;
   }
 
@@ -210,16 +236,32 @@ export class TourEngine {
       for (const n of Object.values(this.tour.nodes)) {
         files.add(n.file);
       }
+      const graphNodes: TourGraphNode[] = nodeIds.map((id) => ({
+        id,
+        title: this.tour!.nodes[id]!.title,
+      }));
+      const graphEdges: TourGraphEdge[] = [];
+      for (const [id, n] of Object.entries(this.tour.nodes)) {
+        for (const edge of n.edges) {
+          graphEdges.push({ from: id, to: edge.target, label: edge.label });
+        }
+      }
       summary = {
         name: this.tour.name,
         query: this.tour.query,
         totalNodes: nodeIds.length,
         totalFiles: files.size,
         fileList: [...files],
+        graph: {
+          nodes: graphNodes,
+          edges: graphEdges,
+          entryId: this.tour.entryNode,
+        },
       };
     }
 
     const state: TourCardState = {
+      tourName: this.tour.name,
       node,
       breadcrumb,
       canGoBack: this.canGoBack(),
@@ -230,6 +272,7 @@ export class TourEngine {
       arrivedVia: this.lastEdgeLabel,
       summary,
       isNewTour: this.newTourFlag,
+      report: this.tour.report ?? null,
     };
 
     this.newTourFlag = false;

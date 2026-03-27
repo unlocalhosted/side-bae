@@ -1,8 +1,10 @@
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
+import type { FeatureTreeNode } from "../types/feature-tree.js";
 
 const TOUR_DIR = ".side-chick";
+const FEATURES_FILE = "features.json";
 
 function getTourDir(workspaceRoot: string): string {
   return join(workspaceRoot, TOUR_DIR);
@@ -71,4 +73,33 @@ export async function listTours(
   );
 
   return results.filter((t): t is TourSummary => t !== null);
+}
+
+export async function saveFeatures(
+  workspaceRoot: string,
+  features: FeatureTreeNode[]
+): Promise<void> {
+  const dir = getTourDir(workspaceRoot);
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, FEATURES_FILE),
+    JSON.stringify(features, null, 2),
+    "utf-8"
+  );
+}
+
+export async function loadFeatures(
+  workspaceRoot: string
+): Promise<FeatureTreeNode[] | null> {
+  try {
+    const content = await readFile(
+      join(getTourDir(workspaceRoot), FEATURES_FILE),
+      "utf-8"
+    );
+    const data = JSON.parse(content);
+    if (Array.isArray(data) && data.length > 0) return data;
+    return null;
+  } catch {
+    return null;
+  }
 }

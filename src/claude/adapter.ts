@@ -24,10 +24,13 @@ function resolveClaudePath(): string | undefined {
   }
 }
 import type { FeatureTreeNode } from "../types/feature-tree.js";
-import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA } from "./schema.js";
+import type { RecentChange } from "../types/recent-changes.js";
+import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA } from "./schema.js";
 import {
   buildTourGenerationPrompt,
   buildFeatureDiscoveryPrompt,
+  buildWhatsNewPrompt,
+  buildInvestigationPrompt,
 } from "./prompts.js";
 
 export interface ClaudeAdapterOptions {
@@ -63,6 +66,23 @@ const FEATURE_PROGRESS = [
   "Identifying major features...",
   "Grouping related functionality...",
   "Building feature tree...",
+];
+
+const WHATS_NEW_PROGRESS = [
+  "Reading git history...",
+  "Grouping commits by author...",
+  "Identifying logical changes...",
+  "Summarizing changes...",
+];
+
+const INVESTIGATION_PROGRESS = [
+  "Reading the issue...",
+  "Searching the codebase...",
+  "Tracing the code path...",
+  "Identifying the root cause...",
+  "Drafting a fix...",
+  "Writing investigation report...",
+  "Building investigation tour...",
 ];
 
 /**
@@ -145,6 +165,35 @@ export class ClaudeAdapter {
     return validateTourDocument(result);
   }
 
+  async investigateIssue(
+    issueTitle: string,
+    issueBody: string,
+    progress: GenerationProgress
+  ): Promise<TourDocument> {
+    const prompt = buildInvestigationPrompt(issueTitle, issueBody);
+    const result = await this.runStructuredQuery(
+      prompt,
+      TOUR_DOCUMENT_SCHEMA,
+      progress,
+      INVESTIGATION_PROGRESS
+    );
+    return validateTourDocument(result);
+  }
+
+  async analyzeRecentChanges(
+    range: string,
+    progress: GenerationProgress
+  ): Promise<RecentChange[]> {
+    const prompt = buildWhatsNewPrompt(range);
+    const result = await this.runStructuredQuery(
+      prompt,
+      RECENT_CHANGES_SCHEMA,
+      progress,
+      WHATS_NEW_PROGRESS
+    );
+    return (result as { changes: RecentChange[] }).changes;
+  }
+
   async discoverFeatures(
     progress: GenerationProgress
   ): Promise<FeatureTreeNode[]> {
@@ -186,9 +235,8 @@ export class ClaudeAdapter {
           cwd: this.workspaceRoot,
           model: this.model,
           pathToClaudeCodeExecutable: claudePath,
-          maxTurns: 10,
+          maxTurns: 30,
           maxBudgetUsd: this.maxBudgetUsd,
-          effort: "low",
           abortController,
           allowedTools: ["Read", "Grep", "Glob", "Bash"],
           permissionMode: "bypassPermissions",
