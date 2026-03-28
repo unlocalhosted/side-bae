@@ -177,6 +177,11 @@
     "configuration": {
       "title": "Side Bae",
       "properties": {
+        "sideChick.claudePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Claude CLI binary. Leave empty to auto-detect. Set this if the extension can't find Claude (run `which claude` in your terminal to find the path)."
+        },
         "sideChick.model": {
           "type": "string",
           "default": "haiku",

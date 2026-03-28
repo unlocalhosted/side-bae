@@ -7,10 +7,16 @@ export async function requireClaude(
   const status = await checkClaude();
   if (!status.available) {
     const action = await vscode.window.showErrorMessage(
-      "Claude CLI is not available. Visit https://docs.anthropic.com/en/docs/claude-code",
+      "Can't find Claude CLI. Run `which claude` in your terminal, then set the path in Settings > Side Bae > Claude Path.",
+      "Set Path",
       "How to Install"
     );
-    if (action === "How to Install") {
+    if (action === "Set Path") {
+      vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "sideChick.claudePath"
+      );
+    } else if (action === "How to Install") {
       vscode.env.openExternal(
         vscode.Uri.parse("https://docs.anthropic.com/en/docs/claude-code")
       );

@@ -8,32 +8,44 @@
  * @see https://platform.claude.com/docs/en/agent-sdk/structured-outputs
  */
 
-import { execFileSync, execSync } from "node:child_process";
+import * as vscode from "vscode";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
 
 /**
  * Resolve the user's installed `claude` binary path.
- * Spawns the user's login shell to get the full PATH,
- * since VS Code/Cursor extension hosts often strip it.
+ * Priority: user setting > PATH > common install locations.
  */
 function resolveClaudePath(): string | undefined {
-  // Try the extension host's PATH first (fastest)
+  // 1. User-configured path (always wins)
+  const configured = vscode.workspace
+    .getConfiguration("sideChick")
+    .get<string>("claudePath", "");
+  if (configured && existsSync(configured)) return configured;
+
+  // 2. Try the extension host's PATH
   try {
     return execFileSync("which", ["claude"], { encoding: "utf-8" }).trim();
   } catch {
-    // Stripped PATH — fall back to user's login shell
+    // Not in PATH
   }
 
-  // Ask the user's actual shell where claude is
-  const shell = process.env.SHELL || "/bin/sh";
-  try {
-    return execSync(`${shell} -ilc "which claude" 2>/dev/null`, {
-      encoding: "utf-8",
-      timeout: 5000,
-    }).trim();
-  } catch {
-    return undefined;
+  // 3. Check common install locations
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+  const candidates = [
+    join(home, ".claude", "local", "claude"),
+    join(home, ".local", "bin", "claude"),
+    "/usr/local/bin/claude",
+    "/opt/homebrew/bin/claude",
+    "/Applications/Claude.app/Contents/Resources/bin/claude",
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
   }
+
+  return undefined;
 }
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
