@@ -9,43 +9,17 @@
  */
 
 import * as vscode from "vscode";
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
 
 /**
- * Resolve the user's installed `claude` binary path.
- * Priority: user setting > PATH > common install locations.
+ * Get the Claude CLI path if explicitly configured by the user.
+ * Returns undefined to let the SDK auto-detect (which is the default and preferred path).
  */
-function resolveClaudePath(): string | undefined {
-  // 1. User-configured path (always wins)
+function getConfiguredClaudePath(): string | undefined {
   const configured = vscode.workspace
     .getConfiguration("sideChick")
     .get<string>("claudePath", "");
-  if (configured && existsSync(configured)) return configured;
-
-  // 2. Try the extension host's PATH
-  try {
-    return execFileSync("which", ["claude"], { encoding: "utf-8" }).trim();
-  } catch {
-    // Not in PATH
-  }
-
-  // 3. Check common install locations
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
-  const candidates = [
-    join(home, ".claude", "local", "claude"),
-    join(home, ".local", "bin", "claude"),
-    "/usr/local/bin/claude",
-    "/opt/homebrew/bin/claude",
-    "/Applications/Claude.app/Contents/Resources/bin/claude",
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-
-  return undefined;
+  return configured || undefined;
 }
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
@@ -118,7 +92,7 @@ export async function checkClaudeStatus(
 ): Promise<ClaudeStatus> {
   try {
     const { query } = await import("@anthropic-ai/claude-agent-sdk");
-    const claudePath = resolveClaudePath();
+    const claudePath = getConfiguredClaudePath();
 
     const q = query({
       prompt: "respond with the single word: ok",
@@ -238,7 +212,7 @@ export class ClaudeAdapter {
     progressMessages: string[]
   ): Promise<unknown> {
     const { query } = await import("@anthropic-ai/claude-agent-sdk");
-    const claudePath = resolveClaudePath();
+    const claudePath = getConfiguredClaudePath();
 
     const abortController = new AbortController();
     progress.onCancel(() => abortController.abort());
