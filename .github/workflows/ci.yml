@@ -21,7 +21,7 @@ jobs:
       - run: pnpm test:run
       - run: pnpm build
       - name: Package extension
-        run: pnpm exec vsce package --no-dependencies -o side-bae.vsix
+        run: pnpm exec vsce package -o side-bae.vsix
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
         with:

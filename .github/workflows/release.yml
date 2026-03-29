@@ -22,10 +22,10 @@ jobs:
       - run: pnpm test:run
       - run: pnpm build
       - name: Package extension
-        run: pnpm exec vsce package --no-dependencies -o side-bae.vsix
+        run: pnpm exec vsce package -o side-bae.vsix
       - name: Publish to VS Code Marketplace
         if: env.VSCE_PAT != ''
-        run: pnpm exec vsce publish --no-dependencies --packagePath side-bae.vsix
+        run: pnpm exec vsce publish --packagePath side-bae.vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
       - name: Create GitHub Release
