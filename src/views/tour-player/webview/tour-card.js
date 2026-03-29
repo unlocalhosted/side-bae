@@ -483,7 +483,8 @@
   }
 
   function updateLessonLoadingMessage(message) {
-    const el = document.getElementById("lesson-loading-msg");
+    // Try plan-level loading first, then step-level loading
+    const el = document.getElementById("lesson-loading-msg") || document.getElementById("step-loading-msg");
     if (el) el.textContent = message;
   }
 
