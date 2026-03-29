@@ -259,6 +259,7 @@ body {
   transition: background 0.1s;
 }
 .nav-back-btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.nav-back-btn:active { background: var(--vscode-button-secondaryBackground); }
 .nav-back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .nav-back-btn:disabled .nav-key { display: none; }
 .nav-back-btn .nav-key { font-size: 9px; opacity: 0.5; font-family: var(--vscode-editor-font-family); }
@@ -571,6 +572,7 @@ body {
   font-family: var(--vscode-font-family); transition: color 0.1s;
 }
 .lesson-skip-link:hover { color: var(--vscode-foreground); }
+.lesson-skip-link:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
 
 /* ── Choice buttons ── */
 .lesson-choices {
@@ -662,6 +664,7 @@ body {
   transition: background 0.1s;
 }
 .lesson-followup-send:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.lesson-followup-send:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
 
 /* ── Lesson recap ── */
 .lesson-recap {

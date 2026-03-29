@@ -306,7 +306,7 @@
         <div class="suggested-edit">
           <div class="edit-label">The Fix</div>
           <pre class="edit-diff">${oldLines}${newLines}</pre>
-          <button class="apply-fix-btn">Apply Fix</button>
+          <button class="apply-fix-btn">Apply fix</button>
         </div>
       `;
     }
@@ -375,7 +375,7 @@
           ${contextHtml}
           <div class="card-header">
             <div class="card-title">${escapeHtml(node.title)}</div>
-            <div class="card-file">${escapeHtml(node.file)}:${node.startLine}-${node.endLine}</div>
+            <div class="card-file" title="${escapeHtml(node.file)}:${node.startLine}-${node.endLine}">${escapeHtml(node.file)}:${node.startLine}-${node.endLine}</div>
           </div>
           <div class="card-explanation">${renderMarkdown(node.explanation)}</div>
           ${suggestedEditHtml}
@@ -398,7 +398,7 @@
         ${edgesHtml}
         <div class="card-footer">
           <button class="nav-back-btn" id="btn-back" ${canGoBack ? "" : "disabled"}><span class="nav-key">${backHint}</span> Back</button>
-          <button class="stop-btn" id="btn-stop">End</button>
+          <button class="stop-btn" id="btn-stop"><span class="nav-key">Esc</span> Done</button>
         </div>
       </div>
     `;
@@ -415,7 +415,7 @@
     const stopBtn = document.getElementById("btn-stop");
     if (stopBtn) stopBtn.addEventListener("click", () => vscode.postMessage({ type: "stop" }));
 
-    // Apply Fix button
+    // Apply fix button
     const applyBtn = root.querySelector(".apply-fix-btn");
     if (applyBtn && node.suggestedEdit) {
       applyBtn.addEventListener("click", () => {
@@ -519,8 +519,9 @@
       : "";
 
     // File reference
+    const fileRef = step.file ? `${step.file}${step.startLine ? `:${step.startLine}-${step.endLine}` : ""}` : "";
     const fileHtml = step.file
-      ? `<div class="card-file">${escapeHtml(step.file)}${step.startLine ? `:${step.startLine}-${step.endLine}` : ""}</div>`
+      ? `<div class="card-file" title="${escapeHtml(fileRef)}">${escapeHtml(fileRef)}</div>`
       : "";
 
     // Main content
@@ -539,7 +540,7 @@
       if (step.inputType === "text") {
         inputHtml = `
           <div class="lesson-input-area">
-            <textarea class="lesson-textarea" id="lesson-input" placeholder="What do you think?" rows="3"></textarea>
+            <textarea class="lesson-textarea" id="lesson-input" placeholder="What do you think? (${isMac ? "\u2318" : "Ctrl"}+Enter to send)" rows="3"></textarea>
             <div class="lesson-input-actions">
               <button class="lesson-send-btn" id="lesson-send">Send</button>
               ${step.skippable ? '<button class="lesson-skip-link" id="lesson-skip">Skip</button>' : ""}
@@ -589,7 +590,7 @@
             <input class="lesson-followup-input" id="lesson-followup" placeholder="Ask a question..." />
             <button class="lesson-followup-send" id="lesson-followup-send">Ask</button>
           </div>
-          <button class="lesson-end-btn" id="lesson-end">End lesson</button>
+          <button class="lesson-end-btn" id="lesson-end">Done</button>
         </div>
       </div>
     `;
@@ -677,7 +678,7 @@
       });
     }
 
-    // End lesson
+    // Done
     const endBtn = document.getElementById("lesson-end");
     if (endBtn) {
       endBtn.addEventListener("click", () => {
@@ -812,8 +813,9 @@
 
     const trailHtml = renderInvestigationTrail(step.trail);
 
+    const fileRef = step.file ? `${step.file}${step.startLine ? `:${step.startLine}-${step.endLine}` : ""}` : "";
     const fileHtml = step.file
-      ? `<div class="card-file">${escapeHtml(step.file)}${step.startLine ? `:${step.startLine}-${step.endLine}` : ""}</div>`
+      ? `<div class="card-file" title="${escapeHtml(fileRef)}">${escapeHtml(fileRef)}</div>`
       : "";
 
     const contentHtml = step.content
@@ -879,7 +881,7 @@
       if (step.inputType === "text") {
         inputHtml = `
           <div class="lesson-input-area">
-            <textarea class="lesson-textarea" id="investigation-input" placeholder="Redirect, ask a question..." rows="2"></textarea>
+            <textarea class="lesson-textarea" id="investigation-input" placeholder="Redirect or ask a question..." rows="2"></textarea>
             <div class="lesson-input-actions">
               <button class="lesson-send-btn" id="investigation-send">Send</button>
               <button class="investigation-confirm-btn" id="investigation-confirm">\u2713 On the right track</button>
@@ -889,7 +891,7 @@
       } else if (step.inputType === "confirm") {
         inputHtml = `
           <div class="lesson-input-area">
-            <textarea class="lesson-textarea" id="investigation-input" placeholder="Redirect, ask a question..." rows="2"></textarea>
+            <textarea class="lesson-textarea" id="investigation-input" placeholder="Redirect or ask a question..." rows="2"></textarea>
             <div class="lesson-input-actions">
               <button class="investigation-confirm-btn" id="investigation-confirm">\u2713 On the right track</button>
               <button class="lesson-send-btn" id="investigation-send">Send feedback</button>
@@ -907,7 +909,7 @@
         actions.push(`<button class="investigation-action-btn" id="investigation-request-fix">Show me a fix</button>`);
       }
       if (step.suggestedEdit && !state.fixApplied) {
-        actions.push(`<button class="investigation-action-btn" id="investigation-apply-fix">Apply this fix</button>`);
+        actions.push(`<button class="investigation-action-btn" id="investigation-apply-fix">Apply fix</button>`);
         actions.push(`<button class="investigation-action-btn secondary" id="investigation-feedback">I have feedback</button>`);
       }
       if (state.fixApplied && !state.testsRun) {
@@ -939,10 +941,10 @@
       <div class="card-dock">
         <div class="investigation-footer">
           <div class="lesson-followup" style="flex:1">
-            <input class="lesson-followup-input" id="investigation-followup" placeholder="Redirect, ask a question..." />
+            <input class="lesson-followup-input" id="investigation-followup" placeholder="Redirect or ask a question..." />
             <button class="lesson-followup-send" id="investigation-followup-send">Ask</button>
           </div>
-          <button class="lesson-end-btn" id="investigation-end">End investigation</button>
+          <button class="lesson-end-btn" id="investigation-end">Done</button>
         </div>
       </div>
     `;
