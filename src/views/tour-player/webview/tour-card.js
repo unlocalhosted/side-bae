@@ -1023,7 +1023,8 @@
     const prLink = root.querySelector(".pr-card-link");
     if (prLink) {
       prLink.addEventListener("click", () => {
-        vscode.postMessage({ type: "launchCommand", command: "vscode.open" });
+        const url = prLink.getAttribute("data-url");
+        if (url) vscode.postMessage({ type: "openExternal", url });
       });
     }
 

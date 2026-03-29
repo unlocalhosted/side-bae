@@ -6,7 +6,7 @@ import { InvestigationSession } from "../../engine/investigation-session.js";
 import type { ClaudeAdapter } from "../../claude/adapter.js";
 import type { TourDocument, TourEdge, TourNode } from "../../types/tour.js";
 import type { LessonStep } from "../../types/lesson.js";
-import type { InvestigationStep } from "../../types/investigation.js";
+import { INVESTIGATION_PHASE_KIND, type InvestigationStep } from "../../types/investigation.js";
 import { applyDecorations, clearDecorations } from "./decorations.js";
 import type { TourCardPanelProvider } from "./webview-provider.js";
 import * as tourStore from "../../engine/tour-store.js";
@@ -95,6 +95,9 @@ export class TourPlayer {
           break;
         case "investigationEnd":
           this.endInvestigation();
+          break;
+        case "openExternal":
+          vscode.env.openExternal(vscode.Uri.parse(action.url));
           break;
         case "launchCommand": {
           const allowed = [
@@ -204,6 +207,10 @@ export class TourPlayer {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Lesson error: ${msg}`);
+      const state = this.lessonSession?.getSessionState();
+      if (state?.currentStep) {
+        this.webviewProvider.updateLessonStep(state.currentStep, state);
+      }
     } finally {
       this.lessonProcessing = false;
     }
@@ -325,6 +332,11 @@ export class TourPlayer {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Investigation error: ${msg}`);
+      // Restore the last step so the UI isn't stuck on loading
+      const state = this.investigationSession?.getSessionState();
+      if (state?.currentStep) {
+        this.webviewProvider.updateInvestigationStep(state.currentStep, state);
+      }
     } finally {
       this.investigationProcessing = false;
     }
@@ -353,13 +365,6 @@ export class TourPlayer {
           editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
           editor.selection = new vscode.Selection(range.start, range.start);
 
-          const kindMap: Record<string, "context" | "problem" | "solution"> = {
-            orient: "context",
-            investigate: "context",
-            diagnose: "problem",
-            propose: "solution",
-            revise: "solution",
-          };
           applyDecorations(editor, {
             file: step.file,
             startLine: step.startLine,
@@ -367,7 +372,7 @@ export class TourPlayer {
             title: step.title ?? "",
             explanation: "",
             edges: [],
-            kind: kindMap[step.phase],
+            kind: INVESTIGATION_PHASE_KIND[step.phase],
           });
         }
       } catch {
@@ -405,8 +410,7 @@ export class TourPlayer {
 
       vscode.window.showInformationMessage("Fix applied. Use Ctrl+Z to undo.");
 
-      // Notify the session and get next step
-      this.handleInvestigationAction(() => this.investigationSession!.notifyFixApplied(this.makeInvestigationProgress()));
+      await this.handleInvestigationAction(() => this.investigationSession!.notifyFixApplied(this.makeInvestigationProgress()));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Failed to apply fix: ${msg}`);

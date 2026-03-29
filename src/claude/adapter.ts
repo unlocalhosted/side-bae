@@ -30,7 +30,6 @@ import {
   buildTourGenerationPrompt,
   buildFeatureDiscoveryPrompt,
   buildWhatsNewPrompt,
-  buildInvestigationPrompt,
   buildLearnableConceptsPrompt,
 } from "./prompts.js";
 
@@ -138,16 +137,6 @@ export class ClaudeAdapter {
     progress: GenerationProgress
   ): Promise<TourDocument> {
     const prompt = buildTourGenerationPrompt(queryText);
-    const result = await this.runStructuredQuery(prompt, TOUR_DOCUMENT_SCHEMA, progress);
-    return validateTourDocument(result);
-  }
-
-  async investigateIssue(
-    issueTitle: string,
-    issueBody: string,
-    progress: GenerationProgress
-  ): Promise<TourDocument> {
-    const prompt = buildInvestigationPrompt(issueTitle, issueBody);
     const result = await this.runStructuredQuery(prompt, TOUR_DOCUMENT_SCHEMA, progress);
     return validateTourDocument(result);
   }

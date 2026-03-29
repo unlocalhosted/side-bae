@@ -169,21 +169,21 @@ body {
   overflow-wrap: break-word; word-break: break-word;
 }
 /* Shared markdown content styles */
-.card-explanation strong, .report-body strong, .lesson-content strong { font-weight: 600; }
-.card-explanation em, .report-body em, .lesson-content em { font-style: italic; }
-.card-explanation .md-inline-code, .report-body .md-inline-code, .lesson-content .md-inline-code {
+.card-explanation strong, .report-body strong, .lesson-content strong, .investigation-content strong { font-weight: 600; }
+.card-explanation em, .report-body em, .lesson-content em, .investigation-content em { font-style: italic; }
+.card-explanation .md-inline-code, .report-body .md-inline-code, .lesson-content .md-inline-code, .investigation-content .md-inline-code {
   font-family: var(--vscode-editor-font-family); font-size: 12px;
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   padding: 1px 4px; border-radius: 3px; word-break: break-all;
 }
-.card-explanation .md-code-block, .report-body .md-code-block, .lesson-content .md-code-block {
+.card-explanation .md-code-block, .report-body .md-code-block, .lesson-content .md-code-block, .investigation-content .md-code-block {
   font-family: var(--vscode-editor-font-family); font-size: 12px;
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   padding: 8px; border-radius: 4px; margin: 6px 0; overflow-x: auto; white-space: pre;
 }
-.card-explanation .md-list, .report-body .md-list, .lesson-content .md-list { list-style: none; padding-left: 0; margin: 4px 0; }
-.card-explanation .md-list-item, .report-body .md-list-item, .lesson-content .md-list-item { padding-left: 12px; position: relative; margin: 2px 0; }
-.card-explanation .md-list-item::before, .report-body .md-list-item::before, .lesson-content .md-list-item::before {
+.card-explanation .md-list, .report-body .md-list, .lesson-content .md-list, .investigation-content .md-list { list-style: none; padding-left: 0; margin: 4px 0; }
+.card-explanation .md-list-item, .report-body .md-list-item, .lesson-content .md-list-item, .investigation-content .md-list-item { padding-left: 12px; position: relative; margin: 2px 0; }
+.card-explanation .md-list-item::before, .report-body .md-list-item::before, .lesson-content .md-list-item::before, .investigation-content .md-list-item::before {
   content: "\2022"; position: absolute; left: 0; color: var(--vscode-descriptionForeground);
 }
 
@@ -758,7 +758,7 @@ body {
 }
 .trail-separator { color: var(--vscode-descriptionForeground); opacity: 0.4; }
 
-/* ── Investigation content ── */
+/* ── Investigation content (extends shared markdown styles) ── */
 .investigation-content {
   font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
   padding: 8px 0; max-width: 65ch;

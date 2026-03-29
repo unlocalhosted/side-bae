@@ -11,6 +11,7 @@ import {
   buildLessonSystemPrompt,
   buildLessonTurnPrompt,
 } from "../claude/prompts.js";
+import { slugify } from "../utils.js";
 
 export class LessonSession {
   private history: LessonTurn[] = [];
@@ -231,14 +232,6 @@ function getLayerTransition(layer?: string): string {
     case "challenge": return "Next concept";
     default: return "Continue";
   }
-}
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 50);
 }
 
 function inferDepth(results: CheckResult[]): LessonDepth {

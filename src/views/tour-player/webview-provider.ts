@@ -28,6 +28,7 @@ export type NavigationCallback = (
     | { type: "investigationApplyFix" }
     | { type: "investigationCreatePR" }
     | { type: "investigationEnd" }
+    | { type: "openExternal"; url: string }
 ) => void;
 
 export class TourCardPanelProvider {

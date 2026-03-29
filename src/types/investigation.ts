@@ -39,6 +39,16 @@ export interface InvestigationTurn {
   text?: string;
 }
 
+/** Map investigation phases to tour node kinds for replay */
+export const INVESTIGATION_PHASE_KIND: Record<string, "context" | "problem" | "solution"> = {
+  orient: "context",
+  investigate: "context",
+  diagnose: "problem",
+  propose: "solution",
+  revise: "solution",
+  verify: "solution",
+};
+
 export interface InvestigationSessionState {
   issueTitle: string;
   isActive: boolean;

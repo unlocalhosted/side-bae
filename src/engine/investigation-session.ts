@@ -1,14 +1,16 @@
 import type { ClaudeAdapter, GenerationProgress } from "../claude/adapter.js";
-import type {
-  InvestigationStep,
-  InvestigationTurn,
-  InvestigationSessionState,
+import {
+  INVESTIGATION_PHASE_KIND,
+  type InvestigationStep,
+  type InvestigationTurn,
+  type InvestigationSessionState,
 } from "../types/investigation.js";
 import type { TourDocument, TourNode } from "../types/tour.js";
 import {
   buildInvestigationSessionPrompt,
   buildInvestigationTurnPrompt,
 } from "../claude/prompts.js";
+import { slugify } from "../utils.js";
 
 export class InvestigationSession {
   private history: InvestigationTurn[] = [];
@@ -112,15 +114,6 @@ Generate the first step: an "orient" phase. Describe what you think the issue is
       .map((t) => t.step!);
 
     let prevNodeId: string | null = null;
-    const kindMap: Record<string, "context" | "problem" | "solution"> = {
-      orient: "context",
-      investigate: "context",
-      diagnose: "problem",
-      propose: "solution",
-      revise: "solution",
-      verify: "solution",
-    };
-
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i]!;
       if (step.phase === "recap" || step.phase === "ship") continue;
@@ -133,7 +126,7 @@ Generate the first step: an "orient" phase. Describe what you think the issue is
         title: step.title ?? `Step ${i + 1}`,
         explanation: step.content,
         edges: [],
-        kind: kindMap[step.phase],
+        kind: INVESTIGATION_PHASE_KIND[step.phase],
         suggestedEdit: step.suggestedEdit
           ? { oldText: step.suggestedEdit.oldText, newText: step.suggestedEdit.newText }
           : undefined,
@@ -180,10 +173,3 @@ Generate the first step: an "orient" phase. Describe what you think the issue is
   }
 }
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 50);
-}
