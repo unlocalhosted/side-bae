@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.1
+
+### Interactive Investigation Mode
+
+Investigation is now a live, collaborative debugging session instead of a one-shot static report. The AI investigates step by step, asks for your guidance, and you can steer the process.
+
+- **Collaborative debugging** — AI shows its work at each step, asks "Am I on the right track?", accepts redirections
+- **Live fix proposals** — Review diffs, give feedback ("I have feedback"), approve with "Apply this fix"
+- **Test verification** — "Run tests" executes the test suite and reports pass/fail with error details
+- **PR creation** — "Open pull request" creates a branch, commits, pushes, and opens a PR via `gh` CLI
+- **Investigation trail** — Color-coded breadcrumb showing each file investigated (blue=context, red=problem, green=fix)
+- **Delight** — "Found it" border pulse on diagnosis, animated test results, rain confetti on PR creation
+
 ## 0.2.0
 
 ### Guided Learning Mode

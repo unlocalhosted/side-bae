@@ -729,6 +729,144 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ══════════════════════════════════════════════════════════
+   INTERACTIVE INVESTIGATION
+   ══════════════════════════════════════════════════════════ */
+
+.investigation-step {
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* ── Investigation trail ── */
+@keyframes trailSlideIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
+.investigation-trail {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--vscode-descriptionForeground); padding: 2px 0 6px;
+}
+.trail-entry {
+  display: flex; align-items: center; gap: 4px;
+  animation: trailSlideIn 0.2s ease-out both;
+}
+.trail-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.trail-dot.trail-context { background: var(--vscode-textLink-foreground); }
+.trail-dot.trail-problem { background: var(--vscode-errorForeground, #f14c4c); }
+.trail-dot.trail-fix { background: var(--vscode-testing-iconPassed, #73c991); }
+.trail-file {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;
+}
+.trail-separator { color: var(--vscode-descriptionForeground); opacity: 0.4; }
+
+/* ── Investigation content ── */
+.investigation-content {
+  font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
+  padding: 8px 0; max-width: 65ch;
+  overflow-wrap: break-word; word-break: break-word;
+}
+
+/* ── Confirm button ── */
+.investigation-confirm-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer;
+  font-size: 12px; font-family: var(--vscode-font-family); font-weight: 500;
+  background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground);
+  transition: background 0.15s;
+}
+.investigation-confirm-btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.investigation-confirm-btn:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+
+/* ── Action buttons ── */
+.investigation-actions {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.investigation-action-btn {
+  padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
+  font-size: 12px; font-family: var(--vscode-font-family); font-weight: 600;
+  background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+  transition: background 0.15s;
+}
+.investigation-action-btn:hover { background: var(--vscode-button-hoverBackground); }
+.investigation-action-btn:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.investigation-action-btn.secondary {
+  background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground);
+  font-weight: 500;
+}
+.investigation-action-btn.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+
+/* ── Test results card ── */
+@keyframes countUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.test-results {
+  border-radius: 4px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.test-results.tests-passed {
+  border: 1px solid var(--vscode-testing-iconPassed, #73c991);
+  background: rgba(115, 201, 145, 0.05);
+}
+.test-results.tests-failed {
+  border: 1px solid var(--vscode-errorForeground, #f14c4c);
+  background: rgba(241, 76, 76, 0.05);
+}
+.test-results-summary {
+  font-size: 13px; font-weight: 600;
+  animation: countUp 0.3s ease-out;
+}
+.tests-passed .test-results-summary { color: var(--vscode-testing-iconPassed, #73c991); }
+.tests-failed .test-results-summary { color: var(--vscode-errorForeground, #f14c4c); }
+.test-results-errors {
+  font-family: var(--vscode-editor-font-family); font-size: 11px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+  padding: 6px 8px; border-radius: 3px; max-height: 120px; overflow-y: auto;
+  white-space: pre-wrap; color: var(--vscode-errorForeground, #f14c4c);
+}
+
+/* ── PR card ── */
+@keyframes prSlideIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.pr-card {
+  border: 1px solid var(--vscode-testing-iconPassed, #73c991);
+  border-radius: 4px; padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  background: rgba(115, 201, 145, 0.05);
+  animation: prSlideIn 0.3s ease-out;
+}
+.pr-card-header {
+  font-size: 13px; font-weight: 600; color: var(--vscode-testing-iconPassed, #73c991);
+  display: flex; align-items: center; gap: 6px;
+}
+.pr-card-title { font-size: 13px; color: var(--vscode-foreground); }
+.pr-card-meta {
+  font-size: 11px; color: var(--vscode-descriptionForeground);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.pr-card-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--vscode-textLink-foreground);
+  background: none; border: none; cursor: pointer; padding: 4px 0;
+  font-family: var(--vscode-font-family); text-decoration: underline;
+}
+.pr-card-link:hover { color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground)); }
+
+/* ── "Found it" pulse ── */
+@keyframes foundItPulse {
+  0% { border-color: var(--vscode-textLink-foreground); }
+  30% { border-color: var(--vscode-errorForeground, #f14c4c); box-shadow: 0 0 12px rgba(241, 76, 76, 0.3); }
+  100% { border-color: var(--vscode-errorForeground, #f14c4c); box-shadow: none; }
+}
+.investigation-step.has-diagnose {
+  border-left: 3px solid var(--vscode-errorForeground, #f14c4c);
+  padding-left: 8px;
+  animation: foundItPulse 0.6s ease-out;
+}
+.investigation-step.has-propose {
+  border-left: 3px solid var(--vscode-testing-iconPassed, #73c991);
+  padding-left: 8px;
+}
+
+/* ── Investigation footer ── */
+.investigation-footer {
+  display: flex; gap: 8px; align-items: center;
+}
+
 /* ── High contrast ── */
 @media (forced-colors: active) {
   .edge-link, .nav-back-btn, .stop-btn, .breadcrumb-item, .summary-start-btn,
@@ -742,6 +880,9 @@ body {
   .lesson-choice-btn { border-color: ButtonText; }
   .lesson-choice-btn.choice-correct { border-color: Highlight; }
   .lesson-choice-btn.choice-wrong { border-color: LinkText; }
-  .lesson-send-btn, .lesson-end-btn, .lesson-followup-send { border: 1px solid ButtonText; }
+  .lesson-send-btn, .lesson-end-btn, .lesson-followup-send,
+  .investigation-confirm-btn, .investigation-action-btn { border: 1px solid ButtonText; }
+  .test-results { border-color: ButtonText; }
+  .pr-card { border-color: Highlight; }
   .takeaway-callout { border-color: currentColor; }
 }

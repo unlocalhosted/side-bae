@@ -2,9 +2,11 @@ import * as vscode from "vscode";
 import { join } from "node:path";
 import { TourEngine } from "../../engine/tour-engine.js";
 import { LessonSession } from "../../engine/lesson-session.js";
+import { InvestigationSession } from "../../engine/investigation-session.js";
 import type { ClaudeAdapter } from "../../claude/adapter.js";
 import type { TourDocument, TourEdge, TourNode } from "../../types/tour.js";
 import type { LessonStep } from "../../types/lesson.js";
+import type { InvestigationStep } from "../../types/investigation.js";
 import { applyDecorations, clearDecorations } from "./decorations.js";
 import type { TourCardPanelProvider } from "./webview-provider.js";
 import * as tourStore from "../../engine/tour-store.js";
@@ -13,6 +15,8 @@ export class TourPlayer {
   private engine = new TourEngine();
   private lessonSession: LessonSession | null = null;
   private lessonProcessing = false;
+  private investigationSession: InvestigationSession | null = null;
+  private investigationProcessing = false;
   private workspaceRoot: string;
   private webviewProvider: TourCardPanelProvider;
   private activeEditor?: vscode.TextEditor;
@@ -70,6 +74,27 @@ export class TourPlayer {
           break;
         case "lessonEnd":
           this.endLesson();
+          break;
+        case "investigationResponse":
+          this.handleInvestigationAction(() => this.investigationSession!.respondText(action.text, this.makeInvestigationProgress()));
+          break;
+        case "investigationConfirm":
+          this.handleInvestigationAction(() => this.investigationSession!.confirmAndContinue(this.makeInvestigationProgress()));
+          break;
+        case "investigationRunTests":
+          this.handleInvestigationAction(() => this.investigationSession!.requestTests(this.makeInvestigationProgress()));
+          break;
+        case "investigationRequestFix":
+          this.handleInvestigationAction(() => this.investigationSession!.requestFix(this.makeInvestigationProgress()));
+          break;
+        case "investigationApplyFix":
+          await this.applyInvestigationFix();
+          break;
+        case "investigationCreatePR":
+          this.handleInvestigationAction(() => this.investigationSession!.requestPR(this.makeInvestigationProgress()));
+          break;
+        case "investigationEnd":
+          this.endInvestigation();
           break;
         case "launchCommand": {
           const allowed = [
@@ -258,6 +283,162 @@ export class TourPlayer {
     return {
       onProgress: (msg: string) => {
         this.webviewProvider.updateLessonLoadingMessage(msg);
+      },
+      onCancel: () => {},
+    };
+  }
+
+  // ── Investigation session management ──
+
+  async startInvestigation(
+    adapter: ClaudeAdapter,
+    issueTitle: string,
+    issueBody: string
+  ): Promise<void> {
+    this.investigationSession = new InvestigationSession(adapter, issueTitle, issueBody);
+
+    this.webviewProvider.open(`Investigating: ${issueTitle}`);
+    this.webviewProvider.showInvestigationLoading();
+    this.setTourActiveContext(true);
+
+    try {
+      const step = await this.investigationSession.start(this.makeInvestigationProgress());
+      await this.showInvestigationStep(step);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Investigation failed to start: ${msg}`);
+      this.endInvestigation();
+    }
+  }
+
+  private async handleInvestigationAction(
+    action: () => Promise<InvestigationStep>
+  ): Promise<void> {
+    if (!this.investigationSession || this.investigationProcessing) return;
+    this.investigationProcessing = true;
+
+    this.webviewProvider.showInvestigationLoading();
+
+    try {
+      const step = await action();
+      await this.showInvestigationStep(step);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Investigation error: ${msg}`);
+    } finally {
+      this.investigationProcessing = false;
+    }
+  }
+
+  private async showInvestigationStep(step: InvestigationStep): Promise<void> {
+    if (!this.investigationSession) return;
+
+    if (step.file) {
+      if (this.activeEditor) clearDecorations(this.activeEditor);
+
+      const fileUri = vscode.Uri.file(join(this.workspaceRoot, step.file));
+      try {
+        const doc = await vscode.workspace.openTextDocument(fileUri);
+        const editor = await vscode.window.showTextDocument(doc, {
+          viewColumn: vscode.ViewColumn.One,
+          preserveFocus: true,
+        });
+        this.activeEditor = editor;
+
+        if (step.startLine && step.endLine) {
+          const range = new vscode.Range(
+            new vscode.Position(step.startLine - 1, 0),
+            new vscode.Position(step.endLine - 1, Number.MAX_SAFE_INTEGER)
+          );
+          editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+          editor.selection = new vscode.Selection(range.start, range.start);
+
+          const kindMap: Record<string, "context" | "problem" | "solution"> = {
+            orient: "context",
+            investigate: "context",
+            diagnose: "problem",
+            propose: "solution",
+            revise: "solution",
+          };
+          applyDecorations(editor, {
+            file: step.file,
+            startLine: step.startLine,
+            endLine: step.endLine,
+            title: step.title ?? "",
+            explanation: "",
+            edges: [],
+            kind: kindMap[step.phase],
+          });
+        }
+      } catch {
+        // File might not exist
+      }
+    }
+
+    this.webviewProvider.updateInvestigationStep(step, this.investigationSession.getSessionState());
+  }
+
+  private async applyInvestigationFix(): Promise<void> {
+    if (!this.investigationSession) return;
+    const state = this.investigationSession.getSessionState();
+    const step = state.currentStep;
+    if (!step?.suggestedEdit) return;
+
+    const { file, oldText, newText } = step.suggestedEdit;
+    const fileUri = vscode.Uri.file(join(this.workspaceRoot, file));
+
+    try {
+      const doc = await vscode.workspace.openTextDocument(fileUri);
+      const text = doc.getText();
+      const idx = text.indexOf(oldText);
+
+      if (idx === -1) {
+        vscode.window.showWarningMessage("Could not find the code to replace \u2014 it may have changed.");
+        return;
+      }
+
+      const startPos = doc.positionAt(idx);
+      const endPos = doc.positionAt(idx + oldText.length);
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(fileUri, new vscode.Range(startPos, endPos), newText);
+      await vscode.workspace.applyEdit(edit);
+
+      vscode.window.showInformationMessage("Fix applied. Use Ctrl+Z to undo.");
+
+      // Notify the session and get next step
+      this.handleInvestigationAction(() => this.investigationSession!.notifyFixApplied(this.makeInvestigationProgress()));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Failed to apply fix: ${msg}`);
+    }
+  }
+
+  private endInvestigation(): void {
+    if (this.investigationSession) {
+      try {
+        const tour = this.investigationSession.toTourDocument();
+        if (Object.keys(tour.nodes).length > 0) {
+          tourStore.saveTour(this.workspaceRoot, tour);
+          vscode.commands.executeCommand("sideBae.refreshFeatures");
+          vscode.window.showInformationMessage(
+            `Investigation saved \u2014 replay "${tour.name}" anytime from the sidebar.`
+          );
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+
+    if (this.activeEditor) clearDecorations(this.activeEditor);
+    this.investigationSession = null;
+    this.webviewProvider.dispose();
+    this.setTourActiveContext(false);
+  }
+
+  private makeInvestigationProgress(): import("../../claude/adapter.js").GenerationProgress {
+    return {
+      onProgress: (msg: string) => {
+        this.webviewProvider.updateInvestigationLoadingMessage(msg);
       },
       onCancel: () => {},
     };

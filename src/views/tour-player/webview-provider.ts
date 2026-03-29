@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TourCardState } from "../../engine/tour-engine.js";
 import type { LessonStep, LessonSessionState } from "../../types/lesson.js";
+import type { InvestigationStep, InvestigationSessionState } from "../../types/investigation.js";
 
 export type NavigationCallback = (
   action:
@@ -20,6 +21,13 @@ export type NavigationCallback = (
     | { type: "lessonFollowUp"; text: string }
     | { type: "lessonEnd" }
     | { type: "launchCommand"; command: string }
+    | { type: "investigationResponse"; text: string }
+    | { type: "investigationConfirm" }
+    | { type: "investigationRunTests" }
+    | { type: "investigationRequestFix" }
+    | { type: "investigationApplyFix" }
+    | { type: "investigationCreatePR" }
+    | { type: "investigationEnd" }
 ) => void;
 
 export class TourCardPanelProvider {
@@ -106,6 +114,18 @@ export class TourCardPanelProvider {
 
   updateLessonLoadingMessage(message: string): void {
     this.post({ type: "lessonLoadingMessage", message });
+  }
+
+  updateInvestigationStep(step: InvestigationStep, state: InvestigationSessionState): void {
+    this.post({ type: "investigationUpdate", step, state });
+  }
+
+  showInvestigationLoading(): void {
+    this.post({ type: "investigationLoading" });
+  }
+
+  updateInvestigationLoadingMessage(message: string): void {
+    this.post({ type: "investigationLoadingMessage", message });
   }
 
   /** Ensure the panel is visible without stealing focus from the editor. */

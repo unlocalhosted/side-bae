@@ -350,6 +350,77 @@ export const LEARNABLE_CONCEPTS_SCHEMA = {
   },
 } as const;
 
+export const INVESTIGATION_STEP_SCHEMA = {
+  type: "object",
+  required: ["phase", "content", "awaitsResponse", "isComplete"],
+  properties: {
+    phase: {
+      type: "string",
+      enum: ["orient", "investigate", "diagnose", "propose", "verify", "revise", "ship", "recap"],
+      description: "The investigation phase of this step.",
+    },
+    file: { type: "string", description: "Relative file path being investigated." },
+    startLine: { type: "number", description: "1-based start line." },
+    endLine: { type: "number", description: "1-based end line." },
+    title: { type: "string", description: "Step title." },
+    content: {
+      type: "string",
+      description: "Markdown content — the investigator's findings, explanation, or response to user feedback.",
+    },
+    prompt: { type: "string", description: "Question for the user when awaiting input." },
+    inputType: {
+      type: "string",
+      enum: ["text", "confirm", "none"],
+      description: "How the user should respond: text feedback, simple confirmation, or no input needed.",
+    },
+    suggestedEdit: {
+      type: "object",
+      required: ["oldText", "newText", "file"],
+      properties: {
+        oldText: { type: "string", description: "Current code to replace (exact match)." },
+        newText: { type: "string", description: "Proposed replacement code." },
+        file: { type: "string", description: "File containing the code to replace." },
+      },
+      description: "Code fix proposal. Only for propose/revise phases.",
+    },
+    testResults: {
+      type: "object",
+      properties: {
+        passed: { type: "number" },
+        failed: { type: "number" },
+        errors: { type: "array", items: { type: "string" }, description: "First few lines of failure output." },
+      },
+      description: "Test execution results. Only for verify phase.",
+    },
+    prUrl: { type: "string", description: "URL of the created pull request." },
+    prNumber: { type: "number", description: "PR number." },
+    branchName: { type: "string", description: "Branch name used for the PR." },
+    filesChanged: { type: "number" },
+    additions: { type: "number" },
+    deletions: { type: "number" },
+    awaitsResponse: {
+      type: "boolean",
+      description: "True if the user should respond before continuing.",
+    },
+    isComplete: {
+      type: "boolean",
+      description: "True only on the final recap step.",
+    },
+    trail: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["file", "kind"],
+        properties: {
+          file: { type: "string" },
+          kind: { type: "string", enum: ["context", "problem", "fix"] },
+        },
+      },
+      description: "Files investigated so far, for the breadcrumb trail.",
+    },
+  },
+} as const;
+
 export const FEATURE_TREE_SCHEMA = {
   type: "object",
   required: ["features"],

@@ -145,6 +145,114 @@ General rules:
 - Do not include node_modules, dist, or build artifacts`;
 }
 
+export function buildInvestigationSessionPrompt(
+  issueTitle: string,
+  issueBody: string
+): string {
+  return `You are a collaborative debugging partner investigating a bug. The workspace root is the current directory.
+
+Issue: "${issueTitle}"
+
+Details:
+${issueBody}
+
+You investigate ONE STEP at a time and produce a JSON object per step following the provided schema.
+
+## How to investigate
+
+Work through the bug methodically, showing your work at each step. The user is your partner — ask for guidance at decision points.
+
+1. **Orient** — Start by describing what you think the issue is about. Ask if you're on the right track. "The issue mentions login timeouts. I see two auth paths — JWT and sessions. Which one is timing out?"
+
+2. **Investigate** — Read the relevant code. Show what you find. If you see multiple possible areas, ask: "I found two places this could break. Want me to look at the middleware first, or the token refresh?"
+
+3. **Diagnose** — When you find the root cause, explain it clearly. Contrast what happens vs what should happen. "Here's the problem: when the refresh token expires, the catch block on line 47 treats it the same as an invalid token. An expired session and a forged token get the same 401."
+
+4. **Propose** — Suggest a fix with a concrete diff (suggestedEdit field). Explain WHY it works, not just what it changes. Wait for the user to approve.
+
+5. **Verify** — When the user asks to run tests, execute the test command (e.g., \`npm test\`, \`pnpm test:run\`, \`pytest\`). Report results honestly. If tests fail, explain what broke and adjust.
+
+6. **Ship** — When the user asks to create a PR:
+   - Create a branch: \`git checkout -b fix/<short-description>\`
+   - Stage and commit the changed files
+   - Push: \`git push -u origin <branch>\`
+   - Create PR: \`gh pr create --title "<title>" --body "<investigation report>"\`
+   - Return the PR URL in the prUrl field
+
+7. **Recap** — Summarize: what was found, what was fixed, link to PR.
+
+## Voice
+
+Be direct and confident. Never announce what you're about to do ("I'm going to investigate..."). Just do it.
+
+- Show your reasoning: "This middleware handles all auth. Look at line 47 —"
+- Ask guidance naturally: "I see the token refresh path. Is this where the timeout happens?"
+- When the user redirects: "Got it — looking at the session flow instead."
+- When you find the bug, make it land: "Here's where it breaks —"
+- Use \`backticks\` for code, **bold** for key concepts
+
+## Rules
+
+- Reference real files with accurate line numbers
+- suggestedEdit.oldText must be an exact substring of the current file
+- Build the trail array as you investigate — add each file you examine
+- Set awaitsResponse to true when you need user input
+- Set isComplete to true ONLY on the final recap step
+- Do not include node_modules, dist, or build artifacts`;
+}
+
+export function buildInvestigationTurnPrompt(
+  history: Array<{ role: string; step?: unknown; text?: string }>,
+  userInput?: { text?: string; type: "response" | "confirm" | "runTests" | "requestFix" | "applyFix" | "createPR" }
+): string {
+  const historyLines: string[] = [];
+  for (const turn of history) {
+    if (turn.role === "investigator" && turn.step) {
+      const step = turn.step as { phase?: string; title?: string; content?: string; prompt?: string };
+      historyLines.push(`[Investigator — ${step.phase}${step.title ? `: ${step.title}` : ""}]`);
+      if (step.content) {
+        const preview = step.content.length > 200 ? step.content.slice(0, 200) + "..." : step.content;
+        historyLines.push(preview);
+      }
+      if (step.prompt) historyLines.push(`Question: ${step.prompt}`);
+    } else if (turn.role === "user") {
+      if (turn.text) historyLines.push(`[User]: ${turn.text}`);
+    }
+  }
+
+  let inputSection = "";
+  if (userInput) {
+    switch (userInput.type) {
+      case "response":
+        inputSection = `\nThe user responded:\n"${userInput.text}"\n`;
+        break;
+      case "confirm":
+        inputSection = "\nThe user confirmed you're on the right track. Continue investigating.\n";
+        break;
+      case "runTests":
+        inputSection = "\nThe user wants you to run the test suite. Execute the appropriate test command and report results in the testResults field.\n";
+        break;
+      case "requestFix":
+        inputSection = "\nThe user wants you to propose a fix. Generate a suggestedEdit with the exact code change.\n";
+        break;
+      case "applyFix":
+        inputSection = "\nThe user approved and applied the fix. Acknowledge and suggest running tests to verify.\n";
+        break;
+      case "createPR":
+        inputSection = "\nThe user wants you to create a pull request. Create a branch, commit the changes, push, and use `gh pr create`. Return the PR URL in the prUrl field.\n";
+        break;
+    }
+  }
+
+  return `## Investigation so far
+
+${historyLines.join("\n")}
+${inputSection}
+## Step ${history.filter((t) => t.role === "investigator").length + 1}
+
+Generate the next InvestigationStep. Adapt based on the user's input and what you've found so far.`;
+}
+
 export function buildLearnableConceptsPrompt(): string {
   return `Analyze this codebase and identify the most interesting and teachable aspects — things a developer could deeply learn from by studying the implementation.
 

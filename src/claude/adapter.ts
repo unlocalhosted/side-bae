@@ -24,7 +24,8 @@ function getConfiguredClaudePath(): string | undefined {
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
 import type { LessonStep, LearnableConcept } from "../types/lesson.js";
-import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA, LESSON_STEP_SCHEMA, LEARNABLE_CONCEPTS_SCHEMA } from "./schema.js";
+import type { InvestigationStep } from "../types/investigation.js";
+import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA, LESSON_STEP_SCHEMA, LEARNABLE_CONCEPTS_SCHEMA, INVESTIGATION_STEP_SCHEMA } from "./schema.js";
 import {
   buildTourGenerationPrompt,
   buildFeatureDiscoveryPrompt,
@@ -158,6 +159,14 @@ export class ClaudeAdapter {
     const prompt = buildWhatsNewPrompt(range);
     const result = await this.runStructuredQuery(prompt, RECENT_CHANGES_SCHEMA, progress);
     return (result as { changes: RecentChange[] }).changes;
+  }
+
+  async generateInvestigationStep(
+    prompt: string,
+    progress: GenerationProgress
+  ): Promise<InvestigationStep> {
+    const result = await this.runStructuredQuery(prompt, INVESTIGATION_STEP_SCHEMA, progress);
+    return result as InvestigationStep;
   }
 
   async generateLessonStep(

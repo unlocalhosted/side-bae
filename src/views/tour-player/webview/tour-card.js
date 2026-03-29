@@ -761,6 +761,297 @@
     }
   }
 
+  // ── Investigation Rendering ──────────────────────────────────
+
+  function renderInvestigationLoading() {
+    root.innerHTML = `
+      <div class="panel-header">Investigating...</div>
+      <div class="card-scroll">
+        <div class="lesson-loading fade-in">
+          <div class="lesson-loading-dots">
+            <div class="lesson-loading-dot"></div>
+            <div class="lesson-loading-dot"></div>
+            <div class="lesson-loading-dot"></div>
+          </div>
+          <div class="lesson-loading-text" id="investigation-loading-msg"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateInvestigationLoadingMessage(message) {
+    const el = document.getElementById("investigation-loading-msg");
+    if (el) el.textContent = message;
+  }
+
+  function renderInvestigationTrail(trail) {
+    if (!trail || trail.length === 0) return "";
+    return `
+      <div class="investigation-trail">
+        ${trail.map((entry, i) => `
+          <div class="trail-entry" style="animation-delay: ${i * 60}ms">
+            <span class="trail-dot trail-${entry.kind}"></span>
+            <span class="trail-file">${escapeHtml(shortFileName(entry.file))}</span>
+          </div>
+          ${i < trail.length - 1 ? '<span class="trail-separator">\u203A</span>' : ""}
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function shortFileName(path) {
+    if (!path) return "";
+    const parts = path.replace(/\\/g, "/").split("/");
+    return parts.length > 1 ? parts.slice(-1)[0] : path;
+  }
+
+  function renderInvestigationStep(step, state) {
+    const borderClass = step.phase === "diagnose" ? " has-diagnose"
+      : step.phase === "propose" || step.phase === "revise" ? " has-propose"
+      : "";
+
+    const trailHtml = renderInvestigationTrail(step.trail);
+
+    const fileHtml = step.file
+      ? `<div class="card-file">${escapeHtml(step.file)}${step.startLine ? `:${step.startLine}-${step.endLine}` : ""}</div>`
+      : "";
+
+    const contentHtml = step.content
+      ? `<div class="investigation-content">${renderMarkdown(step.content)}</div>`
+      : "";
+
+    const promptHtml = step.prompt
+      ? `<div class="lesson-prompt">${renderMarkdown(step.prompt)}</div>`
+      : "";
+
+    // Suggested edit diff
+    let diffHtml = "";
+    if (step.suggestedEdit) {
+      const oldLines = escapeHtml(step.suggestedEdit.oldText).split("\n").map(l => `<span class="diff-line diff-remove">- ${l}</span>`).join("");
+      const newLines = escapeHtml(step.suggestedEdit.newText).split("\n").map(l => `<span class="diff-line diff-add">+ ${l}</span>`).join("");
+      diffHtml = `
+        <div class="suggested-edit">
+          <div class="edit-label">The Fix</div>
+          <pre class="edit-diff">${oldLines}${newLines}</pre>
+        </div>
+      `;
+    }
+
+    // Test results
+    let testHtml = "";
+    if (step.testResults) {
+      const passed = step.testResults.failed === 0;
+      const summaryText = passed
+        ? `All ${step.testResults.passed} tests passed`
+        : `${step.testResults.failed} test${step.testResults.failed === 1 ? "" : "s"} failed`;
+      testHtml = `
+        <div class="test-results ${passed ? "tests-passed" : "tests-failed"}">
+          <div class="test-results-summary">${passed ? "\u2713" : "\u2717"} ${summaryText}</div>
+          ${step.testResults.errors.length > 0 ? `<pre class="test-results-errors">${escapeHtml(step.testResults.errors.join("\n"))}</pre>` : ""}
+        </div>
+      `;
+    }
+
+    // PR card
+    let prHtml = "";
+    if (step.prUrl) {
+      prHtml = `
+        <div class="pr-card">
+          <div class="pr-card-header">\u2713 Pull request opened</div>
+          ${step.title ? `<div class="pr-card-title">${escapeHtml(step.title)}</div>` : ""}
+          <div class="pr-card-meta">
+            ${step.branchName ? `<span>main \u2190 ${escapeHtml(step.branchName)}</span>` : ""}
+            ${step.additions !== undefined ? `<span>+${step.additions} / -${step.deletions || 0} across ${step.filesChanged || 0} file${(step.filesChanged || 0) === 1 ? "" : "s"}</span>` : ""}
+          </div>
+          <button class="pr-card-link" data-url="${escapeHtml(step.prUrl)}">View on GitHub \u2192</button>
+        </div>
+      `;
+      // Fire celebration confetti for PR creation
+      if (shouldShowCelebrations()) {
+        setTimeout(() => fireConfetti("rain", 80), 200);
+        setTimeout(() => fireConfetti("rain", 50), 700);
+      }
+    }
+
+    // Input area
+    let inputHtml = "";
+    if (step.awaitsResponse) {
+      if (step.inputType === "text") {
+        inputHtml = `
+          <div class="lesson-input-area">
+            <textarea class="lesson-textarea" id="investigation-input" placeholder="Redirect, ask a question..." rows="2"></textarea>
+            <div class="lesson-input-actions">
+              <button class="lesson-send-btn" id="investigation-send">Send</button>
+              <button class="investigation-confirm-btn" id="investigation-confirm">\u2713 On the right track</button>
+            </div>
+          </div>
+        `;
+      } else if (step.inputType === "confirm") {
+        inputHtml = `
+          <div class="lesson-input-area">
+            <textarea class="lesson-textarea" id="investigation-input" placeholder="Redirect, ask a question..." rows="2"></textarea>
+            <div class="lesson-input-actions">
+              <button class="investigation-confirm-btn" id="investigation-confirm">\u2713 On the right track</button>
+              <button class="lesson-send-btn" id="investigation-send">Send feedback</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Phase-specific action buttons
+    let actionsHtml = "";
+    if (!step.awaitsResponse && !step.isComplete) {
+      const actions = [];
+      if (step.phase === "diagnose" || (step.phase === "investigate" && !state.fixApplied)) {
+        actions.push(`<button class="investigation-action-btn" id="investigation-request-fix">Show me a fix</button>`);
+      }
+      if (step.suggestedEdit && !state.fixApplied) {
+        actions.push(`<button class="investigation-action-btn" id="investigation-apply-fix">Apply this fix</button>`);
+        actions.push(`<button class="investigation-action-btn secondary" id="investigation-feedback">I have feedback</button>`);
+      }
+      if (state.fixApplied && !state.testsRun) {
+        actions.push(`<button class="investigation-action-btn" id="investigation-run-tests">Run tests</button>`);
+      }
+      if (state.testsRun && step.testResults && step.testResults.failed === 0 && !state.prCreated) {
+        actions.push(`<button class="investigation-action-btn" id="investigation-create-pr">Open pull request</button>`);
+      }
+      if (actions.length > 0) {
+        actionsHtml = `<div class="investigation-actions">${actions.join("")}</div>`;
+      }
+    }
+
+    root.innerHTML = `
+      <div class="panel-header">Investigating: ${escapeHtml(state.issueTitle)}</div>
+      <div class="card-scroll">
+        <div class="investigation-step card-enter${borderClass}">
+          ${trailHtml}
+          ${step.title ? `<div class="card-header"><div class="card-title">${escapeHtml(step.title)}</div>${fileHtml}</div>` : fileHtml ? `<div class="card-header">${fileHtml}</div>` : ""}
+          ${contentHtml}
+          ${promptHtml}
+          ${diffHtml}
+          ${testHtml}
+          ${prHtml}
+          ${inputHtml}
+          ${actionsHtml}
+        </div>
+      </div>
+      <div class="card-dock">
+        <div class="investigation-footer">
+          <div class="lesson-followup" style="flex:1">
+            <input class="lesson-followup-input" id="investigation-followup" placeholder="Redirect, ask a question..." />
+            <button class="lesson-followup-send" id="investigation-followup-send">Ask</button>
+          </div>
+          <button class="lesson-end-btn" id="investigation-end">End investigation</button>
+        </div>
+      </div>
+    `;
+
+    bindInvestigationEvents(step, state);
+  }
+
+  function bindInvestigationEvents(step, state) {
+    // Text send
+    const sendBtn = document.getElementById("investigation-send");
+    const textarea = document.getElementById("investigation-input");
+    if (sendBtn && textarea) {
+      const send = () => {
+        const text = textarea.value.trim();
+        if (!text) return;
+        vscode.postMessage({ type: "investigationResponse", text });
+        renderInvestigationLoading();
+      };
+      sendBtn.addEventListener("click", send);
+      textarea.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
+      });
+      setTimeout(() => textarea.focus(), 100);
+    }
+
+    // Confirm
+    const confirmBtn = document.getElementById("investigation-confirm");
+    if (confirmBtn) {
+      confirmBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "investigationConfirm" });
+        renderInvestigationLoading();
+      });
+    }
+
+    // Action buttons
+    const requestFixBtn = document.getElementById("investigation-request-fix");
+    if (requestFixBtn) {
+      requestFixBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "investigationRequestFix" });
+        renderInvestigationLoading();
+      });
+    }
+
+    const applyFixBtn = document.getElementById("investigation-apply-fix");
+    if (applyFixBtn) {
+      applyFixBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "investigationApplyFix" });
+        renderInvestigationLoading();
+      });
+    }
+
+    const feedbackBtn = document.getElementById("investigation-feedback");
+    if (feedbackBtn && textarea) {
+      feedbackBtn.addEventListener("click", () => {
+        // Switch to text input mode
+        textarea.focus();
+        textarea.placeholder = "What would you change about this fix?";
+      });
+    }
+
+    const runTestsBtn = document.getElementById("investigation-run-tests");
+    if (runTestsBtn) {
+      runTestsBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "investigationRunTests" });
+        renderInvestigationLoading();
+      });
+    }
+
+    const createPrBtn = document.getElementById("investigation-create-pr");
+    if (createPrBtn) {
+      createPrBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "investigationCreatePR" });
+        renderInvestigationLoading();
+      });
+    }
+
+    // PR link
+    const prLink = root.querySelector(".pr-card-link");
+    if (prLink) {
+      prLink.addEventListener("click", () => {
+        vscode.postMessage({ type: "launchCommand", command: "vscode.open" });
+      });
+    }
+
+    // Follow-up
+    const followupInput = document.getElementById("investigation-followup");
+    const followupSend = document.getElementById("investigation-followup-send");
+    if (followupInput && followupSend) {
+      const ask = () => {
+        const text = followupInput.value.trim();
+        if (!text) return;
+        vscode.postMessage({ type: "investigationResponse", text });
+        renderInvestigationLoading();
+      };
+      followupSend.addEventListener("click", ask);
+      followupInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); ask(); }
+      });
+    }
+
+    // End
+    const endBtn = document.getElementById("investigation-end");
+    if (endBtn) {
+      endBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "investigationEnd" });
+      });
+    }
+  }
+
   function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
@@ -781,6 +1072,15 @@
         break;
       case "lessonLoadingMessage":
         updateLessonLoadingMessage(message.message);
+        break;
+      case "investigationUpdate":
+        renderInvestigationStep(message.step, message.state);
+        break;
+      case "investigationLoading":
+        renderInvestigationLoading();
+        break;
+      case "investigationLoadingMessage":
+        updateInvestigationLoadingMessage(message.message);
         break;
       case "config":
         celebrationsSetting = message.celebrations || "auto";

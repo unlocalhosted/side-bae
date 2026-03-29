@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
-import * as tourStore from "../engine/tour-store.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
 import { requireClaude } from "./preflight.js";
 
@@ -53,7 +52,7 @@ export function registerInvestigateIssueCommand(
       "sideBae.investigateIssue",
       async () => {
         if (investigating) {
-          vscode.window.showWarningMessage("An investigation is already in progress.");
+          vscode.window.showWarningMessage("An investigation is already active.");
           return;
         }
         investigating = true;
@@ -87,55 +86,10 @@ export function registerInvestigateIssueCommand(
             issueBody = input;
           }
 
-          await vscode.window.withProgress(
-            {
-              location: vscode.ProgressLocation.Notification,
-              title: "Side Bae",
-              cancellable: true,
-            },
-            async (progress, token) => {
-              try {
-                const adapter = getAdapter();
-                const tour = await adapter.investigateIssue(
-                  issueTitle,
-                  issueBody,
-                  {
-                    onProgress: (msg) => progress.report({ message: msg }),
-                    onCancel: (callback) =>
-                      token.onCancellationRequested(callback),
-                  }
-                );
-
-                await tourStore.saveTour(workspaceRoot, tour);
-                vscode.commands.executeCommand("sideBae.refreshFeatures");
-
-                await player.startTour(tour);
-
-                const solutionCount = Object.values(tour.nodes).filter(
-                  (n) => n.kind === "solution"
-                ).length;
-                const fixLabel =
-                  solutionCount > 0
-                    ? `, ${solutionCount} suggested fix${solutionCount === 1 ? "" : "es"}`
-                    : "";
-                vscode.window.showInformationMessage(
-                  `Investigation ready \u2014 ${Object.keys(tour.nodes).length} stops${fixLabel}.`
-                );
-              } catch (err) {
-                if (token.isCancellationRequested) {
-                  vscode.window.showInformationMessage(
-                    "Investigation cancelled."
-                  );
-                  return;
-                }
-                const message =
-                  err instanceof Error ? err.message : String(err);
-                vscode.window.showErrorMessage(
-                  `Failed to investigate: ${message}`
-                );
-              }
-            }
-          );
+          await player.startInvestigation(getAdapter(), issueTitle, issueBody);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Failed to start investigation: ${message}`);
         } finally {
           investigating = false;
         }
