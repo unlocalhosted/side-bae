@@ -181,24 +181,50 @@ export class TourPlayer {
     if (this.engine.isLoaded()) this.stopTour();
 
     this.lessonSession = new LessonSession(adapter, subject, entryFile);
-
-    this.webviewProvider.open(`Learning: ${subject}`);
-    this.webviewProvider.showStepLoading(-1); // -1 = plan generation
     this.setTourActiveContext(true);
 
-    try {
-      // Phase 1: Generate the plan
-      await this.lessonSession.generatePlan(this.makeLessonProgress());
-      this.webviewProvider.sendLessonPlan(this.lessonSession.getSessionState());
-      await this.autoSaveLesson();
+    // Phase 1: Generate plan with VS Code notification progress (like tours)
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Side Bae",
+        cancellable: true,
+      },
+      async (progress, token) => {
+        try {
+          const lessonProgress = {
+            onProgress: (msg: string) => progress.report({ message: msg }),
+            onCancel: (callback: () => void) => token.onCancellationRequested(callback),
+          };
 
-      // Phase 2: Teach the first step
-      await this.teachCurrentStep();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      vscode.window.showErrorMessage(`Lesson failed to start: ${msg}`);
-      this.endLesson();
-    }
+          await this.lessonSession!.generatePlan(lessonProgress);
+
+          if (token.isCancellationRequested) {
+            this.lessonSession = null;
+            this.setTourActiveContext(false);
+            return;
+          }
+
+          // Plan ready — NOW open the panel
+          this.webviewProvider.open(`Learning: ${subject}`);
+          this.webviewProvider.sendLessonPlan(this.lessonSession!.getSessionState());
+          await this.autoSaveLesson();
+
+          // Phase 2: Teach the first step
+          await this.teachCurrentStep();
+        } catch (err) {
+          if (token.isCancellationRequested) {
+            vscode.window.showInformationMessage("Lesson generation cancelled.");
+            this.lessonSession = null;
+            this.setTourActiveContext(false);
+            return;
+          }
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Lesson failed to start: ${msg}`);
+          this.endLesson();
+        }
+      }
+    );
   }
 
   private async teachCurrentStep(): Promise<void> {
