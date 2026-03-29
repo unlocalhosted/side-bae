@@ -104,6 +104,10 @@ export class TourCardPanelProvider {
     this.post({ type: "lessonLoading" });
   }
 
+  updateLessonLoadingMessage(message: string): void {
+    this.post({ type: "lessonLoadingMessage", message });
+  }
+
   /** Ensure the panel is visible without stealing focus from the editor. */
   reveal(): void {
     this.panel?.reveal(vscode.ViewColumn.Beside, true);

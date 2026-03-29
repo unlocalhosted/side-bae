@@ -255,7 +255,12 @@ export class TourPlayer {
   }
 
   private makeLessonProgress(): import("../../claude/adapter.js").GenerationProgress {
-    return { onProgress: () => {}, onCancel: () => {} };
+    return {
+      onProgress: (msg: string) => {
+        this.webviewProvider.updateLessonLoadingMessage(msg);
+      },
+      onCancel: () => {},
+    };
   }
 
   private async applyFix(

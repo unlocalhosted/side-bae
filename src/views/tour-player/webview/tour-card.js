@@ -462,17 +462,7 @@
 
   // ── Lesson Rendering ──────────────────────────────────────
 
-  const lessonLoadingMessages = [
-    "Reading your response\u2026",
-    "Exploring the code\u2026",
-    "Preparing the next step\u2026",
-  ];
-  let lessonLoadingInterval = null;
-
   function renderLessonLoading() {
-
-    if (lessonLoadingInterval) clearInterval(lessonLoadingInterval);
-
     root.innerHTML = `
       <div class="panel-header">Learning...</div>
       <div class="card-scroll">
@@ -482,22 +472,20 @@
             <div class="lesson-loading-dot"></div>
             <div class="lesson-loading-dot"></div>
           </div>
-          <div class="lesson-loading-text" id="lesson-loading-msg">${lessonLoadingMessages[0]}</div>
+          <div class="lesson-loading-text" id="lesson-loading-msg"></div>
         </div>
       </div>
     `;
+  }
 
-    let msgIdx = 0;
-    lessonLoadingInterval = setInterval(() => {
-      msgIdx = (msgIdx + 1) % lessonLoadingMessages.length;
-      const el = document.getElementById("lesson-loading-msg");
-      if (el) el.textContent = lessonLoadingMessages[msgIdx];
-    }, 2500);
+  function updateLessonLoadingMessage(message) {
+    const el = document.getElementById("lesson-loading-msg");
+    if (el) el.textContent = message;
   }
 
   function renderLessonStep(step, state) {
 
-    if (lessonLoadingInterval) { clearInterval(lessonLoadingInterval); lessonLoadingInterval = null; }
+
 
     const phaseLabels = {
       prime: "",
@@ -791,6 +779,9 @@
       case "lessonLoading":
         renderLessonLoading();
         break;
+      case "lessonLoadingMessage":
+        updateLessonLoadingMessage(message.message);
+        break;
       case "config":
         celebrationsSetting = message.celebrations || "auto";
         canvas.style.display = shouldShowCelebrations() ? "" : "none";
@@ -800,7 +791,7 @@
         hasSeenAllNodes = false;
         currentReport = null;
     
-        if (lessonLoadingInterval) { clearInterval(lessonLoadingInterval); lessonLoadingInterval = null; }
+    
         particles = [];
         if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
         ctx.clearRect(0, 0, canvas.width, canvas.height);

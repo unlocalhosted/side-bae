@@ -50,56 +50,21 @@ export interface ClaudeStatus {
   error?: string;
 }
 
-const TOUR_PROGRESS = [
-  "Reading source files...",
-  "Tracing code paths related to your query...",
-  "Identifying entry points and call chains...",
-  "Mapping connections between files...",
-  "Reading deeper into the code...",
-  "Writing explanations for each stop...",
-  "Building the tour graph...",
-  "Still working — complex features take longer...",
-  "Almost there — finalizing the tour...",
-];
+/** Human-friendly labels for SDK tool names */
+const TOOL_LABELS: Record<string, string> = {
+  Read: "Reading",
+  Grep: "Searching",
+  Glob: "Scanning",
+  Bash: "Running",
+};
 
-const FEATURE_PROGRESS = [
-  "Scanning directory structure...",
-  "Reading entry points and route definitions...",
-  "Identifying major features...",
-  "Grouping related functionality...",
-  "Building feature tree...",
-];
-
-const WHATS_NEW_PROGRESS = [
-  "Reading git history...",
-  "Grouping commits by author...",
-  "Identifying logical changes...",
-  "Summarizing changes...",
-];
-
-const LESSON_STEP_PROGRESS = [
-  "Reading your response...",
-  "Exploring the code...",
-  "Crafting the next step...",
-  "Almost ready...",
-];
-
-const LEARNABLE_SCAN_PROGRESS = [
-  "Scanning the codebase...",
-  "Identifying patterns and techniques...",
-  "Assessing complexity levels...",
-  "Building learning catalog...",
-];
-
-const INVESTIGATION_PROGRESS = [
-  "Reading the bug report...",
-  "Searching for the affected code...",
-  "Tracing the code path...",
-  "Found something \u2014 analyzing the root cause...",
-  "Working on a fix...",
-  "Writing up the investigation...",
-  "Putting it all together...",
-];
+/** Extract a short, readable filename from a path */
+function shortPath(path: string): string {
+  if (!path) return "";
+  // Show last 2 segments: "src/engine/tour-store.ts"
+  const parts = path.replace(/\\/g, "/").split("/");
+  return parts.length > 2 ? parts.slice(-2).join("/") : path;
+}
 
 /**
  * Check if the Claude Agent SDK can connect and authenticate.
@@ -172,12 +137,7 @@ export class ClaudeAdapter {
     progress: GenerationProgress
   ): Promise<TourDocument> {
     const prompt = buildTourGenerationPrompt(queryText);
-    const result = await this.runStructuredQuery(
-      prompt,
-      TOUR_DOCUMENT_SCHEMA,
-      progress,
-      TOUR_PROGRESS
-    );
+    const result = await this.runStructuredQuery(prompt, TOUR_DOCUMENT_SCHEMA, progress);
     return validateTourDocument(result);
   }
 
@@ -187,12 +147,7 @@ export class ClaudeAdapter {
     progress: GenerationProgress
   ): Promise<TourDocument> {
     const prompt = buildInvestigationPrompt(issueTitle, issueBody);
-    const result = await this.runStructuredQuery(
-      prompt,
-      TOUR_DOCUMENT_SCHEMA,
-      progress,
-      INVESTIGATION_PROGRESS
-    );
+    const result = await this.runStructuredQuery(prompt, TOUR_DOCUMENT_SCHEMA, progress);
     return validateTourDocument(result);
   }
 
@@ -201,12 +156,7 @@ export class ClaudeAdapter {
     progress: GenerationProgress
   ): Promise<RecentChange[]> {
     const prompt = buildWhatsNewPrompt(range);
-    const result = await this.runStructuredQuery(
-      prompt,
-      RECENT_CHANGES_SCHEMA,
-      progress,
-      WHATS_NEW_PROGRESS
-    );
+    const result = await this.runStructuredQuery(prompt, RECENT_CHANGES_SCHEMA, progress);
     return (result as { changes: RecentChange[] }).changes;
   }
 
@@ -214,12 +164,7 @@ export class ClaudeAdapter {
     prompt: string,
     progress: GenerationProgress
   ): Promise<LessonStep> {
-    const result = await this.runStructuredQuery(
-      prompt,
-      LESSON_STEP_SCHEMA,
-      progress,
-      LESSON_STEP_PROGRESS
-    );
+    const result = await this.runStructuredQuery(prompt, LESSON_STEP_SCHEMA, progress);
     return result as LessonStep;
   }
 
@@ -227,12 +172,7 @@ export class ClaudeAdapter {
     progress: GenerationProgress
   ): Promise<LearnableConcept[]> {
     const prompt = buildLearnableConceptsPrompt();
-    const result = await this.runStructuredQuery(
-      prompt,
-      LEARNABLE_CONCEPTS_SCHEMA,
-      progress,
-      LEARNABLE_SCAN_PROGRESS
-    );
+    const result = await this.runStructuredQuery(prompt, LEARNABLE_CONCEPTS_SCHEMA, progress);
     return (result as { concepts: LearnableConcept[] }).concepts;
   }
 
@@ -240,28 +180,20 @@ export class ClaudeAdapter {
     progress: GenerationProgress
   ): Promise<FeatureTreeNode[]> {
     const prompt = buildFeatureDiscoveryPrompt();
-    const result = await this.runStructuredQuery(
-      prompt,
-      FEATURE_TREE_SCHEMA,
-      progress,
-      FEATURE_PROGRESS
-    );
+    const result = await this.runStructuredQuery(prompt, FEATURE_TREE_SCHEMA, progress);
     return (result as { features: FeatureTreeNode[] }).features;
   }
 
   private async runStructuredQuery(
     prompt: string,
     schema: Record<string, unknown>,
-    progress: GenerationProgress,
-    progressMessages: string[]
+    progress: GenerationProgress
   ): Promise<unknown> {
     const { query } = await import("@anthropic-ai/claude-agent-sdk");
     const claudePath = getConfiguredClaudePath();
 
     const abortController = new AbortController();
     progress.onCancel(() => abortController.abort());
-
-    progress.onProgress(progressMessages[0]!);
 
     try {
       const q = query({
@@ -283,15 +215,16 @@ export class ClaudeAdapter {
       });
 
       for await (const message of q) {
-        // Surface real activity from the SDK as progress
+        // Surface real tool activity from the SDK as progress
         if (message.type === "assistant" && "message" in message) {
           const assistantMsg = message.message as { content?: Array<{ type: string; name?: string; input?: { file_path?: string; pattern?: string; command?: string } }> };
           if (assistantMsg.content) {
             for (const block of assistantMsg.content) {
               if (block.type === "tool_use" && block.name) {
+                const verb = TOOL_LABELS[block.name] ?? block.name;
                 const target = block.input?.file_path || block.input?.pattern || block.input?.command || "";
-                const shortTarget = target.length > 50 ? "..." + target.slice(-47) : target;
-                const label = shortTarget ? `${block.name}: ${shortTarget}` : block.name;
+                const display = shortPath(target);
+                const label = display ? `${verb} ${display}` : `${verb}...`;
                 progress.onProgress(label);
               }
             }
