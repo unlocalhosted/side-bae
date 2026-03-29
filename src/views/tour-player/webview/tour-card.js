@@ -21,7 +21,7 @@
 
   let celebrationsSetting = "auto";
 
-  let lessonLoading = false;
+
 
   function shouldShowCelebrations() {
     if (celebrationsSetting === "on") return true;
@@ -470,7 +470,7 @@
   let lessonLoadingInterval = null;
 
   function renderLessonLoading() {
-    lessonLoading = true;
+
     if (lessonLoadingInterval) clearInterval(lessonLoadingInterval);
 
     root.innerHTML = `
@@ -496,7 +496,7 @@
   }
 
   function renderLessonStep(step, state) {
-    lessonLoading = false;
+
     if (lessonLoadingInterval) { clearInterval(lessonLoadingInterval); lessonLoadingInterval = null; }
 
     const phaseLabels = {
@@ -799,7 +799,7 @@
         previousNodeId = null;
         hasSeenAllNodes = false;
         currentReport = null;
-        lessonLoading = false;
+    
         if (lessonLoadingInterval) { clearInterval(lessonLoadingInterval); lessonLoadingInterval = null; }
         particles = [];
         if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
