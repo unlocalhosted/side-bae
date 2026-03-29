@@ -1,0 +1,6 @@
+#!/bin/sh
+echo "Running pre-push checks..."
+pnpm lint && pnpm typecheck && pnpm test:run && pnpm build || {
+  echo "Pre-push checks failed. Fix before pushing."
+  exit 1
+}
