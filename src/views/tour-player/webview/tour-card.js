@@ -596,14 +596,10 @@
           }
         }
 
-        // Continue button (only if response exists and step is active)
-        const continueHtml = isActive && step.response
+        // Continue button: show when response exists OR when there's no input method
+        const noInputMethod = !step.content.prompt || step.content.inputType === "none";
+        const continueHtml = isActive && (step.response || noInputMethod)
           ? `<button class="lesson-send-btn" id="lesson-continue" style="width:100%">Continue</button>`
-          : "";
-
-        // Step loading indicator
-        const loadingHtml = isActive && !step.content
-          ? `<div class="step-loading"><div class="lesson-loading-dots"><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div></div><span id="step-loading-msg"></span></div>`
           : "";
 
         contentHtml = `
@@ -613,7 +609,6 @@
             ${exchangeHtml}
             ${inputHtml}
             ${continueHtml}
-            ${loadingHtml}
           </div>
         `;
       }
