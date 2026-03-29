@@ -177,6 +177,11 @@ export class TourPlayer {
     subject: string,
     entryFile?: string
   ): Promise<void> {
+    // End any active session before starting a new one
+    if (this.lessonSession) this.endLesson();
+    if (this.investigationSession) this.endInvestigation();
+    if (this.engine.isLoaded()) this.stopTour();
+
     this.lessonSession = new LessonSession(adapter, subject, entryFile);
 
     this.webviewProvider.open(`Learning: ${subject}`);
@@ -302,6 +307,10 @@ export class TourPlayer {
     issueTitle: string,
     issueBody: string
   ): Promise<void> {
+    if (this.lessonSession) this.endLesson();
+    if (this.investigationSession) this.endInvestigation();
+    if (this.engine.isLoaded()) this.stopTour();
+
     this.investigationSession = new InvestigationSession(adapter, issueTitle, issueBody);
 
     this.webviewProvider.open(`Investigating: ${issueTitle}`);
@@ -384,10 +393,10 @@ export class TourPlayer {
   }
 
   private async applyInvestigationFix(): Promise<void> {
-    if (!this.investigationSession) return;
+    if (!this.investigationSession || this.investigationProcessing) return;
     const state = this.investigationSession.getSessionState();
     const step = state.currentStep;
-    if (!step?.suggestedEdit) return;
+    if (!step?.suggestedEdit?.file || !step.suggestedEdit.oldText) return;
 
     const { file, oldText, newText } = step.suggestedEdit;
     const fileUri = vscode.Uri.file(join(this.workspaceRoot, file));

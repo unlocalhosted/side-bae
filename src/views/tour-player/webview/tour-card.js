@@ -151,6 +151,7 @@
   }
 
   function renderMarkdown(text, opts) {
+    if (!text) return "";
     let html = escapeHtml(text)
       .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="md-code-block"><code>$2</code></pre>')
       .replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>')
@@ -787,6 +788,8 @@
 
   function renderInvestigationTrail(trail) {
     if (!trail || trail.length === 0) return "";
+    const display = trail.length > 15 ? trail.slice(-15) : trail;
+    trail = display;
     return `
       <div class="investigation-trail">
         ${trail.map((entry, i) => `
@@ -849,7 +852,7 @@
       testHtml = `
         <div class="test-results ${passed ? "tests-passed" : "tests-failed"}">
           <div class="test-results-summary">${passed ? "\u2713" : "\u2717"} ${summaryText}</div>
-          ${step.testResults.errors.length > 0 ? `<pre class="test-results-errors">${escapeHtml(step.testResults.errors.join("\n"))}</pre>` : ""}
+          ${step.testResults.errors.length > 0 ? `<pre class="test-results-errors">${escapeHtml(step.testResults.errors.slice(0, 5).join("\n").slice(0, 2000))}</pre>` : ""}
         </div>
       `;
     }
@@ -1056,8 +1059,9 @@
   }
 
   function escapeHtml(text) {
+    if (text == null) return "";
     const div = document.createElement("div");
-    div.textContent = text;
+    div.textContent = String(text);
     return div.innerHTML;
   }
 

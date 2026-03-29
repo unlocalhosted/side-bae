@@ -41,7 +41,9 @@ Generate the first step: an "orient" phase. Describe what you think the issue is
     text: string,
     progress: GenerationProgress
   ): Promise<InvestigationStep> {
-    this.history.push({ role: "user", text });
+    const trimmed = text.trim().slice(0, 5000);
+    if (!trimmed) return this.confirmAndContinue(progress);
+    this.history.push({ role: "user", text: trimmed });
     const turnPrompt = this.buildTurnPrompt({ text, type: "response" });
     return this.generateStep(turnPrompt, progress);
   }

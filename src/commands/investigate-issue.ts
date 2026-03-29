@@ -66,13 +66,14 @@ export function registerInvestigateIssueCommand(
               "e.g., https://github.com/org/repo/issues/42 or 'login times out under load'",
           });
 
-          if (!input) return;
+          const trimmedInput = input?.trim();
+          if (!trimmedInput) return;
 
           let issueTitle: string;
           let issueBody: string;
 
-          if (isGitHubIssueUrl(input)) {
-            const issue = await fetchGitHubIssue(input, workspaceRoot);
+          if (isGitHubIssueUrl(trimmedInput)) {
+            const issue = await fetchGitHubIssue(trimmedInput, workspaceRoot);
             if (!issue) {
               vscode.window.showErrorMessage(
                 "Failed to fetch issue. Make sure the `gh` CLI is installed and authenticated."
@@ -82,8 +83,8 @@ export function registerInvestigateIssueCommand(
             issueTitle = issue.title;
             issueBody = issue.body;
           } else {
-            issueTitle = input;
-            issueBody = input;
+            issueTitle = trimmedInput.slice(0, 200);
+            issueBody = trimmedInput.slice(0, 10000);
           }
 
           await player.startInvestigation(getAdapter(), issueTitle, issueBody);

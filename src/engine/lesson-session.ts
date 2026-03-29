@@ -45,7 +45,9 @@ Generate the first step: a "prime" phase. Show the learner a key code region and
     text: string,
     progress: GenerationProgress
   ): Promise<LessonStep> {
-    this.history.push({ role: "learner", text });
+    const trimmed = text.trim().slice(0, 5000);
+    if (!trimmed) return this.skip(progress);
+    this.history.push({ role: "learner", text: trimmed });
 
     const turnPrompt = this.buildTurnPrompt({
       text,
@@ -94,7 +96,9 @@ Generate the first step: a "prime" phase. Show the learner a key code region and
     question: string,
     progress: GenerationProgress
   ): Promise<LessonStep> {
-    this.history.push({ role: "learner", text: question });
+    const trimmed = question.trim().slice(0, 5000);
+    if (!trimmed) return this.skip(progress);
+    this.history.push({ role: "learner", text: trimmed });
 
     const turnPrompt = this.buildTurnPrompt({
       text: question,
