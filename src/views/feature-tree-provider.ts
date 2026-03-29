@@ -366,21 +366,27 @@ export class FeatureTreeProvider
       }
       case "learnable": {
         const c = element.concept;
+        const hasLesson = this.exploredNames.has(c.name.toLowerCase());
         const item = new vscode.TreeItem(
           c.name,
           vscode.TreeItemCollapsibleState.None
         );
         const depthLabel = c.depth.charAt(0).toUpperCase() + c.depth.slice(1);
-        item.description = `${depthLabel} \u00B7 ${c.concepts.length} pattern${c.concepts.length === 1 ? "" : "s"}`;
-        item.tooltip = `${c.name}\n${c.description}\n\nPatterns: ${c.concepts.join(", ")}\nEntry: ${c.entryFile}\n\nClick to start a live lesson (takes a moment)`;
+        item.description = hasLesson
+          ? `\u2713 ${depthLabel} \u00B7 ${c.concepts.length} pattern${c.concepts.length === 1 ? "" : "s"}`
+          : `${depthLabel} \u00B7 ${c.concepts.length} pattern${c.concepts.length === 1 ? "" : "s"}`;
+        item.tooltip = hasLesson
+          ? `"${c.name}" \u2014 lesson completed\nClick to start a new lesson`
+          : `${c.name}\n${c.description}\n\nPatterns: ${c.concepts.join(", ")}\nEntry: ${c.entryFile}\n\nClick to start a live lesson (takes a moment)`;
         item.command = {
           command: "sideBae.startLesson",
           title: "Start Lesson",
           arguments: [c.name, c.entryFile],
         };
-        item.iconPath = new vscode.ThemeIcon(
-          c.icon || "mortar-board"
-        );
+        const iconId = c.icon || "mortar-board";
+        item.iconPath = hasLesson
+          ? new vscode.ThemeIcon(iconId, new vscode.ThemeColor("charts.green"))
+          : new vscode.ThemeIcon(iconId);
         return item;
       }
       case "hint": {

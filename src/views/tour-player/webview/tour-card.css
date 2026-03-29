@@ -178,7 +178,9 @@ body {
 }
 .card-explanation .md-code-block, .report-body .md-code-block, .lesson-content .md-code-block, .investigation-content .md-code-block {
   font-family: var(--vscode-editor-font-family); font-size: 12px;
-  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  color: var(--vscode-editor-foreground, var(--vscode-foreground));
+  background: var(--vscode-editor-background, var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15)));
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
   padding: 8px; border-radius: 4px; margin: 6px 0; overflow-x: auto; white-space: pre;
 }
 .card-explanation .md-list, .report-body .md-list, .lesson-content .md-list, .investigation-content .md-list { list-style: none; padding-left: 0; margin: 4px 0; }
@@ -391,12 +393,16 @@ body {
   font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
   overflow-wrap: break-word; word-break: break-word;
 }
-.report-body h2 {
+.report-body h2, .md-h2 {
   font-size: 13px; font-weight: 700; margin: 10px 0 4px; padding-top: 8px;
   border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
   color: var(--vscode-foreground);
 }
-.report-body h2:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.report-body h2:first-child, .md-h2:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.md-h3 {
+  font-size: 13px; font-weight: 600; margin: 8px 0 4px;
+  color: var(--vscode-foreground);
+}
 .copy-report-btn {
   padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer;
   font-size: 12px; font-family: var(--vscode-font-family); font-weight: 500;

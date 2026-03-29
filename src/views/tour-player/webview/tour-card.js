@@ -150,14 +150,15 @@
     });
   }
 
-  function renderMarkdown(text, opts) {
+  function renderMarkdown(text) {
     if (!text) return "";
     let html = escapeHtml(text)
       .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="md-code-block"><code>$2</code></pre>')
       .replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>')
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>");
-    if (opts && opts.headings) html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+    html = html.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>');
     return html
       .replace(/^- (.+)$/gm, '<li class="md-list-item">$1</li>')
       .replace(/(<li class="md-list-item">.*?<\/li>\n?)+/g, '<ul class="md-list">$&</ul>')
@@ -388,7 +389,7 @@
                 <span>Investigation Report</span>
               </button>
               <div class="report-content">
-                <div class="report-body">${renderMarkdown(currentReport, { headings: true })}</div>
+                <div class="report-body">${renderMarkdown(currentReport)}</div>
                 <button class="copy-report-btn">Copy report</button>
               </div>
             </div>
