@@ -6,12 +6,13 @@ export async function requireClaude(
 ): Promise<boolean> {
   const status = await checkClaude();
   if (!status.available) {
+    const detail = status.error ? `\n\nError: ${status.error}` : "";
     const action = await vscode.window.showErrorMessage(
-      "Can't find Claude CLI. Run `which claude` in your terminal, then set the path in Settings > Side Bae > Claude Path.",
-      "Set Path",
+      `Can't connect to Claude.${detail}`,
+      "Set Claude Path",
       "How to Install"
     );
-    if (action === "Set Path") {
+    if (action === "Set Claude Path") {
       vscode.commands.executeCommand(
         "workbench.action.openSettings",
         "sideChick.claudePath"
