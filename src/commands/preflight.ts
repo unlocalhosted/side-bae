@@ -15,7 +15,7 @@ export async function requireClaude(
     if (action === "Set Claude Path") {
       vscode.commands.executeCommand(
         "workbench.action.openSettings",
-        "sideChick.claudePath"
+        "sideBae.claudePath"
       );
     } else if (action === "How to Install") {
       vscode.env.openExternal(

@@ -9,7 +9,7 @@ export function registerNavigationCommands(
 ): void {
   context.subscriptions.push(
     // Start a saved tour via QuickPick
-    vscode.commands.registerCommand("sideChick.startTour", async () => {
+    vscode.commands.registerCommand("sideBae.startTour", async () => {
       const tours = await tourStore.listTours(workspaceRoot);
 
       if (tours.length === 0) {
@@ -18,7 +18,7 @@ export function registerNavigationCommands(
           "Generate Tour"
         );
         if (action === "Generate Tour") {
-          vscode.commands.executeCommand("sideChick.generateTour");
+          vscode.commands.executeCommand("sideBae.generateTour");
         }
         return;
       }
@@ -46,7 +46,7 @@ export function registerNavigationCommands(
 
     // Open a specific tour by ID (from tree view click)
     vscode.commands.registerCommand(
-      "sideChick.openTour",
+      "sideBae.openTour",
       async (tourId: string) => {
         try {
           const tour = await tourStore.loadTour(workspaceRoot, tourId);
@@ -59,7 +59,7 @@ export function registerNavigationCommands(
     ),
 
     // Next Stop — pick an edge from the current node via QuickPick
-    vscode.commands.registerCommand("sideChick.nextEdge", async () => {
+    vscode.commands.registerCommand("sideBae.nextEdge", async () => {
       if (!player.isActive()) {
         vscode.window.showInformationMessage("No active tour.");
         return;
@@ -94,19 +94,19 @@ export function registerNavigationCommands(
     }),
 
     // Go back in history
-    vscode.commands.registerCommand("sideChick.previousNode", async () => {
+    vscode.commands.registerCommand("sideBae.previousNode", async () => {
       if (!player.isActive()) return;
       await player.goBack();
     }),
 
     // Go forward in history
-    vscode.commands.registerCommand("sideChick.goForward", async () => {
+    vscode.commands.registerCommand("sideBae.goForward", async () => {
       if (!player.isActive()) return;
       await player.goForward();
     }),
 
     // Stop tour
-    vscode.commands.registerCommand("sideChick.stopTour", () => {
+    vscode.commands.registerCommand("sideBae.stopTour", () => {
       if (!player.isActive()) return;
       player.stopTour();
     })

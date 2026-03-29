@@ -50,7 +50,7 @@ export function registerInvestigateIssueCommand(
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      "sideChick.investigateIssue",
+      "sideBae.investigateIssue",
       async () => {
         if (investigating) {
           vscode.window.showWarningMessage("An investigation is already in progress.");
@@ -106,7 +106,7 @@ export function registerInvestigateIssueCommand(
                 );
 
                 await tourStore.saveTour(workspaceRoot, tour);
-                vscode.commands.executeCommand("sideChick.refreshFeatures");
+                vscode.commands.executeCommand("sideBae.refreshFeatures");
 
                 await player.startTour(tour);
 

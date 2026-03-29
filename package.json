@@ -1,5 +1,5 @@
 {
-  "name": "side-chick",
+  "name": "side-bae",
   "displayName": "Side Bae",
   "version": "0.1.0",
   "description": "AI-powered codebase onboarding via guided code tours",
@@ -22,16 +22,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "side-chick",
+          "id": "side-bae",
           "title": "Side Bae",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "side-chick": [
+      "side-bae": [
         {
-          "id": "sideChick.featureTree",
+          "id": "sideBae.featureTree",
           "name": "Features",
           "type": "tree"
         }
@@ -39,60 +39,60 @@
     },
     "commands": [
       {
-        "command": "sideChick.generateTour",
+        "command": "sideBae.generateTour",
         "title": "Ask About a Feature",
         "category": "Side Bae"
       },
       {
-        "command": "sideChick.startTour",
+        "command": "sideBae.startTour",
         "title": "Start Saved Tour",
         "category": "Side Bae"
       },
       {
-        "command": "sideChick.nextEdge",
+        "command": "sideBae.nextEdge",
         "title": "Follow Path",
         "category": "Side Bae"
       },
       {
-        "command": "sideChick.previousNode",
+        "command": "sideBae.previousNode",
         "title": "Go Back",
         "category": "Side Bae"
       },
       {
-        "command": "sideChick.goForward",
+        "command": "sideBae.goForward",
         "title": "Go Forward",
         "category": "Side Bae"
       },
       {
-        "command": "sideChick.stopTour",
+        "command": "sideBae.stopTour",
         "title": "Stop Tour",
         "category": "Side Bae"
       },
       {
-        "command": "sideChick.refreshFeatures",
+        "command": "sideBae.refreshFeatures",
         "title": "Refresh Features",
         "category": "Side Bae",
         "icon": "$(refresh)"
       },
       {
-        "command": "sideChick.discoverFeatures",
+        "command": "sideBae.discoverFeatures",
         "title": "Scan Codebase for Features",
         "category": "Side Bae",
         "icon": "$(search)"
       },
       {
-        "command": "sideChick.openTour",
+        "command": "sideBae.openTour",
         "title": "Open Tour",
         "category": "Side Bae"
       },
       {
-        "command": "sideChick.whatsNew",
+        "command": "sideBae.whatsNew",
         "title": "What's New",
         "category": "Side Bae",
         "icon": "$(history)"
       },
       {
-        "command": "sideChick.investigateIssue",
+        "command": "sideBae.investigateIssue",
         "title": "Investigate Issue",
         "category": "Side Bae",
         "icon": "$(search-fuzzy)"
@@ -100,27 +100,27 @@
     ],
     "keybindings": [
       {
-        "command": "sideChick.previousNode",
+        "command": "sideBae.previousNode",
         "key": "alt+left",
-        "when": "sideChick.tourActive"
+        "when": "sideBae.tourActive"
       },
       {
-        "command": "sideChick.goForward",
+        "command": "sideBae.goForward",
         "key": "alt+right",
-        "when": "sideChick.tourActive"
+        "when": "sideBae.tourActive"
       },
       {
-        "command": "sideChick.nextEdge",
+        "command": "sideBae.nextEdge",
         "key": "alt+down",
-        "when": "sideChick.tourActive"
+        "when": "sideBae.tourActive"
       },
       {
-        "command": "sideChick.stopTour",
+        "command": "sideBae.stopTour",
         "key": "escape",
-        "when": "sideChick.tourActive && !editorHasSelection && !findInputFocussed && !inQuickOpen"
+        "when": "sideBae.tourActive && !editorHasSelection && !findInputFocussed && !inQuickOpen"
       },
       {
-        "command": "sideChick.generateTour",
+        "command": "sideBae.generateTour",
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t"
       }
@@ -128,48 +128,48 @@
     "menus": {
       "view/title": [
         {
-          "command": "sideChick.refreshFeatures",
-          "when": "view == sideChick.featureTree",
+          "command": "sideBae.refreshFeatures",
+          "when": "view == sideBae.featureTree",
           "group": "navigation"
         },
         {
-          "command": "sideChick.discoverFeatures",
-          "when": "view == sideChick.featureTree",
+          "command": "sideBae.discoverFeatures",
+          "when": "view == sideBae.featureTree",
           "group": "navigation"
         },
         {
-          "command": "sideChick.whatsNew",
-          "when": "view == sideChick.featureTree",
+          "command": "sideBae.whatsNew",
+          "when": "view == sideBae.featureTree",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
-          "command": "sideChick.nextEdge",
-          "when": "sideChick.tourActive"
+          "command": "sideBae.nextEdge",
+          "when": "sideBae.tourActive"
         },
         {
-          "command": "sideChick.previousNode",
-          "when": "sideChick.tourActive"
+          "command": "sideBae.previousNode",
+          "when": "sideBae.tourActive"
         },
         {
-          "command": "sideChick.goForward",
-          "when": "sideChick.tourActive"
+          "command": "sideBae.goForward",
+          "when": "sideBae.tourActive"
         },
         {
-          "command": "sideChick.stopTour",
-          "when": "sideChick.tourActive"
+          "command": "sideBae.stopTour",
+          "when": "sideBae.tourActive"
         },
         {
-          "command": "sideChick.openTour",
+          "command": "sideBae.openTour",
           "when": "false"
         },
         {
-          "command": "sideChick.refreshFeatures",
+          "command": "sideBae.refreshFeatures",
           "when": "false"
         },
         {
-          "command": "sideChick.discoverFeatures",
+          "command": "sideBae.discoverFeatures",
           "when": "false"
         }
       ]
@@ -177,22 +177,22 @@
     "configuration": {
       "title": "Side Bae",
       "properties": {
-        "sideChick.claudePath": {
+        "sideBae.claudePath": {
           "type": "string",
           "default": "",
           "description": "Path to the Claude CLI binary. Leave empty to auto-detect. Set this if the extension can't find Claude (run `which claude` in your terminal to find the path)."
         },
-        "sideChick.model": {
+        "sideBae.model": {
           "type": "string",
           "default": "haiku",
           "description": "Claude model for tour generation (haiku = fast, sonnet = balanced, opus = thorough)"
         },
-        "sideChick.maxBudgetUsd": {
+        "sideBae.maxBudgetUsd": {
           "type": "number",
           "default": 0.5,
           "description": "Max cost (USD) per tour or feature scan"
         },
-        "sideChick.celebrations": {
+        "sideBae.celebrations": {
           "type": "string",
           "enum": [
             "auto",
@@ -211,14 +211,14 @@
     },
     "viewsWelcome": [
       {
-        "view": "sideChick.featureTree",
+        "view": "sideBae.featureTree",
         "contents": "Open a folder to start exploring with Side Bae.\n[Open Folder](command:vscode.openFolder)",
         "when": "workbenchState == empty"
       },
       {
-        "view": "sideChick.featureTree",
-        "contents": "Understand this codebase with AI-guided walkthroughs.\n[Ask About a Feature](command:sideChick.generateTour)\n[Discover All Features](command:sideChick.discoverFeatures)",
-        "when": "workbenchState != empty && !sideChick.hasTours && !sideChick.featuresLoaded"
+        "view": "sideBae.featureTree",
+        "contents": "Understand this codebase with AI-guided walkthroughs.\n[Ask About a Feature](command:sideBae.generateTour)\n[Discover All Features](command:sideBae.discoverFeatures)",
+        "when": "workbenchState != empty && !sideBae.hasTours && !sideBae.featuresLoaded"
       }
     ]
   },

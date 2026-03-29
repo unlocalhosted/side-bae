@@ -1,4 +1,4 @@
-# side-chick — v1 Spec
+# side-bae — v1 Spec
 
 AI-powered codebase onboarding for VS Code / Cursor. Ask about a feature, get a guided code tour.
 
@@ -40,7 +40,7 @@ The cold-start experience. User opens the extension on a new repo.
 User selects a feature or asks a question → Claude generates a tour.
 
 - Claude reads the codebase, identifies relevant files and code paths
-- Generates a `.side-chick/<tour-name>.tour.json` DSL file
+- Generates a `.side-bae/<tour-name>.tour.json` DSL file
 - DSL contains a graph of **nodes** (annotated code stops) and **edges** (navigation links)
 - Generation shows a progress indicator: "Scanning files → Tracing code paths → Generating explanations"
 
@@ -169,9 +169,9 @@ Warns when tour annotations may be outdated.
 
 Tours as committed artifacts.
 
-- `.side-chick/` folder in repo root, gitignore-optional
+- `.side-bae/` folder in repo root, gitignore-optional
 - Team members with the extension installed auto-discover committed tours
-- Convention: `.side-chick/<feature-name>.tour.json`
+- Convention: `.side-bae/<feature-name>.tour.json`
 
 ---
 

@@ -17,7 +17,7 @@ import { validateTourDocument, type TourDocument } from "../types/tour.js";
  */
 function getConfiguredClaudePath(): string | undefined {
   const configured = vscode.workspace
-    .getConfiguration("sideChick")
+    .getConfiguration("sideBae")
     .get<string>("claudePath", "");
   return configured || undefined;
 }
@@ -265,7 +265,7 @@ export class ClaudeAdapter {
 
           case "error_max_budget_usd":
             throw new Error(
-              `Query exceeded the $${this.maxBudgetUsd} budget. Increase sideChick.maxBudgetUsd in settings.`
+              `Query exceeded the $${this.maxBudgetUsd} budget. Increase sideBae.maxBudgetUsd in settings.`
             );
 
           case "error_max_structured_output_retries":

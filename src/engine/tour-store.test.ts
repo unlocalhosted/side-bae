@@ -29,7 +29,7 @@ describe("TourStore", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "side-chick-test-"));
+    tempDir = await mkdtemp(join(tmpdir(), "side-bae-test-"));
   });
 
   afterEach(async () => {
@@ -42,9 +42,9 @@ describe("TourStore", () => {
     expect(loaded).toEqual(MOCK_TOUR);
   });
 
-  it("creates .side-chick directory if missing", async () => {
+  it("creates .side-bae directory if missing", async () => {
     const path = await saveTour(tempDir, MOCK_TOUR);
-    expect(path).toContain(".side-chick");
+    expect(path).toContain(".side-bae");
     expect(path).toContain("auth-flow.tour.json");
   });
 

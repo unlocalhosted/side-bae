@@ -38,7 +38,7 @@ export class TourCardPanelProvider {
     this.pendingMessages = [];
 
     this.panel = vscode.window.createWebviewPanel(
-      "sideChick.tourCard",
+      "sideBae.tourCard",
       title,
       { viewColumn: vscode.ViewColumn.Two, preserveFocus: false },
       {
@@ -79,7 +79,7 @@ export class TourCardPanelProvider {
 
   sendCelebrationSetting(): void {
     const setting = vscode.workspace
-      .getConfiguration("sideChick")
+      .getConfiguration("sideBae")
       .get<string>("celebrations", "auto");
     this.post({ type: "config", celebrations: setting });
   }

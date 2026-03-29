@@ -11,7 +11,7 @@ import { disposeDecorations } from "./views/tour-player/decorations.js";
 import { requireClaude } from "./commands/preflight.js";
 
 function getAdapter(workspaceRoot: string): ClaudeAdapter {
-  const config = vscode.workspace.getConfiguration("sideChick");
+  const config = vscode.workspace.getConfiguration("sideBae");
   return new ClaudeAdapter({
     workspaceRoot,
     model: config.get<string>("model", "haiku"),
@@ -48,7 +48,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(
-      "sideChick.featureTree",
+      "sideBae.featureTree",
       featureTreeProvider
     )
   );
@@ -60,10 +60,10 @@ export async function activate(context: vscode.ExtensionContext) {
   registerInvestigateIssueCommand(context, () => adapter, player, workspaceRoot, checkClaude);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("sideChick.refreshFeatures", () => {
+    vscode.commands.registerCommand("sideBae.refreshFeatures", () => {
       featureTreeProvider.refresh();
     }),
-    vscode.commands.registerCommand("sideChick.discoverFeatures", () => {
+    vscode.commands.registerCommand("sideBae.discoverFeatures", () => {
       featureTreeProvider.discoverFeatures();
     })
   );
@@ -76,16 +76,16 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("sideChick")) {
+      if (e.affectsConfiguration("sideBae")) {
         adapter = getAdapter(workspaceRoot);
         webviewProvider.sendCelebrationSetting();
       }
     })
   );
 
-  vscode.commands.executeCommand("setContext", "sideChick.tourActive", false);
-  vscode.commands.executeCommand("setContext", "sideChick.featuresLoaded", false);
-  // sideChick.hasTours is set inside FeatureTreeProvider.getChildren() on every render
+  vscode.commands.executeCommand("setContext", "sideBae.tourActive", false);
+  vscode.commands.executeCommand("setContext", "sideBae.featuresLoaded", false);
+  // sideBae.hasTours is set inside FeatureTreeProvider.getChildren() on every render
 }
 
 export function deactivate() {

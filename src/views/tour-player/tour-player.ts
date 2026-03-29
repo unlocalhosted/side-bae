@@ -169,7 +169,7 @@ export class TourPlayer {
   }
 
   private setTourActiveContext(active: boolean): void {
-    vscode.commands.executeCommand("setContext", "sideChick.tourActive", active);
+    vscode.commands.executeCommand("setContext", "sideBae.tourActive", active);
   }
 
   private async showNode(node: TourNode): Promise<void> {

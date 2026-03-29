@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(ls /Users/v0s06lr/SideProject/side-chick/node_modules/@anthropic-ai/claude-code/dist/*.d.ts)",
+      "Bash(node:*)",
+      "WebSearch",
+      "WebFetch(domain:agnt.gg)",
+      "WebFetch(domain:nader.substack.com)",
+      "Read(//Users/v0s06lr/.claude/**)",
+      "Bash(env)"
+    ]
+  }
+}

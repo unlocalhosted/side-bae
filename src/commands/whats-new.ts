@@ -11,7 +11,7 @@ export function registerWhatsNewCommand(
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      "sideChick.whatsNew",
+      "sideBae.whatsNew",
       async () => {
         if (!(await requireClaude(checkClaude))) return;
 

@@ -15,7 +15,7 @@ export function registerGenerateTourCommand(
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      "sideChick.generateTour",
+      "sideBae.generateTour",
       async (featureName?: string) => {
         if (generating) {
           vscode.window.showWarningMessage("A tour is already being generated.");
@@ -50,7 +50,7 @@ export function registerGenerateTourCommand(
                 });
 
                 await tourStore.saveTour(workspaceRoot, tour);
-                vscode.commands.executeCommand("sideChick.refreshFeatures");
+                vscode.commands.executeCommand("sideBae.refreshFeatures");
 
                 await player.startTour(tour);
 

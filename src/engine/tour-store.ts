@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 
-const TOUR_DIR = ".side-chick";
+const TOUR_DIR = ".side-bae";
 const FEATURES_FILE = "features.json";
 
 function getTourDir(workspaceRoot: string): string {

@@ -119,7 +119,7 @@ export class FeatureTreeProvider
           this.error = null;
           vscode.commands.executeCommand(
             "setContext",
-            "sideChick.featuresLoaded",
+            "sideBae.featuresLoaded",
             true
           );
           this.featuresLoaded = true;
@@ -221,7 +221,7 @@ export class FeatureTreeProvider
           : `Generate a tour about "${f.name}" (uses Claude API)`;
         if (!hasChildren) {
           item.command = {
-            command: "sideChick.generateTour",
+            command: "sideBae.generateTour",
             title: "Generate Tour",
             arguments: [f.name],
           };
@@ -240,7 +240,7 @@ export class FeatureTreeProvider
         item.description = `${element.nodeCount} stops`;
         item.tooltip = `${element.name}\n${element.query}\n\nClick to start (instant, no API cost)`;
         item.command = {
-          command: "sideChick.openTour",
+          command: "sideBae.openTour",
           title: "Open Tour",
           arguments: [element.tourId],
         };
@@ -274,7 +274,7 @@ export class FeatureTreeProvider
           vscode.TreeItemCollapsibleState.None
         );
         item.command = {
-          command: "sideChick.discoverFeatures",
+          command: "sideBae.discoverFeatures",
           title: "Retry",
         };
         item.iconPath = new vscode.ThemeIcon("refresh");
@@ -289,7 +289,7 @@ export class FeatureTreeProvider
         item.description = `${c.author} \u00B7 ${c.date}`;
         item.tooltip = `${c.name}\n${c.summary}\n\nAuthor: ${c.author}\nCommits: ${c.commits.join(", ")}\nFiles: ${c.files.join(", ")}\n\nClick to generate a tour (uses Claude API)`;
         item.command = {
-          command: "sideChick.generateTour",
+          command: "sideBae.generateTour",
           title: "Generate Tour",
           arguments: [c.name],
         };
@@ -335,7 +335,7 @@ export class FeatureTreeProvider
       const cached = await tourStore.loadFeatures(this.workspaceRoot);
       if (cached) {
         this.features = cached;
-        vscode.commands.executeCommand("setContext", "sideChick.featuresLoaded", true);
+        vscode.commands.executeCommand("setContext", "sideBae.featuresLoaded", true);
       }
     }
 
@@ -345,7 +345,7 @@ export class FeatureTreeProvider
     // ── Saved Tours (PRIMARY — always first, always expanded) ──
     const tours = await tourStore.listTours(this.workspaceRoot);
     // Keep the when-clause context in sync every time the tree renders
-    vscode.commands.executeCommand("setContext", "sideChick.hasTours", tours.length > 0);
+    vscode.commands.executeCommand("setContext", "sideBae.hasTours", tours.length > 0);
 
     // Build explored set from tour queries (features the user has already toured)
     this.exploredNames = new Set(tours.map((t) => t.query.toLowerCase()));
@@ -361,7 +361,7 @@ export class FeatureTreeProvider
       tourItems.push({
         kind: "hint",
         text: "Ask about another feature...",
-        command: "sideChick.generateTour",
+        command: "sideBae.generateTour",
         commandTitle: "Ask About a Feature",
       });
       sections.push({
@@ -405,7 +405,7 @@ export class FeatureTreeProvider
       featureItems.push({
         kind: "hint",
         text: "Rescan codebase...",
-        command: "sideChick.discoverFeatures",
+        command: "sideBae.discoverFeatures",
         commandTitle: "Rescan",
         icon: "refresh",
       });
@@ -423,7 +423,7 @@ export class FeatureTreeProvider
           {
             kind: "hint",
             text: "Scan codebase for features",
-            command: "sideChick.discoverFeatures",
+            command: "sideBae.discoverFeatures",
             commandTitle: "Discover All Features",
             icon: "search",
           },
@@ -448,7 +448,7 @@ export class FeatureTreeProvider
           {
             kind: "hint",
             text: "Try again",
-            command: "sideChick.whatsNew",
+            command: "sideBae.whatsNew",
             commandTitle: "What's New",
           },
         ],
@@ -467,7 +467,7 @@ export class FeatureTreeProvider
       changeItems.push({
         kind: "hint",
         text: "Load a different range...",
-        command: "sideChick.whatsNew",
+        command: "sideBae.whatsNew",
         commandTitle: "What's New",
         icon: "history",
       });
@@ -486,7 +486,7 @@ export class FeatureTreeProvider
           {
             kind: "hint",
             text: "See what changed recently",
-            command: "sideChick.whatsNew",
+            command: "sideBae.whatsNew",
             commandTitle: "What's New",
             icon: "history",
           },

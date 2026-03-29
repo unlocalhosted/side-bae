@@ -39,7 +39,7 @@ Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) to be 
 
 **Discover features** — Click "Discover Features" in the sidebar to get an AI-generated map of what your codebase does. Click any feature to generate a walkthrough for it.
 
-**Saved walkthroughs** — Generated walkthroughs are saved to `.side-chick/` and appear in the sidebar. Replaying is instant and free (no API calls).
+**Saved walkthroughs** — Generated walkthroughs are saved to `.side-bae/` and appear in the sidebar. Replaying is instant and free (no API calls).
 
 **Graph navigation** — Each stop has clickable edge links that show where the code flows next. Edges show how many stops are reachable ("3 stops") and whether you've already explored that path (new / in progress / done).
 
@@ -71,7 +71,7 @@ Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) to be 
 │                  │                                 │
 │         ┌────────▼─────────┐                       │
 │         │    Tour Store     │                       │
-│         │ (.side-chick/*.json)                      │
+│         │ (.side-bae/*.json)                      │
 │         └──────────────────┘                       │
 └─────────────────────────────────────────────────┘
 ```
@@ -82,7 +82,7 @@ Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) to be 
 |-------|-------|----------------|
 | **Types** | `src/types/tour.ts` | `TourDocument`, `TourNode`, `TourEdge` — the DSL data model. Includes `validateTourDocument()` for boundary validation. |
 | **Engine** | `src/engine/tour-engine.ts` | Pure TypeScript state machine. Graph navigation, history, breadcrumbs, visited node tracking, edge depth counting. No VS Code imports — fully testable. |
-| **Store** | `src/engine/tour-store.ts` | Read/write `.side-chick/*.tour.json` files. Uses Node `fs/promises` — testable without VS Code. |
+| **Store** | `src/engine/tour-store.ts` | Read/write `.side-bae/*.tour.json` files. Uses Node `fs/promises` — testable without VS Code. |
 | **Adapter** | `src/claude/adapter.ts` | Wraps `@anthropic-ai/claude-agent-sdk`. Sends prompts with JSON Schema, gets structured output back. Handles auth, progress, cancellation. |
 | **Prompts** | `src/claude/prompts.ts` | Prompt templates for tour generation and feature discovery. |
 | **Tree View** | `src/views/feature-tree-provider.ts` | Sidebar tree: saved tours (primary) + discovered features (secondary). Manages feature scan lifecycle. |
@@ -106,7 +106,7 @@ validateTourDocument(result)
   │  Checks all fields, edge targets, line numbers
   ▼
 TourStore.saveTour(tour)
-  │  Writes to .side-chick/auth-flow.tour.json
+  │  Writes to .side-bae/auth-flow.tour.json
   ▼
 TourPlayer.startTour(tour)
   │
@@ -177,9 +177,9 @@ pnpm lint            # oxlint
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `sideChick.model` | `haiku` | Claude model (haiku = fast, sonnet = balanced, opus = thorough) |
-| `sideChick.maxBudgetUsd` | `0.5` | Max cost per tour or feature scan |
-| `sideChick.celebrations` | `auto` | Confetti animations: auto (follow system), on, off |
+| `sideBae.model` | `haiku` | Claude model (haiku = fast, sonnet = balanced, opus = thorough) |
+| `sideBae.maxBudgetUsd` | `0.5` | Max cost per tour or feature scan |
+| `sideBae.celebrations` | `auto` | Confetti animations: auto (follow system), on, off |
 
 ## Keyboard shortcuts
 
