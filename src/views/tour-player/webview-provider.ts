@@ -81,12 +81,15 @@ export class TourCardPanelProvider {
       }
     });
 
+    const createdPanel = this.panel;
     this.panel.onDidDispose(() => {
-      const wasActive = this.panel !== null;
+      // Guard against stale dispose: if a new panel was created between
+      // dispose() and this async callback, don't wipe the new panel's state
+      if (this.panel !== createdPanel) return;
       this.panel = null;
       this.ready = false;
       this.pendingMessages = [];
-      if (wasActive && this.onNavigation) {
+      if (this.onNavigation) {
         this.onNavigation({ type: "stop" });
       }
     });
