@@ -95,6 +95,9 @@ export class TourPlayer {
         case "openExternal":
           vscode.env.openExternal(vscode.Uri.parse(action.url));
           break;
+        case "openFileAtLine":
+          this.openFileAtLine(action.file, action.line);
+          break;
         case "launchCommand": {
           const allowed = [
             "sideBae.generateTour",
@@ -306,6 +309,8 @@ export class TourPlayer {
       editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
       editor.selection = new vscode.Selection(range.start, range.start);
 
+      // Small delay lets VS Code finish rendering the editor before we apply decorations
+      await new Promise((resolve) => setTimeout(resolve, 100));
       applyDecorations(editor, {
         file: step.file,
         startLine: step.startLine,
@@ -515,6 +520,25 @@ export class TourPlayer {
       },
       onCancel: () => {},
     };
+  }
+
+  private async openFileAtLine(file: string, line: number): Promise<void> {
+    const fileUri = vscode.Uri.file(join(this.workspaceRoot, file));
+    try {
+      const doc = await vscode.workspace.openTextDocument(fileUri);
+      const editor = await vscode.window.showTextDocument(doc, {
+        viewColumn: vscode.ViewColumn.One,
+        preserveFocus: true,
+      });
+      const pos = new vscode.Position(Math.max(0, line - 1), 0);
+      editor.revealRange(
+        new vscode.Range(pos, pos),
+        vscode.TextEditorRevealType.InCenterIfOutsideViewport
+      );
+      editor.selection = new vscode.Selection(pos, pos);
+    } catch {
+      // File might not exist
+    }
   }
 
   private async applyFix(

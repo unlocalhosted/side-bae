@@ -152,18 +152,51 @@
 
   function renderMarkdown(text) {
     if (!text) return "";
-    let html = escapeHtml(text)
-      .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="md-code-block"><code>$2</code></pre>')
-      .replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>')
+
+    // 1. Extract code blocks BEFORE escaping (protect them)
+    const codeBlocks = [];
+    let processed = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      const idx = codeBlocks.length;
+      codeBlocks.push('<pre class="md-code-block"><code>' + escapeHtml(code) + "</code></pre>");
+      return "\uFFFF CB_" + idx + "\uFFFE";
+    });
+
+    // 2. Extract inline code BEFORE escaping
+    const inlineCode = [];
+    processed = processed.replace(/`([^`]+)`/g, (_, code) => {
+      const idx = inlineCode.length;
+      // Detect file:line patterns inside backticks and make them clickable
+      const fileMatch = code.match(/^([\w/.@-]+\.\w+):(\d+)(?:-(\d+))?$/);
+      if (fileMatch) {
+        const file = fileMatch[1];
+        const line = fileMatch[2];
+        inlineCode.push('<a class="file-link" data-file="' + escapeHtml(file) + '" data-line="' + line + '"><code class="md-inline-code">' + escapeHtml(code) + '</code></a>');
+      } else {
+        inlineCode.push('<code class="md-inline-code">' + escapeHtml(code) + "</code>");
+      }
+      return "\uFFFF IL_" + idx + "\uFFFE";
+    });
+
+    // 3. Escape remaining text (safe now — code is protected)
+    let html = escapeHtml(processed);
+
+    // 4. Apply markdown patterns
+    html = html
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>");
     html = html.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
     html = html.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>');
-    return html
+    html = html
       .replace(/^- (.+)$/gm, '<li class="md-list-item">$1</li>')
       .replace(/(<li class="md-list-item">.*?<\/li>\n?)+/g, '<ul class="md-list">$&</ul>')
       .replace(/\n\n/g, "<br/><br/>")
       .replace(/\n/g, "<br/>");
+
+    // 5. Re-insert code blocks and inline code
+    html = html.replace(/\uFFFF CB_(\d+)\uFFFE/g, (_, idx) => codeBlocks[parseInt(idx)] || "");
+    html = html.replace(/\uFFFF IL_(\d+)\uFFFE/g, (_, idx) => inlineCode[parseInt(idx)] || "");
+
+    return html;
   }
 
   /** Render the tour summary card (shown before the first stop) */
@@ -1058,6 +1091,20 @@
   });
 
   window.addEventListener("resize", resizeCanvas);
+
+  // Global delegated handler for clickable file:line links
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest(".file-link");
+    if (link) {
+      e.preventDefault();
+      const file = link.getAttribute("data-file");
+      const line = parseInt(link.getAttribute("data-line") || "1", 10);
+      if (file) {
+        vscode.postMessage({ type: "openFileAtLine", file, line });
+      }
+    }
+  });
+
   renderCommandHub();
 
   // Signal to the extension that the webview is ready to receive messages
