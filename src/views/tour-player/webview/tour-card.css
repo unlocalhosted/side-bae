@@ -355,36 +355,42 @@ body {
   transition: color 0.15s;
 }
 
-/* ── Tour graph (summary card) ── */
-.tour-graph {
-  width: 100%; min-height: 120px; max-height: 240px;
-  border-radius: 4px;
-  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.05));
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
+
+/* ── Summary stop list ── */
+.summary-stops {
+  display: flex; flex-direction: column; gap: 8px;
 }
-.tour-graph .graph-node {
-  cursor: pointer; transition: opacity 0.15s;
+.summary-stops-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--vscode-descriptionForeground);
 }
-.tour-graph .graph-node:hover { opacity: 0.8; }
-.tour-graph .graph-node-rect {
-  rx: 4; ry: 4; stroke-width: 1.5;
-  stroke: var(--vscode-widget-border, rgba(128, 128, 128, 0.4));
-  fill: var(--vscode-button-secondaryBackground);
+.summary-stop-list {
+  list-style: none; display: flex; flex-direction: column; gap: 2px;
+  padding: 0; margin: 0;
 }
-.tour-graph .graph-node-entry .graph-node-rect {
-  stroke: var(--vscode-textLink-foreground);
-  stroke-width: 2;
+.summary-stop-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px; border-radius: 4px; cursor: pointer;
+  transition: background 0.1s;
 }
-.tour-graph .graph-node-text {
-  font-size: 10px; font-family: var(--vscode-font-family);
-  fill: var(--vscode-foreground); text-anchor: middle; dominant-baseline: central;
+.summary-stop-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
 }
-.tour-graph .graph-edge {
-  stroke: var(--vscode-descriptionForeground); stroke-width: 1.2;
-  fill: none; opacity: 0.5;
+.summary-stop-entry {
+  border-left: 2px solid var(--vscode-textLink-foreground);
 }
-.tour-graph .graph-arrow {
-  fill: var(--vscode-descriptionForeground); opacity: 0.5;
+.stop-number {
+  font-size: 11px; font-weight: 700; color: var(--vscode-textLink-foreground);
+  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-variant-numeric: tabular-nums;
+}
+.stop-title {
+  font-size: 13px; color: var(--vscode-foreground);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.summary-stop-more {
+  font-size: 12px; color: var(--vscode-descriptionForeground);
+  padding: 4px 10px 4px 38px; font-style: italic;
 }
 
 /* ── Redesigned summary ── */

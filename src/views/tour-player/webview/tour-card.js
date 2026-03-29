@@ -107,107 +107,67 @@
       .replace(/\n/g, "<br/>");
   }
 
-  // ── Tour Graph Renderer ─────────────────────────────────────
+  /** Render the tour summary card (shown before the first stop) */
+  function renderSummary(summary) {
+    // Build a numbered list of stops from the graph (BFS order)
+    let stopsHtml = "";
+    if (summary.graph && summary.graph.nodes.length > 0) {
+      const adj = {};
+      for (const n of summary.graph.nodes) adj[n.id] = [];
+      for (const e of summary.graph.edges) {
+        if (adj[e.from]) adj[e.from].push(e.to);
+      }
 
-  function renderGraphSvg(graph) {
-    if (!graph || !graph.nodes.length) return "";
-
-    // BFS layering from entry node
-    const adj = {};
-    for (const n of graph.nodes) adj[n.id] = [];
-    for (const e of graph.edges) {
-      if (adj[e.from]) adj[e.from].push(e.to);
-    }
-
-    const layers = [];
-    const visited = new Set();
-    let queue = [graph.entryId];
-    visited.add(graph.entryId);
-
-    while (queue.length > 0) {
-      layers.push([...queue]);
-      const next = [];
-      for (const id of queue) {
+      // BFS to get traversal order
+      const order = [];
+      const seen = new Set();
+      const queue = [summary.graph.entryId];
+      seen.add(summary.graph.entryId);
+      while (queue.length > 0) {
+        const id = queue.shift();
+        const node = summary.graph.nodes.find(n => n.id === id);
+        if (node) order.push(node);
         for (const child of (adj[id] || [])) {
-          if (!visited.has(child)) {
-            visited.add(child);
-            next.push(child);
+          if (!seen.has(child)) {
+            seen.add(child);
+            queue.push(child);
           }
         }
       }
-      queue = next;
-    }
-    // Add any orphan nodes not reached by BFS
-    for (const n of graph.nodes) {
-      if (!visited.has(n.id)) {
-        layers[layers.length - 1] = layers[layers.length - 1] || [];
-        layers[layers.length - 1].push(n.id);
+      // Add orphans
+      for (const n of summary.graph.nodes) {
+        if (!seen.has(n.id)) order.push(n);
       }
+
+      const maxPreview = 5;
+      const previewNodes = order.slice(0, maxPreview);
+      const remaining = order.length - maxPreview;
+
+      stopsHtml = `
+        <div class="summary-stops">
+          <div class="summary-stops-label">What you'll explore</div>
+          <ol class="summary-stop-list">
+            ${previewNodes.map((n, i) => `
+              <li class="summary-stop-item ${i === 0 ? "summary-stop-entry" : ""}" data-node-id="${escapeHtml(n.id)}">
+                <span class="stop-number">${i + 1}</span>
+                <span class="stop-title">${escapeHtml(n.title)}</span>
+              </li>
+            `).join("")}
+            ${remaining > 0 ? `<li class="summary-stop-more">... and ${remaining} more stop${remaining === 1 ? "" : "s"}</li>` : ""}
+          </ol>
+        </div>
+      `;
     }
-
-    const nodeMap = {};
-    for (const n of graph.nodes) nodeMap[n.id] = n;
-
-    // Layout
-    const nodeW = 100, nodeH = 28, padX = 24, padY = 40, topPad = 16;
-    const maxPerLayer = Math.max(...layers.map(l => l.length));
-    const svgW = Math.max(200, maxPerLayer * (nodeW + padX) + padX);
-    const svgH = layers.length * (nodeH + padY) + topPad;
-
-    const positions = {};
-    layers.forEach((layer, li) => {
-      const totalW = layer.length * nodeW + (layer.length - 1) * padX;
-      const startX = (svgW - totalW) / 2;
-      layer.forEach((id, ni) => {
-        positions[id] = {
-          x: startX + ni * (nodeW + padX) + nodeW / 2,
-          y: topPad + li * (nodeH + padY) + nodeH / 2,
-        };
-      });
-    });
-
-    // Render edges
-    let edgeSvg = "";
-    for (const e of graph.edges) {
-      const from = positions[e.from];
-      const to = positions[e.to];
-      if (!from || !to) continue;
-      const midY = (from.y + to.y) / 2;
-      edgeSvg += `<path class="graph-edge" d="M${from.x},${from.y + nodeH / 2} C${from.x},${midY} ${to.x},${midY} ${to.x},${to.y - nodeH / 2}"/>`;
-      // Arrowhead
-      edgeSvg += `<polygon class="graph-arrow" points="${to.x - 4},${to.y - nodeH / 2 - 2} ${to.x + 4},${to.y - nodeH / 2 - 2} ${to.x},${to.y - nodeH / 2 + 3}"/>`;
-    }
-
-    // Render nodes
-    let nodeSvg = "";
-    for (const n of graph.nodes) {
-      const p = positions[n.id];
-      if (!p) continue;
-      const isEntry = n.id === graph.entryId;
-      const truncTitle = n.title.length > 14 ? n.title.slice(0, 12) + "\u2026" : n.title;
-      nodeSvg += `
-        <g class="graph-node ${isEntry ? "graph-node-entry" : ""}" data-node-id="${escapeHtml(n.id)}">
-          <rect class="graph-node-rect" x="${p.x - nodeW / 2}" y="${p.y - nodeH / 2}" width="${nodeW}" height="${nodeH}"/>
-          <text class="graph-node-text" x="${p.x}" y="${p.y}">${escapeHtml(truncTitle)}</text>
-        </g>`;
-    }
-
-    return `<svg class="tour-graph" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">${edgeSvg}${nodeSvg}</svg>`;
-  }
-
-  /** Render the tour summary card (shown before the first stop) */
-  function renderSummary(summary) {
-    const graphHtml = renderGraphSvg(summary.graph);
 
     root.innerHTML = `
       <div class="panel-header">${escapeHtml(summary.name)}</div>
       <div class="card-scroll">
         <div class="summary-card fade-in">
-          ${graphHtml}
           <div class="summary-meta">
             <div class="summary-query">"${escapeHtml(summary.query)}"</div>
             <div class="summary-stats-line">${summary.totalNodes} stops across ${summary.totalFiles} file${summary.totalFiles === 1 ? "" : "s"}</div>
           </div>
+          ${stopsHtml}
         </div>
       </div>
       <div class="card-dock">
@@ -222,8 +182,8 @@
       vscode.postMessage({ type: "dismissSummary" });
     });
 
-    // Graph node click → jump to that stop
-    root.querySelectorAll(".graph-node").forEach((el) => {
+    // Stop item click → jump directly to that stop
+    root.querySelectorAll(".summary-stop-item").forEach((el) => {
       el.addEventListener("click", () => {
         vscode.postMessage({ type: "dismissSummary" });
         setTimeout(() => {
