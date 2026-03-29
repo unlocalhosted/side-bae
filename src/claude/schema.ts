@@ -206,104 +206,67 @@ export const RECENT_CHANGES_SCHEMA = {
   },
 } as const;
 
-export const LESSON_STEP_SCHEMA = {
+export const LESSON_PLAN_SCHEMA = {
   type: "object",
-  required: ["phase", "content", "awaitsResponse", "skippable", "isComplete"],
+  required: ["steps"],
   properties: {
-    phase: {
-      type: "string",
-      enum: ["prime", "teach", "check", "respond", "transition", "recap"],
-      description: "The pedagogical phase of this step.",
+    steps: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "title", "file", "startLine", "endLine", "concepts"],
+        properties: {
+          id: { type: "string", description: "Step ID like 'step-1', 'step-2'." },
+          title: { type: "string", description: "Short title for this lesson step." },
+          file: { type: "string", description: "Relative file path to study." },
+          startLine: { type: "number", description: "1-based start line." },
+          endLine: { type: "number", description: "1-based end line." },
+          concepts: { type: "array", items: { type: "string" }, description: "Concepts taught in this step." },
+          layer: { type: "string", enum: ["outcome", "architecture", "rationale", "insight", "challenge"] },
+        },
+      },
+      description: "Ordered list of lesson steps, foundational to advanced.",
     },
-    file: {
+  },
+} as const;
+
+export const STEP_CONTENT_SCHEMA = {
+  type: "object",
+  required: ["explanation"],
+  properties: {
+    explanation: {
       type: "string",
-      description: "Relative file path to highlight in the editor.",
+      description: "Teaching content in markdown. Reference specific code with backticks, bold key concepts.",
     },
-    startLine: { type: "number", description: "1-based start line." },
-    endLine: { type: "number", description: "1-based end line." },
-    title: { type: "string", description: "Step title." },
-    content: {
-      type: "string",
-      description:
-        "Markdown content — the AI's teaching, response, or explanation. This is the main body of the step.",
-    },
-    prompt: {
-      type: "string",
-      description: "Question or prompt for the learner when awaiting a response.",
-    },
+    prompt: { type: "string", description: "Question for the learner." },
     inputType: {
       type: "string",
       enum: ["text", "choice", "none"],
-      description:
-        "How the learner should respond: text area, multiple choice, or no input needed.",
+      description: "How the learner responds.",
     },
-    options: {
-      type: "array",
-      items: { type: "string" },
-      description: "Choice options when inputType is 'choice'.",
-    },
-    correctIndex: {
-      type: "number",
-      description:
-        "Index of the correct option (0-based). Only set for check phases with choice input.",
-    },
-    concepts: {
-      type: "array",
-      items: { type: "string" },
-      description: "Concepts being taught or checked in this step.",
-    },
-    layer: {
+    options: { type: "array", items: { type: "string" }, description: "Choice options." },
+    correctIndex: { type: "number", description: "0-based index of correct option." },
+    correctExplanation: { type: "string", description: "Shown when learner picks the correct choice." },
+    incorrectExplanation: { type: "string", description: "Shown when learner picks a wrong choice." },
+    skipReason: {
       type: "string",
-      enum: ["outcome", "architecture", "rationale", "insight", "challenge"],
-      description: "Which pedagogical layer this step belongs to.",
+      description: "If the learner already demonstrated understanding of this step's concepts, set this instead of explanation. The step will be skipped.",
     },
-    awaitsResponse: {
-      type: "boolean",
-      description: "True if the webview should wait for learner input before continuing.",
+  },
+} as const;
+
+export const STEP_RESPONSE_SCHEMA = {
+  type: "object",
+  required: ["content", "summary"],
+  properties: {
+    content: {
+      type: "string",
+      description: "Brief response (2-3 sentences) to the learner's text answer. Reference their words.",
     },
-    skippable: {
-      type: "boolean",
-      description: "True if the learner can skip this interaction.",
-    },
-    isComplete: {
-      type: "boolean",
-      description: "True if this is the final step (recap). Signals end of lesson.",
-    },
-    recapData: {
-      type: "object",
-      properties: {
-        conceptsSolid: {
-          type: "array",
-          items: { type: "string" },
-          description: "Concepts the learner demonstrated strong understanding of.",
-        },
-        conceptsShaky: {
-          type: "array",
-          items: {
-            type: "object",
-            required: ["name", "suggestion"],
-            properties: {
-              name: { type: "string" },
-              suggestion: { type: "string", description: "What to revisit or review." },
-            },
-          },
-        },
-        predictionsVsReality: {
-          type: "array",
-          items: {
-            type: "object",
-            required: ["prediction", "reality"],
-            properties: {
-              prediction: { type: "string", description: "What the learner predicted." },
-              reality: { type: "string", description: "What was actually happening." },
-            },
-          },
-        },
-        totalSteps: { type: "number" },
-        checksCorrect: { type: "number" },
-        checksTotal: { type: "number" },
-      },
-      description: "Recap data — only present on the final recap step.",
+    correct: { type: "boolean", description: "Whether the learner's understanding is correct." },
+    summary: {
+      type: "string",
+      description: "One-line summary of what was learned in this step (for collapsed view).",
     },
   },
 } as const;

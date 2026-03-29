@@ -461,11 +461,14 @@
     }
   }
 
-  // ── Lesson Rendering ──────────────────────────────────────
+  // ── Lesson Stepper Rendering ──────────────────────────────
 
-  function renderLessonLoading() {
+  let lessonState = null;
+  let expandedCompletedStep = -1;
+
+  function renderLessonPlanLoading() {
     root.innerHTML = `
-      <div class="panel-header">Learning...</div>
+      <div class="panel-header">Generating lesson plan...</div>
       <div class="card-scroll">
         <div class="lesson-loading fade-in">
           <div class="lesson-loading-dots">
@@ -484,270 +487,133 @@
     if (el) el.textContent = message;
   }
 
-  function renderLessonStep(step, state) {
+  function renderLessonStepper(state) {
+    lessonState = state;
+    const letters = "ABCDEFGH";
 
+    const stepsHtml = state.steps.map((step, i) => {
+      const isActive = step.status === "active";
+      const isCompleted = step.status === "completed";
+      const isSkipped = step.status === "skipped";
+      const isExpanded = isActive || (isCompleted && expandedCompletedStep === i);
 
+      // Icon
+      const iconContent = isCompleted ? "\u2713" : isSkipped ? "\u2013" : isActive ? "" : "";
 
-    const phaseLabels = {
-      prime: "",
-      teach: "",
-      check: "",
-      respond: "",
-      transition: "",
-      recap: "What you learned",
-    };
+      // Header
+      const headerHtml = `
+        <div class="stepper-header" data-step-index="${i}">
+          <div class="stepper-title">${i + 1}. ${escapeHtml(step.plan.title)}</div>
+          ${step.summary && !isExpanded ? `<div class="stepper-summary">${escapeHtml(step.summary)}</div>` : ""}
+          ${isActive && step.plan.file ? `<div class="stepper-file" title="${escapeHtml(step.plan.file)}:${step.plan.startLine}-${step.plan.endLine}">${escapeHtml(step.plan.file)}:${step.plan.startLine}-${step.plan.endLine}</div>` : ""}
+        </div>
+      `;
 
-    if (step.isComplete && step.recapData) {
-      renderLessonRecap(step, state);
-      return;
-    }
+      // Content (only if expanded)
+      let contentHtml = "";
+      if (isExpanded && step.content) {
+        const explanationHtml = step.content.explanation
+          ? `<div class="lesson-content">${renderMarkdown(step.content.explanation)}</div>`
+          : "";
 
-    // Layer badge
-    const layerLabels = { outcome: "What it does", architecture: "How it\u2019s built", rationale: "Why this way", insight: "The clever bit", challenge: "Your turn" };
-    const layerHtml = step.layer
-      ? `<div class="layer-badge layer-${step.layer} badge-enter">${layerLabels[step.layer] || step.layer}</div>`
-      : "";
+        const promptHtml = step.content.prompt
+          ? `<div class="lesson-prompt">${renderMarkdown(step.content.prompt)}</div>`
+          : "";
 
-    // Phase badge for prime/check
-    const phaseLabel = phaseLabels[step.phase];
-    const phaseBadgeHtml = phaseLabel
-      ? `<div class="phase-badge phase-${step.phase}">${escapeHtml(phaseLabel)}</div>`
-      : "";
-
-    // Concept tags
-    const conceptsHtml = step.concepts && step.concepts.length > 0
-      ? `<div class="concept-tags">${step.concepts.map(c => `<span class="concept-tag">${escapeHtml(c)}</span>`).join("")}</div>`
-      : "";
-
-    // File reference
-    const fileRef = step.file ? `${step.file}${step.startLine ? `:${step.startLine}-${step.endLine}` : ""}` : "";
-    const fileHtml = step.file
-      ? `<div class="card-file" title="${escapeHtml(fileRef)}">${escapeHtml(fileRef)}</div>`
-      : "";
-
-    // Main content
-    const contentHtml = step.content
-      ? `<div class="lesson-content">${renderMarkdown(step.content)}</div>`
-      : "";
-
-    // Prompt question
-    const promptHtml = step.prompt
-      ? `<div class="lesson-prompt">${renderMarkdown(step.prompt)}</div>`
-      : "";
-
-    // Input area (text or choice)
-    let inputHtml = "";
-    if (step.awaitsResponse) {
-      if (step.inputType === "text") {
-        inputHtml = `
-          <div class="lesson-input-area">
-            <textarea class="lesson-textarea" id="lesson-input" placeholder="What do you think? (${isMac ? "\u2318" : "Ctrl"}+Enter to send)" rows="3"></textarea>
-            <div class="lesson-input-actions">
-              <button class="lesson-send-btn" id="lesson-send">Send</button>
-              ${step.skippable ? '<button class="lesson-skip-link" id="lesson-skip">Skip</button>' : ""}
+        // Q&A exchange (if user has answered)
+        let exchangeHtml = "";
+        if (step.response) {
+          const answerText = step.userChoiceIndex !== undefined && step.content.options
+            ? step.content.options[step.userChoiceIndex] ?? ""
+            : step.userAnswer ?? "";
+          const responseClass = step.response.correct === true ? " correct" : step.response.correct === false ? " incorrect" : "";
+          exchangeHtml = `
+            <div class="stepper-exchange">
+              <div class="stepper-user-answer">You: "${escapeHtml(answerText)}"</div>
+              <div class="stepper-ai-response${responseClass}">${renderMarkdown(step.response.content)}</div>
             </div>
+          `;
+        }
+
+        // Input area (only on active step, only if no response yet)
+        let inputHtml = "";
+        if (isActive && !step.response && step.content.prompt) {
+          if (step.content.inputType === "text") {
+            inputHtml = `
+              <div class="lesson-input-area">
+                <textarea class="lesson-textarea" id="lesson-input" placeholder="What do you think? (${isMac ? "\u2318" : "Ctrl"}+Enter to send)" rows="3"></textarea>
+                <div class="lesson-input-actions">
+                  <button class="lesson-send-btn" id="lesson-send">Send</button>
+                </div>
+              </div>
+            `;
+          } else if (step.content.inputType === "choice" && step.content.options) {
+            inputHtml = `
+              <div class="lesson-choices">
+                ${step.content.options.map((opt, ci) => `
+                  <button class="lesson-choice-btn" data-index="${ci}">
+                    <span class="choice-letter">${letters[ci] || ci + 1}</span>
+                    <span class="choice-text">${escapeHtml(opt)}</span>
+                  </button>
+                `).join("")}
+              </div>
+            `;
+          }
+        }
+
+        // Continue button (only if response exists and step is active)
+        const continueHtml = isActive && step.response
+          ? `<button class="lesson-send-btn" id="lesson-continue" style="width:100%">Continue</button>`
+          : "";
+
+        // Step loading indicator
+        const loadingHtml = isActive && !step.content
+          ? `<div class="step-loading"><div class="lesson-loading-dots"><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div></div><span id="step-loading-msg"></span></div>`
+          : "";
+
+        contentHtml = `
+          <div class="stepper-content">
+            ${explanationHtml}
+            ${promptHtml}
+            ${exchangeHtml}
+            ${inputHtml}
+            ${continueHtml}
+            ${loadingHtml}
           </div>
-        `;
-      } else if (step.inputType === "choice" && step.options) {
-        const letters = "ABCDEFGH";
-        inputHtml = `
-          <div class="lesson-choices">
-            ${step.options.map((opt, i) => `
-              <button class="lesson-choice-btn" data-index="${i}">
-                <span class="choice-letter">${letters[i] || i + 1}</span>
-                <span class="choice-text">${escapeHtml(opt)}</span>
-              </button>
-            `).join("")}
-          </div>
-          ${step.skippable ? '<button class="lesson-skip-link" id="lesson-skip">Skip</button>' : ""}
         `;
       }
-    }
 
-    // Step counter
-    const counterHtml = `<span class="lesson-step-counter">${state.stepCount}</span>`;
+      // Skip reason
+      if (isSkipped && step.summary) {
+        contentHtml = `<div class="stepper-skip-reason">${escapeHtml(step.summary)}</div>`;
+      }
 
-    root.innerHTML = `
-      <div class="panel-header">Learning: ${escapeHtml(state.subject)}</div>
-      <div class="card-scroll">
-        <div class="lesson-step card-enter">
-          ${layerHtml}
-          ${phaseBadgeHtml}
-          ${conceptsHtml}
-          ${step.title ? `<div class="card-header"><div class="card-title">${escapeHtml(step.title)}</div>${fileHtml}</div>` : fileHtml ? `<div class="card-header">${fileHtml}</div>` : ""}
-          ${contentHtml}
-          ${promptHtml}
-          ${inputHtml}
-        </div>
-      </div>
-      <div class="card-dock">
-        ${!step.awaitsResponse ? `
-          <button class="lesson-send-btn" id="lesson-continue" style="width:100%">Continue</button>
-        ` : ""}
-        <div class="lesson-footer">
-          ${counterHtml}
-          <div style="flex:1"></div>
-          <div class="lesson-followup">
-            <input class="lesson-followup-input" id="lesson-followup" placeholder="Ask a question..." />
-            <button class="lesson-followup-send" id="lesson-followup-send">Ask</button>
+      // Active step loading (no content yet)
+      if (isActive && !step.content) {
+        contentHtml = `
+          <div class="stepper-content">
+            <div class="step-loading">
+              <div class="lesson-loading-dots"><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div></div>
+              <span id="step-loading-msg"></span>
+            </div>
           </div>
-          <button class="lesson-end-btn" id="lesson-end">Done</button>
+        `;
+      }
+
+      return `
+        <div class="stepper-step ${step.status}" data-index="${i}">
+          <div class="stepper-icon">${iconContent}</div>
+          ${headerHtml}
+          ${contentHtml}
         </div>
-      </div>
-    `;
-
-    // Bind events
-    bindLessonEvents(step);
-  }
-
-  function bindLessonEvents(step) {
-    // Text input send
-    const sendBtn = document.getElementById("lesson-send");
-    const textarea = document.getElementById("lesson-input");
-    if (sendBtn && textarea) {
-      const send = () => {
-        const text = textarea.value.trim();
-        if (!text) return;
-        vscode.postMessage({ type: "lessonResponse", text });
-        renderLessonLoading();
-      };
-      sendBtn.addEventListener("click", send);
-      textarea.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-          e.preventDefault();
-          send();
-        }
-      });
-      // Auto-focus textarea
-      setTimeout(() => textarea.focus(), 100);
-    }
-
-    // Choice buttons
-    root.querySelectorAll(".lesson-choice-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const index = parseInt(btn.getAttribute("data-index"), 10);
-        // Show feedback before sending
-        const correctIdx = step.correctIndex;
-        root.querySelectorAll(".lesson-choice-btn").forEach((b, i) => {
-          if (i === index && correctIdx !== undefined && i !== correctIdx) {
-            b.classList.add("choice-wrong");
-          } else if (correctIdx !== undefined && i === correctIdx) {
-            b.classList.add("choice-correct");
-          } else {
-            b.classList.add("choice-disabled");
-          }
-        });
-        // Send after brief pause to show feedback
-        setTimeout(() => {
-          vscode.postMessage({ type: "lessonChoice", choiceIndex: index });
-          renderLessonLoading();
-        }, 800);
-      });
-    });
-
-    // Skip
-    const skipBtn = document.getElementById("lesson-skip");
-    if (skipBtn) {
-      skipBtn.addEventListener("click", () => {
-        vscode.postMessage({ type: "lessonSkip" });
-        renderLessonLoading();
-      });
-    }
-
-    // Continue (for non-interactive steps — distinct from skip)
-    const continueBtn = document.getElementById("lesson-continue");
-    if (continueBtn) {
-      continueBtn.addEventListener("click", () => {
-        vscode.postMessage({ type: "lessonContinue" });
-        renderLessonLoading();
-      });
-    }
-
-    // Follow-up question
-    const followupInput = document.getElementById("lesson-followup");
-    const followupSend = document.getElementById("lesson-followup-send");
-    if (followupInput && followupSend) {
-      const askFollowUp = () => {
-        const text = followupInput.value.trim();
-        if (!text) return;
-        vscode.postMessage({ type: "lessonFollowUp", text });
-        renderLessonLoading();
-      };
-      followupSend.addEventListener("click", askFollowUp);
-      followupInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); askFollowUp(); }
-      });
-    }
-
-    // Done
-    const endBtn = document.getElementById("lesson-end");
-    if (endBtn) {
-      endBtn.addEventListener("click", () => {
-        vscode.postMessage({ type: "lessonEnd" });
-      });
-    }
-  }
-
-  function renderLessonRecap(step, state) {
-    const recap = step.recapData;
-    if (!recap) return;
-
-    const solidHtml = recap.conceptsSolid.map(c => `
-      <div class="recap-concept">
-        <span class="recap-concept-icon solid">\u2713</span>
-        <span class="recap-concept-name">${escapeHtml(c)}</span>
-      </div>
-    `).join("");
-
-    const shakyHtml = recap.conceptsShaky.map(c => `
-      <div class="recap-concept">
-        <span class="recap-concept-icon shaky">\u21BB</span>
-        <div>
-          <span class="recap-concept-name">${escapeHtml(c.name)}</span>
-          <div class="recap-concept-note">${escapeHtml(c.suggestion)}</div>
-        </div>
-      </div>
-    `).join("");
-
-    const predictionsHtml = recap.predictionsVsReality.map(p => `
-      <div class="recap-prediction">
-        <div class="recap-prediction-label">You predicted</div>
-        <div class="recap-prediction-text">"${escapeHtml(p.prediction)}"</div>
-        <div class="recap-prediction-label" style="margin-top:4px">What actually happened</div>
-        <div class="recap-reality-text">${escapeHtml(p.reality)}</div>
-      </div>
-    `).join("");
-
-    const scoreHtml = recap.checksTotal > 0
-      ? `<div class="recap-score">You nailed ${recap.checksCorrect} out of ${recap.checksTotal}</div>`
-      : "";
-
-    // Fire celebration
-    if (shouldShowCelebrations()) {
-      setTimeout(() => fireConfetti("rain", 80), 200);
-      setTimeout(() => fireConfetti("rain", 50), 700);
-    }
+      `;
+    }).join("");
 
     root.innerHTML = `
       <div class="panel-header">Learning: ${escapeHtml(state.subject)}</div>
       <div class="card-scroll">
-        <div class="lesson-recap fade-in">
-          <div class="card-title" style="font-size:16px">What You Learned</div>
-          ${step.content ? `<div class="lesson-content">${renderMarkdown(step.content)}</div>` : ""}
-          ${scoreHtml}
-          ${solidHtml || shakyHtml ? `
-            <div class="recap-section">
-              <div class="recap-section-title">What clicked</div>
-              ${solidHtml}
-              ${shakyHtml}
-            </div>
-          ` : ""}
-          ${predictionsHtml ? `
-            <div class="recap-section">
-              <div class="recap-section-title">How your thinking evolved</div>
-              ${predictionsHtml}
-            </div>
-          ` : ""}
+        <div class="lesson-stepper fade-in">
+          ${stepsHtml}
         </div>
       </div>
       <div class="card-dock">
@@ -755,6 +621,64 @@
       </div>
     `;
 
+    bindStepperEvents(state);
+  }
+
+  function bindStepperEvents(state) {
+    // Text send
+    const sendBtn = document.getElementById("lesson-send");
+    const textarea = document.getElementById("lesson-input");
+    if (sendBtn && textarea) {
+      const send = () => {
+        const text = textarea.value.trim();
+        if (!text) return;
+        vscode.postMessage({ type: "lessonAnswer", text });
+      };
+      sendBtn.addEventListener("click", send);
+      textarea.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
+      });
+      setTimeout(() => textarea.focus(), 100);
+    }
+
+    // Choice buttons
+    root.querySelectorAll(".lesson-choice-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const index = parseInt(btn.getAttribute("data-index"), 10);
+        const step = state.steps[state.activeStepIndex];
+        const correctIdx = step?.content?.correctIndex;
+
+        // Show feedback
+        root.querySelectorAll(".lesson-choice-btn").forEach((b, ci) => {
+          if (ci === index && correctIdx !== undefined && ci !== correctIdx) b.classList.add("choice-wrong");
+          else if (correctIdx !== undefined && ci === correctIdx) b.classList.add("choice-correct");
+          else b.classList.add("choice-disabled");
+        });
+
+        setTimeout(() => {
+          vscode.postMessage({ type: "lessonChoice", choiceIndex: index });
+        }, 600);
+      });
+    });
+
+    // Continue
+    const continueBtn = document.getElementById("lesson-continue");
+    if (continueBtn) {
+      continueBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "lessonContinue" });
+      });
+    }
+
+    // Click completed step headers to expand/collapse
+    root.querySelectorAll(".stepper-step.completed .stepper-header").forEach((header) => {
+      header.addEventListener("click", () => {
+        const idx = parseInt(header.getAttribute("data-step-index"), 10);
+        expandedCompletedStep = expandedCompletedStep === idx ? -1 : idx;
+        renderLessonStepper(lessonState);
+      });
+    });
+
+    // End
     const endBtn = document.getElementById("lesson-end");
     if (endBtn) {
       endBtn.addEventListener("click", () => {
@@ -1071,11 +995,35 @@
       case "update":
         renderCard(message.data);
         break;
-      case "lessonUpdate":
-        renderLessonStep(message.step, message.state);
+      case "lessonPlan":
+        renderLessonStepper(message.state);
         break;
-      case "lessonLoading":
-        renderLessonLoading();
+      case "lessonStepContent":
+        if (lessonState) {
+          lessonState.steps[message.stepIndex].content = message.content;
+          renderLessonStepper(lessonState);
+        }
+        break;
+      case "lessonStepResponse":
+        if (lessonState) {
+          lessonState.steps[message.stepIndex].response = message.response;
+          lessonState.steps[message.stepIndex].summary = message.response.summary;
+          renderLessonStepper(lessonState);
+        }
+        break;
+      case "lessonStepSkipped":
+        if (lessonState) {
+          lessonState.steps[message.stepIndex].status = "skipped";
+          lessonState.steps[message.stepIndex].summary = message.reason;
+          renderLessonStepper(lessonState);
+        }
+        break;
+      case "lessonStepLoading":
+        if (message.stepIndex === -1) {
+          renderLessonPlanLoading();
+        } else if (lessonState) {
+          renderLessonStepper(lessonState);
+        }
         break;
       case "lessonLoadingMessage":
         updateLessonLoadingMessage(message.message);

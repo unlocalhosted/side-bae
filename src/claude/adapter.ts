@@ -23,9 +23,9 @@ function getConfiguredClaudePath(): string | undefined {
 }
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
-import type { LessonStep, LearnableConcept } from "../types/lesson.js";
+import type { LessonPlanStep, StepContent, StepResponse, LearnableConcept } from "../types/lesson.js";
 import type { InvestigationStep } from "../types/investigation.js";
-import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA, LESSON_STEP_SCHEMA, LEARNABLE_CONCEPTS_SCHEMA, INVESTIGATION_STEP_SCHEMA } from "./schema.js";
+import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA, LESSON_PLAN_SCHEMA, STEP_CONTENT_SCHEMA, STEP_RESPONSE_SCHEMA, LEARNABLE_CONCEPTS_SCHEMA, INVESTIGATION_STEP_SCHEMA } from "./schema.js";
 import {
   buildTourGenerationPrompt,
   buildFeatureDiscoveryPrompt,
@@ -158,12 +158,28 @@ export class ClaudeAdapter {
     return result as InvestigationStep;
   }
 
-  async generateLessonStep(
+  async generateLessonPlan(
     prompt: string,
     progress: GenerationProgress
-  ): Promise<LessonStep> {
-    const result = await this.runStructuredQuery(prompt, LESSON_STEP_SCHEMA, progress);
-    return result as LessonStep;
+  ): Promise<{ steps: LessonPlanStep[] }> {
+    const result = await this.runStructuredQuery(prompt, LESSON_PLAN_SCHEMA, progress);
+    return result as { steps: LessonPlanStep[] };
+  }
+
+  async generateStepContent(
+    prompt: string,
+    progress: GenerationProgress
+  ): Promise<StepContent> {
+    const result = await this.runStructuredQuery(prompt, STEP_CONTENT_SCHEMA, progress);
+    return result as StepContent;
+  }
+
+  async generateStepResponse(
+    prompt: string,
+    progress: GenerationProgress
+  ): Promise<StepResponse> {
+    const result = await this.runStructuredQuery(prompt, STEP_RESPONSE_SCHEMA, progress);
+    return result as StepResponse;
   }
 
   async discoverLearnableConcepts(

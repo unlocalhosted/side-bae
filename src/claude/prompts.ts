@@ -282,6 +282,101 @@ Do not include generic things like "project structure" or "configuration" unless
 Focus on topics where the implementation itself is worth studying — where a developer would say "I want to learn how they did that."`;
 }
 
+export function buildLessonPlanPrompt(subject: string, entryFile?: string): string {
+  const entryHint = entryFile ? `\nStart by examining: ${entryFile}` : "";
+  return `You are creating a lesson plan for teaching about: "${subject}"
+${entryHint}
+Scan the codebase and create a structured lesson plan with 6-10 steps. Each step should focus on a specific code region that teaches a concept.
+
+## Plan structure
+
+Order steps from foundational to advanced:
+1. First steps: set the scene — what does this feature/module do?
+2. Middle steps: how is it built, what patterns are used, what decisions were made?
+3. Later steps: the clever parts — optimizations, patterns, edge case handling
+4. Final step should be the most interesting/advanced concept
+
+## For each step
+
+- **id**: "step-1", "step-2", etc.
+- **title**: Short, specific title ("The Layout Strategy", not "Introduction")
+- **file**: Real file path, verified by reading it
+- **startLine / endLine**: Accurate 1-based line numbers for the key code region (keep to 10-30 lines)
+- **concepts**: Named patterns or techniques (e.g., "Observer Pattern", "Memoization")
+- **layer**: Which pedagogical layer — outcome, architecture, rationale, insight, or challenge
+
+## Rules
+
+- Each step MUST reference a real file with accurate line numbers — verify by reading the file
+- Steps should tell a story — each builds on what came before
+- Don't include generic steps like "Project Structure" unless the structure itself is the lesson
+- Do not include node_modules, dist, or build artifacts`;
+}
+
+export function buildStepContentPrompt(
+  subject: string,
+  step: { title: string; file: string; startLine: number; endLine: number; concepts: string[] },
+  priorSummaries: string[]
+): string {
+  const priorContext = priorSummaries.length > 0
+    ? `\n\n## What the learner already covered\n${priorSummaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
+    : "";
+
+  return `You are teaching step "${step.title}" in a lesson about "${subject}".
+
+The code region is in \`${step.file}\` lines ${step.startLine}-${step.endLine}. Read this file now.
+Concepts to cover: ${step.concepts.join(", ")}
+${priorContext}
+
+## If the learner already demonstrated understanding
+
+If the prior summaries show the learner already knows this step's concepts, return ONLY:
+{ "skipReason": "You already showed you understand this when..." }
+
+## Otherwise, generate teaching content
+
+Write a vivid explanation of this code region. Then ask ONE question to check understanding.
+
+### Voice
+- Sound like a sharp friend, not documentation
+- Reference specific code with \`backticks\`
+- Bold **key concepts** on first mention
+- Explain WHY, not just WHAT
+- Use concrete → abstract: show the code, explain what it does, THEN name the pattern
+
+### Question format
+- Set inputType to "choice" for concept recognition, "text" for deeper reasoning
+- For choice questions: provide 3-4 options, set correctIndex, and write correctExplanation + incorrectExplanation
+- For text questions: just set the prompt
+
+Do not include node_modules, dist, or build artifacts in references.`;
+}
+
+export function buildStepResponsePrompt(
+  explanation: string,
+  prompt: string,
+  userAnswer: string
+): string {
+  return `The learner just answered a question during a lesson.
+
+## Context
+The explanation they read:
+${explanation.slice(0, 500)}${explanation.length > 500 ? "..." : ""}
+
+The question:
+${prompt}
+
+Their answer:
+"${userAnswer}"
+
+## Instructions
+
+Respond in 2-3 sentences. Reference their specific words. If they're right, confirm and add a small insight. If they're wrong, gently redirect by pointing to specific code.
+
+Also provide a "summary" field: a single sentence summarizing what was learned in this step (for the collapsed stepper view).`;
+}
+
+// Keep the old function name as an alias for backward compatibility during transition
 export function buildLessonSystemPrompt(subject: string): string {
   return `You are a live coding tutor conducting an interactive lesson about: "${subject}"
 

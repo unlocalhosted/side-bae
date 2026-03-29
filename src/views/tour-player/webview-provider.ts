@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TourCardState } from "../../engine/tour-engine.js";
-import type { LessonStep, LessonSessionState } from "../../types/lesson.js";
+import type { LessonSessionState, StepContent, StepResponse } from "../../types/lesson.js";
 import type { InvestigationStep, InvestigationSessionState } from "../../types/investigation.js";
 
 export type NavigationCallback = (
@@ -14,11 +14,10 @@ export type NavigationCallback = (
     | { type: "dismissSummary" }
     | { type: "applyFix"; nodeId: string; oldText: string; newText: string }
     | { type: "copyReport"; report: string }
-    | { type: "lessonResponse"; text: string }
+    | { type: "lessonAnswer"; text: string }
     | { type: "lessonChoice"; choiceIndex: number }
-    | { type: "lessonSkip" }
     | { type: "lessonContinue" }
-    | { type: "lessonFollowUp"; text: string }
+    | { type: "lessonJumpToStep"; index: number }
     | { type: "lessonEnd" }
     | { type: "launchCommand"; command: string }
     | { type: "investigationResponse"; text: string }
@@ -105,12 +104,24 @@ export class TourCardPanelProvider {
     this.post({ type: "update", data: state });
   }
 
-  updateLessonStep(step: LessonStep, state: LessonSessionState): void {
-    this.post({ type: "lessonUpdate", step, state });
+  sendLessonPlan(state: LessonSessionState): void {
+    this.post({ type: "lessonPlan", state });
   }
 
-  showLessonLoading(): void {
-    this.post({ type: "lessonLoading" });
+  sendStepContent(stepIndex: number, content: StepContent): void {
+    this.post({ type: "lessonStepContent", stepIndex, content });
+  }
+
+  sendStepResponse(stepIndex: number, response: StepResponse): void {
+    this.post({ type: "lessonStepResponse", stepIndex, response });
+  }
+
+  sendStepSkipped(stepIndex: number, reason: string): void {
+    this.post({ type: "lessonStepSkipped", stepIndex, reason });
+  }
+
+  showStepLoading(stepIndex: number): void {
+    this.post({ type: "lessonStepLoading", stepIndex });
   }
 
   updateLessonLoadingMessage(message: string): void {

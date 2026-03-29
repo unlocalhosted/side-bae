@@ -1,55 +1,76 @@
 export type LessonLayer = "outcome" | "architecture" | "rationale" | "insight" | "challenge";
 export type LessonDepth = "foundational" | "intermediate" | "advanced";
 
-export interface LessonStep {
-  phase: "prime" | "teach" | "check" | "respond" | "transition" | "recap";
-  file?: string;
-  startLine?: number;
-  endLine?: number;
-  title?: string;
-  content: string;
+// ── Lesson Plan (generated once, persisted) ──
+
+export interface LessonPlan {
+  id: string;
+  subject: string;
+  generatedAt: string;
+  steps: LessonPlanStep[];
+}
+
+export interface LessonPlanStep {
+  id: string;
+  title: string;
+  file: string;
+  startLine: number;
+  endLine: number;
+  concepts: string[];
+  layer?: LessonLayer;
+}
+
+// ── Step Content (generated per step, on demand) ──
+
+export interface StepContent {
+  explanation: string;
   prompt?: string;
   inputType?: "text" | "choice" | "none";
   options?: string[];
   correctIndex?: number;
-  concepts?: string[];
-  layer?: LessonLayer;
-  awaitsResponse: boolean;
-  skippable: boolean;
+  correctExplanation?: string;
+  incorrectExplanation?: string;
+  skipReason?: string;
+}
+
+// ── Step Response (inline reply to user's answer) ──
+
+export interface StepResponse {
+  content: string;
+  correct?: boolean;
+  summary: string;
+}
+
+// ── Step State (accumulated during lesson) ──
+
+export type StepStatus = "upcoming" | "active" | "completed" | "skipped";
+
+export interface LessonStepState {
+  status: StepStatus;
+  plan: LessonPlanStep;
+  content?: StepContent;
+  userAnswer?: string;
+  userChoiceIndex?: number;
+  response?: StepResponse;
+  summary?: string;
+}
+
+// ── Session State (sent to webview) ──
+
+export interface LessonSessionState {
+  subject: string;
+  planId: string;
+  steps: LessonStepState[];
+  activeStepIndex: number;
   isComplete: boolean;
-  recapData?: LessonRecapData;
 }
 
-export interface LessonRecapData {
-  conceptsSolid: string[];
-  conceptsShaky: Array<{ name: string; suggestion: string }>;
-  predictionsVsReality: Array<{ prediction: string; reality: string }>;
-  totalSteps: number;
-  checksCorrect: number;
-  checksTotal: number;
-}
-
-export interface LessonTurn {
-  role: "tutor" | "learner";
-  step?: LessonStep;
-  text?: string;
-  choiceIndex?: number;
-}
+// ── Shared types (unchanged) ──
 
 export interface CheckResult {
   concept: string;
   correct: boolean;
   userAnswer: string;
-}
-
-export interface LessonSessionState {
-  subject: string;
-  isActive: boolean;
-  currentStep: LessonStep | null;
-  stepCount: number;
-  conceptsLearned: string[];
-  checkResults: CheckResult[];
-  history: LessonTurn[];
 }
 
 export interface LearnableConcept {

@@ -2,7 +2,7 @@ import { readdir, readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
 import type { FeatureTreeNode } from "../types/feature-tree.js";
-import type { LearnableConcept } from "../types/lesson.js";
+import type { LearnableConcept, LessonPlan, LessonStepState } from "../types/lesson.js";
 
 const TOUR_DIR = ".side-bae";
 const FEATURES_FILE = "features.json";
@@ -141,6 +141,37 @@ export async function loadLearnableConcepts(
     );
     const data = JSON.parse(content);
     if (Array.isArray(data) && data.length > 0) return data;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveLessonState(
+  workspaceRoot: string,
+  plan: LessonPlan,
+  stepStates: LessonStepState[]
+): Promise<void> {
+  const dir = getTourDir(workspaceRoot);
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, `${plan.id}.lesson.json`),
+    JSON.stringify({ plan, stepStates }, null, 2),
+    "utf-8"
+  );
+}
+
+export async function loadLessonState(
+  workspaceRoot: string,
+  planId: string
+): Promise<{ plan: LessonPlan; stepStates: LessonStepState[] } | null> {
+  try {
+    const content = await readFile(
+      join(getTourDir(workspaceRoot), `${planId}.lesson.json`),
+      "utf-8"
+    );
+    const data = JSON.parse(content);
+    if (data?.plan && Array.isArray(data.stepStates)) return data;
     return null;
   } catch {
     return null;

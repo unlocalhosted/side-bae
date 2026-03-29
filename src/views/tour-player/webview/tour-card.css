@@ -475,36 +475,120 @@ body {
 .summary-start-btn:hover .btn-arrow { transform: translateX(3px); }
 
 /* ══════════════════════════════════════════════════════════
-   LESSON MODE
+   LESSON MODE — VERTICAL STEPPER
    ══════════════════════════════════════════════════════════ */
 
-/* ── Lesson step card ── */
-.lesson-step {
-  display: flex; flex-direction: column; gap: 10px;
+/* ── Stepper container ── */
+.lesson-stepper {
+  display: flex; flex-direction: column; gap: 0;
 }
 
-/* ── Layer badges (shared base with .kind-badge) ── */
+/* ── Stepper step ── */
+.stepper-step {
+  display: flex; flex-direction: column;
+  border-left: 2px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  margin-left: 10px; padding-left: 16px; padding-bottom: 8px;
+  position: relative;
+}
+.stepper-step:last-child { border-left-color: transparent; }
+
+/* Step icon (positioned on the connector line) */
+.stepper-icon {
+  position: absolute; left: -7px; top: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; line-height: 1;
+  background: var(--vscode-editor-background);
+}
+.stepper-step.upcoming .stepper-icon {
+  border: 2px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+}
+.stepper-step.active .stepper-icon {
+  border: 2px solid var(--vscode-textLink-foreground);
+  background: var(--vscode-textLink-foreground);
+}
+.stepper-step.completed .stepper-icon {
+  border: 2px solid var(--vscode-testing-iconPassed, #73c991);
+  background: var(--vscode-testing-iconPassed, #73c991);
+  color: var(--vscode-editor-background);
+}
+.stepper-step.skipped .stepper-icon {
+  border: 2px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  opacity: 0.5;
+}
+
+/* Step header */
+.stepper-header {
+  display: flex; flex-direction: column; gap: 2px; cursor: pointer;
+  padding: 4px 0;
+}
+.stepper-step.upcoming .stepper-header { cursor: default; }
+.stepper-title {
+  font-size: 12px; font-weight: 600; color: var(--vscode-foreground);
+}
+.stepper-step.upcoming .stepper-title { opacity: 0.5; }
+.stepper-step.skipped .stepper-title {
+  opacity: 0.4; text-decoration: line-through;
+}
+.stepper-summary {
+  font-size: 11px; color: var(--vscode-descriptionForeground);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stepper-file {
+  font-size: 10px; color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+}
+
+/* Step content (expanded for active step) */
+.stepper-content {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 8px 0;
+  animation: slideUp 0.15s ease-out;
+}
+
+/* Lesson content (reuses shared markdown styles) */
+.lesson-content {
+  font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
+  padding: 0; max-width: 65ch;
+  overflow-wrap: break-word; word-break: break-word;
+}
+
+/* Lesson prompt */
+.lesson-prompt {
+  font-size: 13px; font-weight: 500; color: var(--vscode-foreground);
+  padding: 10px 12px; border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.08));
+  border-left: 3px solid var(--vscode-textLink-foreground);
+}
+
+/* Q&A exchange (inline within the step) */
+.stepper-exchange {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
+}
+.stepper-user-answer {
+  font-size: 12px; color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+.stepper-ai-response {
+  font-size: 13px; line-height: 1.5; color: var(--vscode-foreground);
+}
+.stepper-ai-response.correct { border-left: 3px solid var(--vscode-testing-iconPassed, #73c991); padding-left: 8px; }
+.stepper-ai-response.incorrect { border-left: 3px solid var(--vscode-errorForeground, #f14c4c); padding-left: 8px; }
+
+/* Skip reason */
+.stepper-skip-reason {
+  font-size: 11px; color: var(--vscode-descriptionForeground); font-style: italic;
+}
+
+/* Layer badges (shared base with .kind-badge) */
 .layer-badge {}
-.layer-outcome {
-  color: var(--vscode-textLink-foreground);
-  background: rgba(79, 193, 255, 0.1);
-}
-.layer-architecture {
-  color: var(--vscode-charts-purple, #b180d7);
-  background: rgba(177, 128, 215, 0.1);
-}
-.layer-rationale {
-  color: var(--vscode-charts-yellow, #cca700);
-  background: rgba(204, 167, 0, 0.1);
-}
-.layer-insight {
-  color: var(--vscode-charts-orange, #d18616);
-  background: rgba(209, 134, 22, 0.1);
-}
-.layer-challenge {
-  color: var(--vscode-testing-iconPassed, #73c991);
-  background: rgba(115, 201, 145, 0.1);
-}
+.layer-outcome { color: var(--vscode-textLink-foreground); background: rgba(79, 193, 255, 0.1); }
+.layer-architecture { color: var(--vscode-charts-purple, #b180d7); background: rgba(177, 128, 215, 0.1); }
+.layer-rationale { color: var(--vscode-charts-yellow, #cca700); background: rgba(204, 167, 0, 0.1); }
+.layer-insight { color: var(--vscode-charts-orange, #d18616); background: rgba(209, 134, 22, 0.1); }
+.layer-challenge { color: var(--vscode-testing-iconPassed, #73c991); background: rgba(115, 201, 145, 0.1); }
 
 /* ── Phase badges (shared base with .kind-badge) ── */
 .phase-badge {
@@ -621,11 +705,15 @@ body {
   color: var(--vscode-charts-orange, #d18616); margin-bottom: 2px;
 }
 
-/* ── Loading state ── */
+/* ── Loading state (full page + inline step) ── */
 @keyframes lessonPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .lesson-loading {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 32px 20px; gap: 12px; color: var(--vscode-descriptionForeground);
+}
+.step-loading {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; color: var(--vscode-descriptionForeground); font-size: 11px;
 }
 .lesson-loading-dots {
   display: flex; gap: 4px;

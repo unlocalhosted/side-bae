@@ -1,247 +1,238 @@
 import type { ClaudeAdapter, GenerationProgress } from "../claude/adapter.js";
 import type {
-  LessonStep,
-  LessonTurn,
-  CheckResult,
+  LessonPlan,
+  StepContent,
+  StepResponse,
+  LessonStepState,
   LessonSessionState,
-  LessonDepth,
+  CheckResult,
+  StepStatus,
 } from "../types/lesson.js";
 import type { TourDocument, TourNode } from "../types/tour.js";
 import {
-  buildLessonSystemPrompt,
-  buildLessonTurnPrompt,
+  buildLessonPlanPrompt,
+  buildStepContentPrompt,
+  buildStepResponsePrompt,
 } from "../claude/prompts.js";
 import { slugify } from "../utils.js";
 
 export class LessonSession {
-  private history: LessonTurn[] = [];
+  private plan: LessonPlan | null = null;
+  private stepStates: LessonStepState[] = [];
+  private activeStepIndex = -1;
   private checkResults: CheckResult[] = [];
-  private conceptsIntroduced = new Set<string>();
-  private currentStep: LessonStep | null = null;
-  private stepCount = 0;
-  private readonly systemPrompt: string;
 
   constructor(
     private adapter: ClaudeAdapter,
     private subject: string,
     private entryFile?: string
-  ) {
-    this.systemPrompt = buildLessonSystemPrompt(subject);
+  ) {}
+
+  async generatePlan(progress: GenerationProgress): Promise<LessonPlan> {
+    const prompt = buildLessonPlanPrompt(this.subject, this.entryFile);
+    const result = await this.adapter.generateLessonPlan(prompt, progress);
+
+    this.plan = {
+      id: `lesson-${slugify(this.subject)}-${Date.now()}`,
+      subject: this.subject,
+      generatedAt: new Date().toISOString(),
+      steps: result.steps,
+    };
+
+    this.stepStates = result.steps.map((step, i) => ({
+      status: (i === 0 ? "active" : "upcoming") as StepStatus,
+      plan: step,
+    }));
+    this.activeStepIndex = 0;
+
+    return this.plan;
   }
 
-  async start(progress: GenerationProgress): Promise<LessonStep> {
-    const entryHint = this.entryFile
-      ? `\n\nStart by examining the file: ${this.entryFile}`
-      : "";
+  async teachActiveStep(progress: GenerationProgress): Promise<StepContent> {
+    const step = this.stepStates[this.activeStepIndex];
+    if (!step) throw new Error("No active step");
 
-    const prompt = `${this.systemPrompt}${entryHint}
+    const priorSummaries = this.stepStates
+      .filter((s) => s.status === "completed" && s.summary)
+      .map((s) => s.summary!);
 
-Generate the first step: a "prime" phase. Show the learner a key code region and ask what they think it does or why it might be structured this way. Set awaitsResponse to true, skippable to true, inputType to "text", isComplete to false.`;
+    const prompt = buildStepContentPrompt(this.subject, step.plan, priorSummaries);
+    const content = await this.adapter.generateStepContent(prompt, progress);
 
-    return this.generateStep(prompt, progress);
+    // Handle skip
+    if (content.skipReason) {
+      step.status = "skipped";
+      step.summary = content.skipReason;
+      return content;
+    }
+
+    step.content = content;
+    return content;
   }
 
-  async respondText(
+  async respondToText(
     text: string,
     progress: GenerationProgress
-  ): Promise<LessonStep> {
+  ): Promise<StepResponse> {
     const trimmed = text.trim().slice(0, 5000);
-    if (!trimmed) return this.skip(progress);
-    this.history.push({ role: "learner", text: trimmed });
+    const step = this.stepStates[this.activeStepIndex];
+    if (!step?.content) throw new Error("No active content");
 
-    const turnPrompt = this.buildTurnPrompt({
-      text,
-      type: "response",
-    });
+    step.userAnswer = trimmed;
 
-    return this.generateStep(turnPrompt, progress);
-  }
+    const prompt = buildStepResponsePrompt(
+      step.content.explanation,
+      step.content.prompt ?? "",
+      trimmed
+    );
+    const response = await this.adapter.generateStepResponse(prompt, progress);
 
-  async respondChoice(
-    index: number,
-    progress: GenerationProgress
-  ): Promise<LessonStep> {
-    // Grade the choice if the current step has a correct answer
-    if (this.currentStep?.correctIndex !== undefined && this.currentStep.concepts) {
-      const correct = index === this.currentStep.correctIndex;
-      const chosenOption = this.currentStep.options?.[index] ?? `option ${index}`;
-      for (const concept of this.currentStep.concepts) {
+    step.response = response;
+    step.summary = response.summary;
+
+    if (response.correct !== undefined && step.content.prompt) {
+      for (const concept of step.plan.concepts) {
         this.checkResults.push({
           concept,
-          correct,
-          userAnswer: chosenOption,
+          correct: response.correct,
+          userAnswer: trimmed,
         });
       }
     }
 
-    this.history.push({ role: "learner", choiceIndex: index });
-
-    const turnPrompt = this.buildTurnPrompt({
-      choiceIndex: index,
-      type: "choice",
-    });
-
-    return this.generateStep(turnPrompt, progress);
+    return response;
   }
 
-  async skip(progress: GenerationProgress): Promise<LessonStep> {
-    this.history.push({ role: "learner", text: "(skipped)" });
+  respondToChoice(index: number): StepResponse {
+    const step = this.stepStates[this.activeStepIndex];
+    if (!step?.content) throw new Error("No active content");
 
-    const turnPrompt = this.buildTurnPrompt({ type: "skip" });
+    step.userChoiceIndex = index;
+    const correct = step.content.correctIndex === index;
+    const chosenOption = step.content.options?.[index] ?? `option ${index}`;
 
-    return this.generateStep(turnPrompt, progress);
+    const content = correct
+      ? (step.content.correctExplanation ?? "Correct!")
+      : (step.content.incorrectExplanation ?? "Not quite.");
+
+    const response: StepResponse = {
+      content,
+      correct,
+      summary: `${step.plan.title} — ${correct ? "understood" : "needs review"}`,
+    };
+
+    step.response = response;
+    step.summary = response.summary;
+    step.userAnswer = chosenOption;
+
+    for (const concept of step.plan.concepts) {
+      this.checkResults.push({ concept, correct, userAnswer: chosenOption });
+    }
+
+    return response;
   }
 
-  async askFollowUp(
-    question: string,
-    progress: GenerationProgress
-  ): Promise<LessonStep> {
-    const trimmed = question.trim().slice(0, 5000);
-    if (!trimmed) return this.skip(progress);
-    this.history.push({ role: "learner", text: trimmed });
+  advanceToNextStep(): number {
+    const current = this.stepStates[this.activeStepIndex];
+    if (current) current.status = "completed";
 
-    const turnPrompt = this.buildTurnPrompt({
-      text: question,
-      type: "followUp",
-    });
+    // Find next non-skipped step
+    for (let i = this.activeStepIndex + 1; i < this.stepStates.length; i++) {
+      if (this.stepStates[i]!.status !== "skipped") {
+        this.activeStepIndex = i;
+        this.stepStates[i]!.status = "active";
+        return i;
+      }
+    }
 
-    return this.generateStep(turnPrompt, progress);
+    // All done
+    this.activeStepIndex = this.stepStates.length;
+    return -1;
   }
 
-  isActive(): boolean {
-    return this.currentStep !== null && !this.currentStep.isComplete;
+  isComplete(): boolean {
+    return this.activeStepIndex >= this.stepStates.length;
+  }
+
+  getPlan(): LessonPlan | null {
+    return this.plan;
   }
 
   getSessionState(): LessonSessionState {
     return {
       subject: this.subject,
-      isActive: this.isActive(),
-      currentStep: this.currentStep,
-      stepCount: this.stepCount,
-      conceptsLearned: [...this.conceptsIntroduced],
-      checkResults: [...this.checkResults],
-      history: [...this.history],
+      planId: this.plan?.id ?? "",
+      steps: this.stepStates,
+      activeStepIndex: this.activeStepIndex,
+      isComplete: this.isComplete(),
     };
   }
 
-  /** Convert completed lesson into a static TourDocument for free replay. */
-  toTourDocument(): TourDocument {
-    const nodes: Record<string, TourNode> = {};
-    const teachSteps = this.history
-      .filter((t) => t.role === "tutor" && t.step)
-      .map((t) => t.step!);
+  getSerializableState(): { plan: LessonPlan; stepStates: LessonStepState[] } | null {
+    if (!this.plan) return null;
+    return { plan: this.plan, stepStates: this.stepStates };
+  }
 
+  static fromSaved(
+    adapter: ClaudeAdapter,
+    plan: LessonPlan,
+    stepStates: LessonStepState[]
+  ): LessonSession {
+    const session = new LessonSession(adapter, plan.subject);
+    session.plan = plan;
+    session.stepStates = stepStates;
+
+    // Find the active step
+    const activeIdx = stepStates.findIndex((s) => s.status === "active");
+    session.activeStepIndex = activeIdx >= 0 ? activeIdx : stepStates.length;
+
+    return session;
+  }
+
+  toTourDocument(): TourDocument {
+    if (!this.plan) throw new Error("No plan to convert");
+
+    const nodes: Record<string, TourNode> = {};
     let prevNodeId: string | null = null;
 
-    for (let i = 0; i < teachSteps.length; i++) {
-      const step = teachSteps[i]!;
-      // Skip non-content steps for replay
-      if (step.phase === "respond" || step.phase === "transition") continue;
-      if (step.phase === "recap") continue;
+    for (const step of this.stepStates) {
+      if (step.status === "skipped" || !step.content) continue;
 
-      const nodeId = `step-${i + 1}`;
-      const nextContentIdx = findNextContentStep(teachSteps, i + 1);
-      const nextNodeId = nextContentIdx !== -1 ? `step-${nextContentIdx + 1}` : undefined;
-
+      const nodeId = step.plan.id;
       nodes[nodeId] = {
-        file: step.file ?? "",
-        startLine: step.startLine ?? 1,
-        endLine: step.endLine ?? 1,
-        title: step.title ?? `Step ${i + 1}`,
-        explanation: step.content,
-        edges: nextNodeId
-          ? [{ target: nextNodeId, label: getLayerTransition(step.layer) }]
-          : [],
-        layer: step.layer,
-        concepts: step.concepts?.map((c) => ({ name: c, category: "" })),
+        file: step.plan.file,
+        startLine: step.plan.startLine,
+        endLine: step.plan.endLine,
+        title: step.plan.title,
+        explanation: step.content.explanation,
+        edges: [],
+        layer: step.plan.layer,
+        concepts: step.plan.concepts.map((c) => ({ name: c, category: "" })),
+        takeaway: step.summary,
       };
 
-      if (prevNodeId && nodes[prevNodeId] && nodes[prevNodeId].edges.length === 0) {
-        nodes[prevNodeId].edges.push({
-          target: nodeId,
-          label: getLayerTransition(step.layer),
-        });
+      if (prevNodeId && nodes[prevNodeId]) {
+        nodes[prevNodeId].edges.push({ target: nodeId, label: "Next" });
       }
       prevNodeId = nodeId;
     }
 
     const nodeIds = Object.keys(nodes);
-    const entryNode = nodeIds[0] ?? "step-1";
-
     return {
       version: 1,
-      id: `lesson-${slugify(this.subject)}`,
+      id: this.plan.id,
       name: `Lesson: ${this.subject}`,
       query: this.subject,
-      generatedAt: new Date().toISOString(),
+      generatedAt: this.plan.generatedAt,
       trackedFiles: [],
-      entryNode,
+      entryNode: nodeIds[0] ?? "step-1",
       nodes,
       lesson: {
         subject: this.subject,
-        depth: inferDepth(this.checkResults),
-        concepts: [...this.conceptsIntroduced],
+        depth: "intermediate",
+        concepts: [...new Set(this.stepStates.flatMap((s) => s.plan.concepts))],
         synopsis: `Interactive lesson about ${this.subject}.`,
       },
     };
   }
-
-  private buildTurnPrompt(
-    userInput: { text?: string; choiceIndex?: number; type: "response" | "choice" | "skip" | "followUp" }
-  ): string {
-    const turnPrompt = buildLessonTurnPrompt(
-      this.history,
-      this.checkResults,
-      userInput
-    );
-    return `${this.systemPrompt}\n\n${turnPrompt}`;
-  }
-
-  private async generateStep(
-    prompt: string,
-    progress: GenerationProgress
-  ): Promise<LessonStep> {
-    const step = await this.adapter.generateLessonStep(prompt, progress);
-
-    this.currentStep = step;
-    this.stepCount++;
-    this.history.push({ role: "tutor", step });
-
-    if (step.concepts) {
-      for (const concept of step.concepts) {
-        this.conceptsIntroduced.add(concept);
-      }
-    }
-
-    return step;
-  }
-}
-
-function findNextContentStep(steps: LessonStep[], startIdx: number): number {
-  for (let i = startIdx; i < steps.length; i++) {
-    const phase = steps[i]!.phase;
-    if (phase !== "respond" && phase !== "transition" && phase !== "recap") {
-      return i;
-    }
-  }
-  return -1;
-}
-
-function getLayerTransition(layer?: string): string {
-  switch (layer) {
-    case "outcome": return "How is it built?";
-    case "architecture": return "Why this approach?";
-    case "rationale": return "The clever part";
-    case "insight": return "Try it yourself";
-    case "challenge": return "Next concept";
-    default: return "Continue";
-  }
-}
-
-function inferDepth(results: CheckResult[]): LessonDepth {
-  if (results.length === 0) return "intermediate";
-  const correctRate = results.filter((r) => r.correct).length / results.length;
-  if (correctRate >= 0.8) return "advanced";
-  if (correctRate >= 0.5) return "intermediate";
-  return "foundational";
 }
