@@ -33,4 +33,4 @@ jobs:
         with:
           files: side-bae.vsix
           generate_release_notes: true
-          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+          prerelease: false
