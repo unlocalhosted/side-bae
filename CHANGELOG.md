@@ -33,7 +33,7 @@ Each with an icon, description, and keyboard shortcut. The sidebar welcome view 
 - **Natural tooltips** — "(takes a moment)" instead of "(uses Claude API)"
 - **Investigation voice** — Bug investigations now read like detective stories, not clinical reports. Badges: "The Setup", "What's Wrong", "The Fix"
 - **Brilliant-style lesson voice** — AI uses guided discovery pedagogy: ask first, explain after, concrete before abstract
-- **Cycling loading states** — "Reading your response...", "Exploring the code...", "Preparing the next step..."
+- **Real progress transparency** — Shows exactly what Claude is doing in real-time ("Reading engine/tour-store.ts", "Searching useCallback") instead of canned fake messages. Lessons now get live progress too.
 - **Clearer labels** — "What you learned" instead of "Lesson complete", "Copy report" instead of "Copy for PR"
 - **Better tree view** — "Learn — patterns & architecture", "What's New — recent changes", "Investigate an issue..." hint
 
