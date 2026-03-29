@@ -238,12 +238,13 @@ export class FeatureTreeProvider
           vscode.TreeItemCollapsibleState.None
         );
         item.description = `${element.nodeCount} stops`;
-        item.tooltip = `${element.name}\n${element.query}\n\nClick to start (instant, no API cost)`;
+        item.tooltip = `${element.name}\n${element.query}\n\nClick to start (instant, no API cost)\nRight-click to delete`;
         item.command = {
           command: "sideBae.openTour",
           title: "Open Tour",
           arguments: [element.tourId],
         };
+        item.contextValue = "tour";
         item.iconPath = new vscode.ThemeIcon("play-circle");
         return item;
       }

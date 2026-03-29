@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
+import { readdir, readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
 import type { FeatureTreeNode } from "../types/feature-tree.js";
@@ -32,6 +32,14 @@ export async function loadTour(
   const filePath = getTourPath(workspaceRoot, tourId);
   const content = await readFile(filePath, "utf-8");
   return validateTourDocument(JSON.parse(content));
+}
+
+export async function deleteTour(
+  workspaceRoot: string,
+  tourId: string
+): Promise<void> {
+  const filePath = getTourPath(workspaceRoot, tourId);
+  await unlink(filePath);
 }
 
 export interface TourSummary {

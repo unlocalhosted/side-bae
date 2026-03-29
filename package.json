@@ -96,6 +96,12 @@
         "title": "Investigate Issue",
         "category": "Side Bae",
         "icon": "$(search-fuzzy)"
+      },
+      {
+        "command": "sideBae.deleteTour",
+        "title": "Delete Tour",
+        "category": "Side Bae",
+        "icon": "$(trash)"
       }
     ],
     "keybindings": [
@@ -143,7 +149,18 @@
           "group": "navigation"
         }
       ],
+      "view/item/context": [
+        {
+          "command": "sideBae.deleteTour",
+          "when": "viewItem == tour",
+          "group": "inline"
+        }
+      ],
       "commandPalette": [
+        {
+          "command": "sideBae.deleteTour",
+          "when": "false"
+        },
         {
           "command": "sideBae.nextEdge",
           "when": "sideBae.tourActive"

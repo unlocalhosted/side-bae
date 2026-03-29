@@ -8,6 +8,7 @@ import { registerNavigationCommands } from "./commands/navigate.js";
 import { registerWhatsNewCommand } from "./commands/whats-new.js";
 import { registerInvestigateIssueCommand } from "./commands/investigate-issue.js";
 import { disposeDecorations } from "./views/tour-player/decorations.js";
+import * as tourStore from "./engine/tour-store.js";
 import { requireClaude } from "./commands/preflight.js";
 
 function getAdapter(workspaceRoot: string): ClaudeAdapter {
@@ -65,6 +66,19 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("sideBae.discoverFeatures", () => {
       featureTreeProvider.discoverFeatures();
+    }),
+    vscode.commands.registerCommand("sideBae.deleteTour", async (item: unknown) => {
+      const tour = item as { kind?: string; tourId?: string; name?: string };
+      if (!tour?.tourId || tour.kind !== "tour") return;
+      const confirm = await vscode.window.showWarningMessage(
+        `Delete tour "${tour.name}"?`,
+        { modal: true },
+        "Delete"
+      );
+      if (confirm === "Delete") {
+        await tourStore.deleteTour(workspaceRoot, tour.tourId);
+        featureTreeProvider.refresh();
+      }
     })
   );
 
