@@ -105,6 +105,27 @@ export const TOUR_DOCUMENT_SCHEMA = {
             description:
               "Node role in investigation tours. Only used for investigate-issue tours.",
           },
+          layer: {
+            type: "string",
+            enum: ["outcome", "architecture", "rationale", "insight", "challenge"],
+            description: "Lesson layer — used in lesson replay tours.",
+          },
+          concepts: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["name", "category"],
+              properties: {
+                name: { type: "string", description: "Pattern or concept name" },
+                category: { type: "string", description: "Category like 'React Pattern', 'CSS Technique', 'Performance'" },
+              },
+            },
+            description: "Named patterns/concepts taught in this node.",
+          },
+          takeaway: {
+            type: "string",
+            description: "One key sentence the learner should remember from this node.",
+          },
           suggestedEdit: {
             type: "object",
             required: ["oldText", "newText"],
@@ -128,6 +149,17 @@ export const TOUR_DOCUMENT_SCHEMA = {
       type: "string",
       description:
         "Markdown investigation report in PR-ready format. Only for investigation tours.",
+    },
+    lesson: {
+      type: "object",
+      properties: {
+        subject: { type: "string", description: "What this lesson teaches" },
+        depth: { type: "string", enum: ["foundational", "intermediate", "advanced"] },
+        concepts: { type: "array", items: { type: "string" }, description: "Named concepts/patterns covered" },
+        synopsis: { type: "string", description: "One-paragraph summary of what the learner will gain" },
+      },
+      required: ["subject", "depth", "concepts", "synopsis"],
+      description: "Lesson metadata — present when this tour is a saved lesson replay.",
     },
   },
 } as const;
@@ -167,6 +199,150 @@ export const RECENT_CHANGES_SCHEMA = {
             type: "array",
             items: { type: "string" },
             description: "Files touched by this change (relative paths)",
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+export const LESSON_STEP_SCHEMA = {
+  type: "object",
+  required: ["phase", "content", "awaitsResponse", "skippable", "isComplete"],
+  properties: {
+    phase: {
+      type: "string",
+      enum: ["prime", "teach", "check", "respond", "transition", "recap"],
+      description: "The pedagogical phase of this step.",
+    },
+    file: {
+      type: "string",
+      description: "Relative file path to highlight in the editor.",
+    },
+    startLine: { type: "number", description: "1-based start line." },
+    endLine: { type: "number", description: "1-based end line." },
+    title: { type: "string", description: "Step title." },
+    content: {
+      type: "string",
+      description:
+        "Markdown content — the AI's teaching, response, or explanation. This is the main body of the step.",
+    },
+    prompt: {
+      type: "string",
+      description: "Question or prompt for the learner when awaiting a response.",
+    },
+    inputType: {
+      type: "string",
+      enum: ["text", "choice", "none"],
+      description:
+        "How the learner should respond: text area, multiple choice, or no input needed.",
+    },
+    options: {
+      type: "array",
+      items: { type: "string" },
+      description: "Choice options when inputType is 'choice'.",
+    },
+    correctIndex: {
+      type: "number",
+      description:
+        "Index of the correct option (0-based). Only set for check phases with choice input.",
+    },
+    concepts: {
+      type: "array",
+      items: { type: "string" },
+      description: "Concepts being taught or checked in this step.",
+    },
+    layer: {
+      type: "string",
+      enum: ["outcome", "architecture", "rationale", "insight", "challenge"],
+      description: "Which pedagogical layer this step belongs to.",
+    },
+    awaitsResponse: {
+      type: "boolean",
+      description: "True if the webview should wait for learner input before continuing.",
+    },
+    skippable: {
+      type: "boolean",
+      description: "True if the learner can skip this interaction.",
+    },
+    isComplete: {
+      type: "boolean",
+      description: "True if this is the final step (recap). Signals end of lesson.",
+    },
+    recapData: {
+      type: "object",
+      properties: {
+        conceptsSolid: {
+          type: "array",
+          items: { type: "string" },
+          description: "Concepts the learner demonstrated strong understanding of.",
+        },
+        conceptsShaky: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["name", "suggestion"],
+            properties: {
+              name: { type: "string" },
+              suggestion: { type: "string", description: "What to revisit or review." },
+            },
+          },
+        },
+        predictionsVsReality: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["prediction", "reality"],
+            properties: {
+              prediction: { type: "string", description: "What the learner predicted." },
+              reality: { type: "string", description: "What was actually happening." },
+            },
+          },
+        },
+        totalSteps: { type: "number" },
+        checksCorrect: { type: "number" },
+        checksTotal: { type: "number" },
+      },
+      description: "Recap data — only present on the final recap step.",
+    },
+  },
+} as const;
+
+export const LEARNABLE_CONCEPTS_SCHEMA = {
+  type: "object",
+  required: ["concepts"],
+  properties: {
+    concepts: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["name", "description", "depth", "concepts", "entryFile"],
+        properties: {
+          name: {
+            type: "string",
+            description: "Short name for this learnable topic (e.g., 'Virtual Scrolling Engine', 'Plugin Architecture').",
+          },
+          description: {
+            type: "string",
+            description: "One-line description of what a developer would learn from studying this.",
+          },
+          depth: {
+            type: "string",
+            enum: ["foundational", "intermediate", "advanced"],
+            description: "How much prior knowledge is needed.",
+          },
+          concepts: {
+            type: "array",
+            items: { type: "string" },
+            description: "Named patterns or techniques involved (e.g., 'Observer Pattern', 'Intersection Observer API').",
+          },
+          entryFile: {
+            type: "string",
+            description: "Primary file to start exploring this topic.",
+          },
+          icon: {
+            type: "string",
+            description: "VS Code codicon name (e.g., 'mortar-board', 'beaker', 'lightbulb').",
           },
         },
       },

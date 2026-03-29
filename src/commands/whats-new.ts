@@ -16,7 +16,7 @@ export function registerWhatsNewCommand(
         if (!(await requireClaude(checkClaude))) return;
 
         const range = await vscode.window.showInputBox({
-          prompt: "What time range?",
+          prompt: "Show changes from when?",
           placeHolder: "e.g., this week, last 3 days, since v2.0, last 10 commits",
         });
 

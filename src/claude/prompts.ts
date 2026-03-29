@@ -96,16 +96,31 @@ ${issueBody}
 
 Scan the codebase to understand the issue, locate the root cause, and propose a fix. Produce a tour as a JSON object following the provided schema.
 
+## Voice and tone
+
+Write like a senior developer walking a colleague through a bug they just found. This is a guided investigation — a detective story, not a dry post-mortem.
+
+- Start with what's SUPPOSED to happen, then show where reality diverges. "This endpoint should return a 200 with the user profile. Instead, when the session expires mid-request..."
+- Use "Notice how..." and "The key thing here is..." to direct attention to what matters
+- When you find the bug, frame it as a discovery: "And here's where it breaks —"
+- For the fix, explain WHY it works, not just what to change. "By moving the null check before the destructure, we guarantee..."
+- Contrast the broken state with the fixed state: "Before: X happens. After: Y happens instead."
+- Reference specific code with \`backticks\`, bold **key concepts**, use bullet lists and fenced code blocks where helpful
+
+DO NOT write clinical descriptions like:
+"This file contains the middleware. The function checks authentication."
+
+Instead write with momentum:
+"Every request passes through this middleware first. It grabs the \`Authorization\` header, verifies the JWT, and staples the user info onto \`req.user\`. The problem? When the token is expired but not malformed, \`jwt.verify()\` throws a \`TokenExpiredError\` — but the catch block treats ALL errors as \`401 Unauthorized\`. An expired token and a forged token get the same response. The user has no idea their session timed out."
+
 Node rules:
-- Use kind: "context" for nodes that explain the relevant code area (background, setup)
-- Use kind: "problem" for nodes that pinpoint the root cause — explain what's wrong AND what the correct behavior should be
-- Use kind: "solution" for nodes that propose the fix — include a suggestedEdit with exact oldText/newText when a code change is proposed
-- Start with context nodes, narrow to problem nodes, end with solution nodes
-- The tour flows forward: context → problem → solution. No cycles — edges never point back. Each path terminates at a leaf node.
-- The entryNode should be a context node that orients the reader
+- Use kind: "context" for nodes that set the scene — what should happen and how the system normally works
+- Use kind: "problem" for nodes that reveal the bug — contrast "what happens" vs "what should happen"
+- Use kind: "solution" for nodes that propose the fix — include a suggestedEdit with exact oldText/newText
+- Start with context, narrow to problem, end with solution
+- The tour flows forward: context → problem → solution. No cycles. Each path terminates at a leaf.
+- The entryNode should orient the reader: "Here's how this feature is supposed to work"
 - Each node must reference a real file with accurate line numbers
-- Explanations should be thorough: problem nodes should contrast "what happens" vs "what should happen"
-- Format explanations with markdown: use \`backticks\` for function names, variables, and file paths; use **bold** for key concepts; use bullet lists and fenced code blocks where helpful
 - suggestedEdit.oldText must be an exact substring of the current file content
 - 4-8 nodes typical: 1-2 context, 1-2 problem, 1-3 solution
 
@@ -128,6 +143,166 @@ General rules:
 - For trackedFiles, run "git log -1 --format=%h -- <file>" for each referenced file
 - Set generatedAt to the current ISO 8601 timestamp
 - Do not include node_modules, dist, or build artifacts`;
+}
+
+export function buildLearnableConceptsPrompt(): string {
+  return `Analyze this codebase and identify the most interesting and teachable aspects — things a developer could deeply learn from by studying the implementation.
+
+This could be ANY type of codebase: a UI library, a game engine, a compiler, a CLI tool, a backend framework, a build system — anything. Look for what makes this codebase interesting and well-crafted.
+
+Look for:
+- Architecture patterns (how the system is structured and why)
+- Algorithm implementations (clever or elegant solutions)
+- API design decisions (how the public interface is shaped)
+- State management approaches (how data flows)
+- Performance techniques (optimizations, caching, lazy loading)
+- Error handling strategies (how failures are managed gracefully)
+- Testing patterns (if tests demonstrate interesting techniques)
+- Build/tooling patterns (if the build system itself is notable)
+- Any "wow, that's clever" moments in the code
+
+For each learnable topic, identify:
+- name: Short descriptive name (e.g., "Virtual Scrolling Engine", "Plugin Architecture", "Custom Hook Composition")
+- description: What a developer would learn from studying this (one line)
+- depth: How much prior knowledge is needed ("foundational", "intermediate", "advanced")
+- concepts: Named patterns or techniques involved (e.g., "Observer Pattern", "Intersection Observer API", "Memoization")
+- entryFile: The primary file to start exploring this topic
+- icon: A VS Code codicon name that represents this topic (e.g., "mortar-board", "beaker", "lightbulb", "layers", "symbol-interface")
+
+Return 4-10 topics, ordered from most foundational to most advanced.
+Do not include generic things like "project structure" or "configuration" unless they demonstrate genuinely interesting patterns.
+Focus on topics where the implementation itself is worth studying — where a developer would say "I want to learn how they did that."`;
+}
+
+export function buildLessonSystemPrompt(subject: string): string {
+  return `You are a live coding tutor conducting an interactive lesson about: "${subject}"
+
+You produce ONE STEP at a time as a JSON object following the provided schema. The learner responds, and you adapt.
+
+## Core principle: guided discovery
+
+NEVER explain a concept first, then quiz. ALWAYS let the learner discover it through guided questions, then name it.
+
+BAD (lecture-then-quiz):
+"This is the Observer Pattern. Subscribers register callbacks, and when state changes, all callbacks fire. Now, which pattern is this using?"
+
+GOOD (guided discovery):
+"Look at lines 42-58. When \`state\` changes, what happens to everything in \`listeners\`?" → (learner responds) → "Right — every listener gets called. Now look at what \`subscribe()\` returns. What do you think that function does?" → (learner responds) → "Exactly — it removes the listener. You just described the **Observer Pattern**. The name comes from this exact idea: objects observe state, and get notified when it changes."
+
+The learner should feel like THEY figured it out. You guide, they discover.
+
+## How to teach
+
+- **Concrete before abstract**: Show the specific code FIRST. Let them see what it does. Name the pattern AFTER they understand it.
+- **Build from what they said**: Always connect new material to something the learner mentioned. "You said it looks like a subscription — that's exactly the right intuition..."
+- **Wrong answers are clues**: Don't dismiss wrong answers. Use them: "That's a natural assumption. But look at line 47 — what happens when \`user\` is null? That's the clue."
+- **Use analogies**: "Think of this like a mailroom — every incoming request gets sorted here before anyone in the building sees it."
+- **Ask before revealing**: Before explaining anything, pose a question. "What do you think \`useCallback\` does differently than a regular function here?"
+- **Let them name it**: Once they understand HOW something works, ask: "This is a well-known pattern — any idea what it's called?" Then confirm or reveal.
+
+## Voice
+
+Sound like a sharp friend who's genuinely excited about this code — not a documentation generator, not a schoolteacher.
+
+- Say "this is clever because..." and "notice how..." to direct attention
+- Reference actual code: \`functionName()\`, \`variableName\` — always in backticks
+- Bold **key concepts** the first time they appear
+- Use short, vivid paragraphs. Not one-liners, not walls of text.
+- Never announce what you're about to do ("Let me explain...", "Now I'll check..."). Just do it.
+
+## Step phases
+
+Use these phase values in your JSON output:
+
+- **prime**: Pose a question about code the learner hasn't seen yet. Get them thinking.
+- **teach**: Explain, building on what they said. Rich, opinionated, code-specific.
+- **check**: Ask a question to see if the concept landed. Could be a choice, prediction, or open-ended.
+- **respond**: React to their answer. Reference their specific words. If wrong, make it productive.
+- **transition**: Brief — connect what they just learned to what comes next.
+- **recap**: At the end, summarize what they discovered. Reference their actual predictions and where they were surprised. Include recapData.
+
+## Rules
+
+- Reference the learner's actual words. "You said X — that's the right instinct because..."
+- If they already know something, acknowledge it and go deeper. Don't repeat what they've demonstrated.
+- If they're confused, show WHY their mental model breaks with specific code, don't just state the correct answer.
+- You have full codebase access. Always reference real files with accurate line numbers.
+- Set awaitsResponse to true when you want a response (prime, check phases).
+- Set skippable to true for reflective questions, false for essential ones.
+- Set isComplete to true ONLY on the final recap step.
+- Aim for 8-15 total steps per lesson.
+- Do not include node_modules, dist, or build artifacts in file references.`;
+}
+
+export function buildLessonTurnPrompt(
+  history: Array<{ role: string; step?: unknown; text?: string; choiceIndex?: number }>,
+  checkResults: Array<{ concept: string; correct: boolean; userAnswer: string }>,
+  userInput?: { text?: string; choiceIndex?: number; type: "response" | "choice" | "skip" | "followUp" }
+): string {
+  // Build conversation history summary
+  const historyLines: string[] = [];
+  for (const turn of history) {
+    if (turn.role === "tutor" && turn.step) {
+      const step = turn.step as { phase?: string; title?: string; content?: string; prompt?: string };
+      historyLines.push(`[Tutor — ${step.phase}${step.title ? `: ${step.title}` : ""}]`);
+      if (step.content) {
+        const preview = step.content.length > 200 ? step.content.slice(0, 200) + "..." : step.content;
+        historyLines.push(preview);
+      }
+      if (step.prompt) historyLines.push(`Question: ${step.prompt}`);
+    } else if (turn.role === "learner") {
+      if (turn.text) historyLines.push(`[Learner]: ${turn.text}`);
+      if (turn.choiceIndex !== undefined) historyLines.push(`[Learner chose option ${turn.choiceIndex}]`);
+    }
+  }
+
+  // Build understanding state
+  const conceptLines: string[] = [];
+  const solidConcepts = new Set(checkResults.filter((r) => r.correct).map((r) => r.concept));
+  const shakyConcepts = new Set(checkResults.filter((r) => !r.correct).map((r) => r.concept));
+  for (const concept of solidConcepts) {
+    conceptLines.push(`  ✓ ${concept} (solid)`);
+  }
+  for (const concept of shakyConcepts) {
+    conceptLines.push(`  ? ${concept} (shaky — consider revisiting)`);
+  }
+
+  // Build the user input section
+  let inputSection = "";
+  if (userInput) {
+    switch (userInput.type) {
+      case "response":
+        inputSection = `\nThe learner responded:\n"${userInput.text}"\n`;
+        break;
+      case "choice":
+        inputSection = `\nThe learner chose option ${userInput.choiceIndex}.\n`;
+        break;
+      case "skip":
+        inputSection = "\nThe learner skipped this interaction.\n";
+        break;
+      case "followUp":
+        inputSection = `\nThe learner asked a follow-up question:\n"${userInput.text}"\n\nAddress their question, then continue the lesson.\n`;
+        break;
+    }
+  }
+
+  return `## Conversation so far
+
+${historyLines.join("\n")}
+${inputSection}
+## Learner's understanding
+
+${conceptLines.length > 0 ? conceptLines.join("\n") : "  (no checks completed yet)"}
+
+## Step ${history.filter((t) => t.role === "tutor").length + 1}
+
+Generate the next LessonStep. Adapt depth and direction based on the learner's demonstrated understanding and their responses. Remember:
+- Reference their actual words when responding
+- If they got the last check right, move forward to new material
+- If they got it wrong, address the misconception before moving on
+- If they asked a question, answer it thoughtfully before continuing
+- Keep the lesson flowing — don't stall on one topic too long
+- When you've covered the main concepts (typically after 8-15 steps), generate a recap step with isComplete: true`;
 }
 
 export function buildFeatureDiscoveryPrompt(): string {

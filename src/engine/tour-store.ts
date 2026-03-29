@@ -2,9 +2,11 @@ import { readdir, readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { validateTourDocument, type TourDocument } from "../types/tour.js";
 import type { FeatureTreeNode } from "../types/feature-tree.js";
+import type { LearnableConcept } from "../types/lesson.js";
 
 const TOUR_DIR = ".side-bae";
 const FEATURES_FILE = "features.json";
+const LEARNABLE_FILE = "learnable-concepts.json";
 
 function getTourDir(workspaceRoot: string): string {
   return join(workspaceRoot, TOUR_DIR);
@@ -48,6 +50,8 @@ export interface TourSummary {
   query: string;
   generatedAt: string;
   nodeCount: number;
+  isLesson?: boolean;
+  lessonDepth?: string;
 }
 
 export async function listTours(
@@ -73,7 +77,9 @@ export async function listTours(
           query: tour.query,
           generatedAt: tour.generatedAt,
           nodeCount: tour.nodes ? Object.keys(tour.nodes).length : 0,
-        } satisfies TourSummary;
+          isLesson: tour.lesson ? true : undefined,
+          lessonDepth: tour.lesson?.depth,
+        } as TourSummary;
       } catch {
         return null;
       }
@@ -102,6 +108,35 @@ export async function loadFeatures(
   try {
     const content = await readFile(
       join(getTourDir(workspaceRoot), FEATURES_FILE),
+      "utf-8"
+    );
+    const data = JSON.parse(content);
+    if (Array.isArray(data) && data.length > 0) return data;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveLearnableConcepts(
+  workspaceRoot: string,
+  concepts: LearnableConcept[]
+): Promise<void> {
+  const dir = getTourDir(workspaceRoot);
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, LEARNABLE_FILE),
+    JSON.stringify(concepts, null, 2),
+    "utf-8"
+  );
+}
+
+export async function loadLearnableConcepts(
+  workspaceRoot: string
+): Promise<LearnableConcept[] | null> {
+  try {
+    const content = await readFile(
+      join(getTourDir(workspaceRoot), LEARNABLE_FILE),
       "utf-8"
     );
     const data = JSON.parse(content);

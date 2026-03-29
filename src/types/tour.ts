@@ -1,3 +1,5 @@
+import type { LessonLayer, LessonDepth } from "./lesson.js";
+
 export interface TourEdge {
   target: string;
   label: string;
@@ -6,6 +8,11 @@ export interface TourEdge {
 export interface SuggestedEdit {
   oldText: string;
   newText: string;
+}
+
+export interface ConceptTag {
+  name: string;
+  category: string;
 }
 
 export interface TourNode {
@@ -17,11 +24,24 @@ export interface TourNode {
   edges: TourEdge[];
   kind?: "context" | "problem" | "solution";
   suggestedEdit?: SuggestedEdit;
+  /** Lesson layer — used in lesson replay tours */
+  layer?: LessonLayer;
+  /** Named patterns/concepts taught in this node */
+  concepts?: ConceptTag[];
+  /** Key takeaway sentence */
+  takeaway?: string;
 }
 
 export interface TrackedFile {
   path: string;
   lastCommit: string;
+}
+
+export interface LessonMeta {
+  subject: string;
+  depth: LessonDepth;
+  concepts: string[];
+  synopsis: string;
 }
 
 export interface TourDocument {
@@ -34,6 +54,8 @@ export interface TourDocument {
   entryNode: string;
   nodes: Record<string, TourNode>;
   report?: string;
+  /** Lesson metadata — present when this tour is a saved lesson replay */
+  lesson?: LessonMeta;
 }
 
 export class TourValidationError extends Error {
@@ -127,6 +149,7 @@ export function validateTourDocument(data: unknown): TourDocument {
     entryNode: tour.entryNode,
     nodes: tour.nodes,
     report: tour.report,
+    lesson: tour.lesson,
   };
 
   // Enforce DAG: strip edges that create cycles (back-references to ancestors)

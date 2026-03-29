@@ -102,6 +102,18 @@
         "title": "Delete Tour",
         "category": "Side Bae",
         "icon": "$(trash)"
+      },
+      {
+        "command": "sideBae.startLesson",
+        "title": "Learn from This Code",
+        "category": "Side Bae",
+        "icon": "$(mortar-board)"
+      },
+      {
+        "command": "sideBae.scanLearnable",
+        "title": "Scan for Things to Learn",
+        "category": "Side Bae",
+        "icon": "$(mortar-board)"
       }
     ],
     "keybindings": [
@@ -129,6 +141,11 @@
         "command": "sideBae.generateTour",
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t"
+      },
+      {
+        "command": "sideBae.startLesson",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l"
       }
     ],
     "menus": {
@@ -145,6 +162,11 @@
         },
         {
           "command": "sideBae.whatsNew",
+          "when": "view == sideBae.featureTree",
+          "group": "navigation"
+        },
+        {
+          "command": "sideBae.scanLearnable",
           "when": "view == sideBae.featureTree",
           "group": "navigation"
         }
@@ -188,6 +210,10 @@
         {
           "command": "sideBae.discoverFeatures",
           "when": "false"
+        },
+        {
+          "command": "sideBae.scanLearnable",
+          "when": "false"
         }
       ]
     },
@@ -207,7 +233,7 @@
         "sideBae.maxBudgetUsd": {
           "type": "number",
           "default": 0.5,
-          "description": "Max cost (USD) per tour or feature scan"
+          "description": "Max cost (USD) per request"
         },
         "sideBae.celebrations": {
           "type": "string",
@@ -234,7 +260,7 @@
       },
       {
         "view": "sideBae.featureTree",
-        "contents": "Understand this codebase with AI-guided walkthroughs.\n[Ask About a Feature](command:sideBae.generateTour)\n[Discover All Features](command:sideBae.discoverFeatures)",
+        "contents": "Explore this codebase with AI.\n[Ask About a Feature](command:sideBae.generateTour)\nAuto-detect what this codebase can do.\n[Discover All Features](command:sideBae.discoverFeatures)\nPaste a bug report, get root cause + fix.\n[Investigate an Issue](command:sideBae.investigateIssue)\nLive AI tutor teaches patterns from the code.\n[Learn from This Code](command:sideBae.startLesson)\nSee what changed in recent commits.\n[What's New](command:sideBae.whatsNew)",
         "when": "workbenchState != empty && !sideBae.hasTours && !sideBae.featuresLoaded"
       }
     ]

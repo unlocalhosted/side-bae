@@ -21,6 +21,8 @@
 
   let celebrationsSetting = "auto";
 
+  let lessonLoading = false;
+
   function shouldShowCelebrations() {
     if (celebrationsSetting === "on") return true;
     if (celebrationsSetting === "off") return false;
@@ -79,18 +81,73 @@
 
   // ── Rendering ────────────────────────────────────────────────────
 
-  function renderEmpty() {
+  const lessonShortcut = isMac ? "\u2318\u21E7L" : "Ctrl+Shift+L";
+
+  const hubActions = [
+    {
+      command: "sideBae.generateTour",
+      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
+      name: "Ask About a Feature",
+      desc: "\u201CHow does auth work?\u201D \u2192 AI-guided code tour",
+      shortcut: generateShortcut,
+    },
+    {
+      command: "sideBae.discoverFeatures",
+      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+      name: "Discover Features",
+      desc: "Auto-scan and map this codebase",
+      shortcut: null,
+    },
+    {
+      command: "sideBae.investigateIssue",
+      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M9 17c1 1 5 1 6 0"/><rect x="2" y="6" width="20" height="16" rx="4"/></svg>',
+      name: "Investigate Issue",
+      desc: "Paste a bug \u2192 root cause + fix",
+      shortcut: null,
+    },
+    {
+      command: "sideBae.startLesson",
+      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 6 3 6 3s6-1 6-3v-5"/></svg>',
+      name: "Learn from This Code",
+      desc: "Live AI tutor teaches patterns in this codebase",
+      shortcut: lessonShortcut,
+    },
+    {
+      command: "sideBae.whatsNew",
+      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      name: "What\u2019s New",
+      desc: "See recent git changes at a glance",
+      shortcut: null,
+    },
+  ];
+
+  function renderCommandHub() {
     root.innerHTML = `
-      <div class="empty-state fade-in">
-        <div class="empty-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-          </svg>
+      <div class="command-hub fade-in">
+        <div class="hub-header">
+          <div class="hub-title">Side Bae</div>
+          <div class="hub-subtitle">Pick a way to explore this codebase</div>
         </div>
-        <div class="empty-title">Ready to explore</div>
-        <div class="empty-hint"><kbd>${generateShortcut}</kbd> to ask about a feature</div>
+        <div class="hub-actions">
+          ${hubActions.map(a => `
+            <button class="hub-action" data-command="${a.command}">
+              <span class="hub-icon">${a.icon}</span>
+              <div class="hub-text">
+                <div class="hub-name">${a.name}</div>
+                <div class="hub-desc">${a.desc}</div>
+              </div>
+              ${a.shortcut ? `<kbd class="hub-shortcut">${a.shortcut}</kbd>` : ""}
+            </button>
+          `).join("")}
+        </div>
       </div>
     `;
+
+    root.querySelectorAll(".hub-action").forEach(btn => {
+      btn.addEventListener("click", () => {
+        vscode.postMessage({ type: "launchCommand", command: btn.getAttribute("data-command") });
+      });
+    });
   }
 
   function renderMarkdown(text, opts) {
@@ -233,7 +290,7 @@
       problem: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
       solution: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>',
     };
-    const kindLabels = { context: "Context", problem: "Problem", solution: "Suggested Fix" };
+    const kindLabels = { context: "The Setup", problem: "What\u2019s Wrong", solution: "The Fix" };
     const kindBadgeHtml = node.kind
       ? `<div class="kind-badge kind-${node.kind}${nodeChanged ? " badge-enter" : ""}">${kindSvgs[node.kind] || ""} ${kindLabels[node.kind] || node.kind}</div>`
       : "";
@@ -247,7 +304,7 @@
       const newLines = escapeHtml(node.suggestedEdit.newText).split("\n").map(l => `<span class="diff-line diff-add${nodeChanged ? " diff-enter" : ""}" ${nodeChanged ? `style="animation-delay:${lineIdx++ * 40}ms"` : ""}>+ ${l}</span>`).join("");
       suggestedEditHtml = `
         <div class="suggested-edit">
-          <div class="edit-label">Suggested Fix</div>
+          <div class="edit-label">The Fix</div>
           <pre class="edit-diff">${oldLines}${newLines}</pre>
           <button class="apply-fix-btn">Apply Fix</button>
         </div>
@@ -331,7 +388,7 @@
               </button>
               <div class="report-content">
                 <div class="report-body">${renderMarkdown(currentReport, { headings: true })}</div>
-                <button class="copy-report-btn">Copy for PR</button>
+                <button class="copy-report-btn">Copy report</button>
               </div>
             </div>
           ` : ""}
@@ -403,6 +460,319 @@
     }
   }
 
+  // ── Lesson Rendering ──────────────────────────────────────
+
+  const lessonLoadingMessages = [
+    "Reading your response\u2026",
+    "Exploring the code\u2026",
+    "Preparing the next step\u2026",
+  ];
+  let lessonLoadingInterval = null;
+
+  function renderLessonLoading() {
+    lessonLoading = true;
+    if (lessonLoadingInterval) clearInterval(lessonLoadingInterval);
+
+    root.innerHTML = `
+      <div class="panel-header">Learning...</div>
+      <div class="card-scroll">
+        <div class="lesson-loading fade-in">
+          <div class="lesson-loading-dots">
+            <div class="lesson-loading-dot"></div>
+            <div class="lesson-loading-dot"></div>
+            <div class="lesson-loading-dot"></div>
+          </div>
+          <div class="lesson-loading-text" id="lesson-loading-msg">${lessonLoadingMessages[0]}</div>
+        </div>
+      </div>
+    `;
+
+    let msgIdx = 0;
+    lessonLoadingInterval = setInterval(() => {
+      msgIdx = (msgIdx + 1) % lessonLoadingMessages.length;
+      const el = document.getElementById("lesson-loading-msg");
+      if (el) el.textContent = lessonLoadingMessages[msgIdx];
+    }, 2500);
+  }
+
+  function renderLessonStep(step, state) {
+    lessonLoading = false;
+    if (lessonLoadingInterval) { clearInterval(lessonLoadingInterval); lessonLoadingInterval = null; }
+
+    const phaseLabels = {
+      prime: "",
+      teach: "",
+      check: "",
+      respond: "",
+      transition: "",
+      recap: "What you learned",
+    };
+
+    if (step.isComplete && step.recapData) {
+      renderLessonRecap(step, state);
+      return;
+    }
+
+    // Layer badge
+    const layerLabels = { outcome: "What it does", architecture: "How it\u2019s built", rationale: "Why this way", insight: "The clever bit", challenge: "Your turn" };
+    const layerHtml = step.layer
+      ? `<div class="layer-badge layer-${step.layer} badge-enter">${layerLabels[step.layer] || step.layer}</div>`
+      : "";
+
+    // Phase badge for prime/check
+    const phaseLabel = phaseLabels[step.phase];
+    const phaseBadgeHtml = phaseLabel
+      ? `<div class="phase-badge phase-${step.phase}">${escapeHtml(phaseLabel)}</div>`
+      : "";
+
+    // Concept tags
+    const conceptsHtml = step.concepts && step.concepts.length > 0
+      ? `<div class="concept-tags">${step.concepts.map(c => `<span class="concept-tag">${escapeHtml(c)}</span>`).join("")}</div>`
+      : "";
+
+    // File reference
+    const fileHtml = step.file
+      ? `<div class="card-file">${escapeHtml(step.file)}${step.startLine ? `:${step.startLine}-${step.endLine}` : ""}</div>`
+      : "";
+
+    // Main content
+    const contentHtml = step.content
+      ? `<div class="lesson-content">${renderMarkdown(step.content)}</div>`
+      : "";
+
+    // Prompt question
+    const promptHtml = step.prompt
+      ? `<div class="lesson-prompt">${renderMarkdown(step.prompt)}</div>`
+      : "";
+
+    // Input area (text or choice)
+    let inputHtml = "";
+    if (step.awaitsResponse) {
+      if (step.inputType === "text") {
+        inputHtml = `
+          <div class="lesson-input-area">
+            <textarea class="lesson-textarea" id="lesson-input" placeholder="What do you think?" rows="3"></textarea>
+            <div class="lesson-input-actions">
+              <button class="lesson-send-btn" id="lesson-send">Send</button>
+              ${step.skippable ? '<button class="lesson-skip-link" id="lesson-skip">Skip</button>' : ""}
+            </div>
+          </div>
+        `;
+      } else if (step.inputType === "choice" && step.options) {
+        const letters = "ABCDEFGH";
+        inputHtml = `
+          <div class="lesson-choices">
+            ${step.options.map((opt, i) => `
+              <button class="lesson-choice-btn" data-index="${i}">
+                <span class="choice-letter">${letters[i] || i + 1}</span>
+                <span class="choice-text">${escapeHtml(opt)}</span>
+              </button>
+            `).join("")}
+          </div>
+          ${step.skippable ? '<button class="lesson-skip-link" id="lesson-skip">Skip</button>' : ""}
+        `;
+      }
+    }
+
+    // Step counter
+    const counterHtml = `<span class="lesson-step-counter">${state.stepCount}</span>`;
+
+    root.innerHTML = `
+      <div class="panel-header">Learning: ${escapeHtml(state.subject)}</div>
+      <div class="card-scroll">
+        <div class="lesson-step card-enter">
+          ${layerHtml}
+          ${phaseBadgeHtml}
+          ${conceptsHtml}
+          ${step.title ? `<div class="card-header"><div class="card-title">${escapeHtml(step.title)}</div>${fileHtml}</div>` : fileHtml ? `<div class="card-header">${fileHtml}</div>` : ""}
+          ${contentHtml}
+          ${promptHtml}
+          ${inputHtml}
+        </div>
+      </div>
+      <div class="card-dock">
+        ${!step.awaitsResponse ? `
+          <button class="lesson-send-btn" id="lesson-continue" style="width:100%">Continue</button>
+        ` : ""}
+        <div class="lesson-footer">
+          ${counterHtml}
+          <div style="flex:1"></div>
+          <div class="lesson-followup">
+            <input class="lesson-followup-input" id="lesson-followup" placeholder="Ask a question..." />
+            <button class="lesson-followup-send" id="lesson-followup-send">Ask</button>
+          </div>
+          <button class="lesson-end-btn" id="lesson-end">End lesson</button>
+        </div>
+      </div>
+    `;
+
+    // Bind events
+    bindLessonEvents(step);
+  }
+
+  function bindLessonEvents(step) {
+    // Text input send
+    const sendBtn = document.getElementById("lesson-send");
+    const textarea = document.getElementById("lesson-input");
+    if (sendBtn && textarea) {
+      const send = () => {
+        const text = textarea.value.trim();
+        if (!text) return;
+        vscode.postMessage({ type: "lessonResponse", text });
+        renderLessonLoading();
+      };
+      sendBtn.addEventListener("click", send);
+      textarea.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          send();
+        }
+      });
+      // Auto-focus textarea
+      setTimeout(() => textarea.focus(), 100);
+    }
+
+    // Choice buttons
+    root.querySelectorAll(".lesson-choice-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const index = parseInt(btn.getAttribute("data-index"), 10);
+        // Show feedback before sending
+        const correctIdx = step.correctIndex;
+        root.querySelectorAll(".lesson-choice-btn").forEach((b, i) => {
+          if (i === index && correctIdx !== undefined && i !== correctIdx) {
+            b.classList.add("choice-wrong");
+          } else if (correctIdx !== undefined && i === correctIdx) {
+            b.classList.add("choice-correct");
+          } else {
+            b.classList.add("choice-disabled");
+          }
+        });
+        // Send after brief pause to show feedback
+        setTimeout(() => {
+          vscode.postMessage({ type: "lessonChoice", choiceIndex: index });
+          renderLessonLoading();
+        }, 800);
+      });
+    });
+
+    // Skip
+    const skipBtn = document.getElementById("lesson-skip");
+    if (skipBtn) {
+      skipBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "lessonSkip" });
+        renderLessonLoading();
+      });
+    }
+
+    // Continue (for non-interactive steps — distinct from skip)
+    const continueBtn = document.getElementById("lesson-continue");
+    if (continueBtn) {
+      continueBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "lessonContinue" });
+        renderLessonLoading();
+      });
+    }
+
+    // Follow-up question
+    const followupInput = document.getElementById("lesson-followup");
+    const followupSend = document.getElementById("lesson-followup-send");
+    if (followupInput && followupSend) {
+      const askFollowUp = () => {
+        const text = followupInput.value.trim();
+        if (!text) return;
+        vscode.postMessage({ type: "lessonFollowUp", text });
+        renderLessonLoading();
+      };
+      followupSend.addEventListener("click", askFollowUp);
+      followupInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); askFollowUp(); }
+      });
+    }
+
+    // End lesson
+    const endBtn = document.getElementById("lesson-end");
+    if (endBtn) {
+      endBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "lessonEnd" });
+      });
+    }
+  }
+
+  function renderLessonRecap(step, state) {
+    const recap = step.recapData;
+    if (!recap) return;
+
+    const solidHtml = recap.conceptsSolid.map(c => `
+      <div class="recap-concept">
+        <span class="recap-concept-icon solid">\u2713</span>
+        <span class="recap-concept-name">${escapeHtml(c)}</span>
+      </div>
+    `).join("");
+
+    const shakyHtml = recap.conceptsShaky.map(c => `
+      <div class="recap-concept">
+        <span class="recap-concept-icon shaky">\u21BB</span>
+        <div>
+          <span class="recap-concept-name">${escapeHtml(c.name)}</span>
+          <div class="recap-concept-note">${escapeHtml(c.suggestion)}</div>
+        </div>
+      </div>
+    `).join("");
+
+    const predictionsHtml = recap.predictionsVsReality.map(p => `
+      <div class="recap-prediction">
+        <div class="recap-prediction-label">You predicted</div>
+        <div class="recap-prediction-text">"${escapeHtml(p.prediction)}"</div>
+        <div class="recap-prediction-label" style="margin-top:4px">What actually happened</div>
+        <div class="recap-reality-text">${escapeHtml(p.reality)}</div>
+      </div>
+    `).join("");
+
+    const scoreHtml = recap.checksTotal > 0
+      ? `<div class="recap-score">You nailed ${recap.checksCorrect} out of ${recap.checksTotal}</div>`
+      : "";
+
+    // Fire celebration
+    if (shouldShowCelebrations()) {
+      setTimeout(() => fireConfetti("rain", 80), 200);
+      setTimeout(() => fireConfetti("rain", 50), 700);
+    }
+
+    root.innerHTML = `
+      <div class="panel-header">Learning: ${escapeHtml(state.subject)}</div>
+      <div class="card-scroll">
+        <div class="lesson-recap fade-in">
+          <div class="card-title" style="font-size:16px">What You Learned</div>
+          ${step.content ? `<div class="lesson-content">${renderMarkdown(step.content)}</div>` : ""}
+          ${scoreHtml}
+          ${solidHtml || shakyHtml ? `
+            <div class="recap-section">
+              <div class="recap-section-title">What clicked</div>
+              ${solidHtml}
+              ${shakyHtml}
+            </div>
+          ` : ""}
+          ${predictionsHtml ? `
+            <div class="recap-section">
+              <div class="recap-section-title">How your thinking evolved</div>
+              ${predictionsHtml}
+            </div>
+          ` : ""}
+        </div>
+      </div>
+      <div class="card-dock">
+        <button class="lesson-end-btn" id="lesson-end" style="width:100%">Done</button>
+      </div>
+    `;
+
+    const endBtn = document.getElementById("lesson-end");
+    if (endBtn) {
+      endBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "lessonEnd" });
+      });
+    }
+  }
+
   function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
@@ -415,6 +785,12 @@
       case "update":
         renderCard(message.data);
         break;
+      case "lessonUpdate":
+        renderLessonStep(message.step, message.state);
+        break;
+      case "lessonLoading":
+        renderLessonLoading();
+        break;
       case "config":
         celebrationsSetting = message.celebrations || "auto";
         canvas.style.display = shouldShowCelebrations() ? "" : "none";
@@ -423,16 +799,18 @@
         previousNodeId = null;
         hasSeenAllNodes = false;
         currentReport = null;
+        lessonLoading = false;
+        if (lessonLoadingInterval) { clearInterval(lessonLoadingInterval); lessonLoadingInterval = null; }
         particles = [];
         if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        renderEmpty();
+        renderCommandHub();
         break;
     }
   });
 
   window.addEventListener("resize", resizeCanvas);
-  renderEmpty();
+  renderCommandHub();
 
   // Signal to the extension that the webview is ready to receive messages
   vscode.postMessage({ type: "ready" });

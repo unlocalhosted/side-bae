@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TourCardState } from "../../engine/tour-engine.js";
+import type { LessonStep, LessonSessionState } from "../../types/lesson.js";
 
 export type NavigationCallback = (
   action:
@@ -12,6 +13,13 @@ export type NavigationCallback = (
     | { type: "dismissSummary" }
     | { type: "applyFix"; nodeId: string; oldText: string; newText: string }
     | { type: "copyReport"; report: string }
+    | { type: "lessonResponse"; text: string }
+    | { type: "lessonChoice"; choiceIndex: number }
+    | { type: "lessonSkip" }
+    | { type: "lessonContinue" }
+    | { type: "lessonFollowUp"; text: string }
+    | { type: "lessonEnd" }
+    | { type: "launchCommand"; command: string }
 ) => void;
 
 export class TourCardPanelProvider {
@@ -86,6 +94,14 @@ export class TourCardPanelProvider {
 
   updateCard(state: TourCardState): void {
     this.post({ type: "update", data: state });
+  }
+
+  updateLessonStep(step: LessonStep, state: LessonSessionState): void {
+    this.post({ type: "lessonUpdate", step, state });
+  }
+
+  showLessonLoading(): void {
+    this.post({ type: "lessonLoading" });
   }
 
   /** Ensure the panel is visible without stealing focus from the editor. */

@@ -19,7 +19,7 @@ export function registerGenerateTourCommand(
       async (featureName?: string) => {
         if (generating) {
           vscode.window.showWarningMessage(
-            "A tour is already being generated. Wait for it to finish or cancel it."
+            "A tour is already generating."
           );
           return;
         }

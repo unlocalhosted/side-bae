@@ -7,6 +7,8 @@ import { registerGenerateTourCommand } from "./commands/generate-tour.js";
 import { registerNavigationCommands } from "./commands/navigate.js";
 import { registerWhatsNewCommand } from "./commands/whats-new.js";
 import { registerInvestigateIssueCommand } from "./commands/investigate-issue.js";
+import { registerStartLessonCommand } from "./commands/start-lesson.js";
+import { registerScanLearnableCommand } from "./commands/scan-learnable.js";
 import { disposeDecorations } from "./views/tour-player/decorations.js";
 import * as tourStore from "./engine/tour-store.js";
 import { requireClaude } from "./commands/preflight.js";
@@ -59,6 +61,8 @@ export async function activate(context: vscode.ExtensionContext) {
   registerNavigationCommands(context, player, workspaceRoot);
   registerWhatsNewCommand(context, () => adapter, featureTreeProvider, checkClaude);
   registerInvestigateIssueCommand(context, () => adapter, player, workspaceRoot, checkClaude);
+  registerStartLessonCommand(context, () => adapter, player, checkClaude);
+  registerScanLearnableCommand(context, featureTreeProvider);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("sideBae.refreshFeatures", () => {
@@ -71,7 +75,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const tour = item as { kind?: string; tourId?: string; name?: string };
       if (!tour?.tourId || tour.kind !== "tour") return;
       const confirm = await vscode.window.showWarningMessage(
-        `Delete tour "${tour.name}"?`,
+        `Delete "${tour.name}"? This can't be undone.`,
         { modal: true },
         "Delete"
       );

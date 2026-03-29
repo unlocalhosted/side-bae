@@ -23,12 +23,14 @@ function getConfiguredClaudePath(): string | undefined {
 }
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
-import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA } from "./schema.js";
+import type { LessonStep, LearnableConcept } from "../types/lesson.js";
+import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA, LESSON_STEP_SCHEMA, LEARNABLE_CONCEPTS_SCHEMA } from "./schema.js";
 import {
   buildTourGenerationPrompt,
   buildFeatureDiscoveryPrompt,
   buildWhatsNewPrompt,
   buildInvestigationPrompt,
+  buildLearnableConceptsPrompt,
 } from "./prompts.js";
 
 export interface ClaudeAdapterOptions {
@@ -75,14 +77,28 @@ const WHATS_NEW_PROGRESS = [
   "Summarizing changes...",
 ];
 
+const LESSON_STEP_PROGRESS = [
+  "Reading your response...",
+  "Exploring the code...",
+  "Crafting the next step...",
+  "Almost ready...",
+];
+
+const LEARNABLE_SCAN_PROGRESS = [
+  "Scanning the codebase...",
+  "Identifying patterns and techniques...",
+  "Assessing complexity levels...",
+  "Building learning catalog...",
+];
+
 const INVESTIGATION_PROGRESS = [
-  "Reading the issue...",
-  "Searching the codebase...",
+  "Reading the bug report...",
+  "Searching for the affected code...",
   "Tracing the code path...",
-  "Identifying the root cause...",
-  "Drafting a fix...",
-  "Writing investigation report...",
-  "Building investigation tour...",
+  "Found something \u2014 analyzing the root cause...",
+  "Working on a fix...",
+  "Writing up the investigation...",
+  "Putting it all together...",
 ];
 
 /**
@@ -194,6 +210,32 @@ export class ClaudeAdapter {
     return (result as { changes: RecentChange[] }).changes;
   }
 
+  async generateLessonStep(
+    prompt: string,
+    progress: GenerationProgress
+  ): Promise<LessonStep> {
+    const result = await this.runStructuredQuery(
+      prompt,
+      LESSON_STEP_SCHEMA,
+      progress,
+      LESSON_STEP_PROGRESS
+    );
+    return result as LessonStep;
+  }
+
+  async discoverLearnableConcepts(
+    progress: GenerationProgress
+  ): Promise<LearnableConcept[]> {
+    const prompt = buildLearnableConceptsPrompt();
+    const result = await this.runStructuredQuery(
+      prompt,
+      LEARNABLE_CONCEPTS_SCHEMA,
+      progress,
+      LEARNABLE_SCAN_PROGRESS
+    );
+    return (result as { concepts: LearnableConcept[] }).concepts;
+  }
+
   async discoverFeatures(
     progress: GenerationProgress
   ): Promise<FeatureTreeNode[]> {
@@ -265,40 +307,38 @@ export class ClaudeAdapter {
             if ("result" in message && typeof message.result === "string") {
               return JSON.parse(message.result);
             }
-            throw new Error("Claude completed but returned no output.");
+            throw new Error("Completed but returned no output. Try again.");
 
           case "error_max_turns":
             throw new Error(
-              "Claude ran out of turns. Try a more specific query."
+              "This was too complex to finish. Try asking about something more specific."
             );
 
           case "error_max_budget_usd":
             throw new Error(
-              `Query exceeded the $${this.maxBudgetUsd} budget. Increase sideBae.maxBudgetUsd in settings.`
+              `This request exceeded the $${this.maxBudgetUsd} cost limit. You can increase it in Settings → Side Bae → Max Budget.`
             );
 
           case "error_max_structured_output_retries":
             throw new Error(
-              "Claude couldn't produce valid output after multiple attempts. Try rephrasing."
+              "Couldn't generate a valid result. Try rephrasing your question."
             );
 
           default:
             throw new Error(
-              `Claude stopped: ${message.subtype}${
+              `Something went wrong: ${message.subtype}${
                 "result" in message ? ` — ${message.result}` : ""
               }`
             );
         }
       }
 
-      throw new Error("Claude did not return a result.");
+      throw new Error("No result was returned. Try again.");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
         throw new Error("Query cancelled.", { cause: err });
       }
       throw err;
-    } finally {
-      // cleanup if needed
     }
   }
 }

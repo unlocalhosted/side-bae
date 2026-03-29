@@ -1,12 +1,18 @@
 import * as vscode from "vscode";
 import { join } from "node:path";
 import { TourEngine } from "../../engine/tour-engine.js";
+import { LessonSession } from "../../engine/lesson-session.js";
+import type { ClaudeAdapter } from "../../claude/adapter.js";
 import type { TourDocument, TourEdge, TourNode } from "../../types/tour.js";
+import type { LessonStep } from "../../types/lesson.js";
 import { applyDecorations, clearDecorations } from "./decorations.js";
 import type { TourCardPanelProvider } from "./webview-provider.js";
+import * as tourStore from "../../engine/tour-store.js";
 
 export class TourPlayer {
   private engine = new TourEngine();
+  private lessonSession: LessonSession | null = null;
+  private lessonProcessing = false;
   private workspaceRoot: string;
   private webviewProvider: TourCardPanelProvider;
   private activeEditor?: vscode.TextEditor;
@@ -47,6 +53,38 @@ export class TourPlayer {
           await vscode.env.clipboard.writeText(action.report);
           vscode.window.showInformationMessage("Report copied to clipboard.");
           break;
+        case "lessonResponse":
+          this.handleLessonAction(() => this.lessonSession!.respondText(action.text, this.makeLessonProgress()));
+          break;
+        case "lessonChoice":
+          this.handleLessonAction(() => this.lessonSession!.respondChoice(action.choiceIndex, this.makeLessonProgress()));
+          break;
+        case "lessonSkip":
+          this.handleLessonAction(() => this.lessonSession!.skip(this.makeLessonProgress()));
+          break;
+        case "lessonContinue":
+          this.handleLessonAction(() => this.lessonSession!.respondText("(read and understood)", this.makeLessonProgress()));
+          break;
+        case "lessonFollowUp":
+          this.handleLessonAction(() => this.lessonSession!.askFollowUp(action.text, this.makeLessonProgress()));
+          break;
+        case "lessonEnd":
+          this.endLesson();
+          break;
+        case "launchCommand": {
+          const allowed = [
+            "sideBae.generateTour",
+            "sideBae.discoverFeatures",
+            "sideBae.investigateIssue",
+            "sideBae.startLesson",
+            "sideBae.whatsNew",
+            "sideBae.scanLearnable",
+          ];
+          if (allowed.includes(action.command)) {
+            vscode.commands.executeCommand(action.command);
+          }
+          break;
+        }
       }
     });
   }
@@ -102,6 +140,122 @@ export class TourPlayer {
 
   isActive(): boolean {
     return this.engine.isLoaded();
+  }
+
+  // ── Lesson session management ──
+
+  async startLesson(
+    adapter: ClaudeAdapter,
+    subject: string,
+    entryFile?: string
+  ): Promise<void> {
+    this.lessonSession = new LessonSession(adapter, subject, entryFile);
+
+    this.webviewProvider.open(`Learning: ${subject}`);
+    this.webviewProvider.showLessonLoading();
+    this.setTourActiveContext(true);
+
+    try {
+      const step = await this.lessonSession.start(this.makeLessonProgress());
+      await this.showLessonStep(step);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Lesson failed to start: ${msg}`);
+      this.endLesson();
+    }
+  }
+
+  private async handleLessonAction(
+    action: () => Promise<LessonStep>
+  ): Promise<void> {
+    if (!this.lessonSession || this.lessonProcessing) return;
+    this.lessonProcessing = true;
+
+    this.webviewProvider.showLessonLoading();
+
+    try {
+      const step = await action();
+      await this.showLessonStep(step);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Lesson error: ${msg}`);
+    } finally {
+      this.lessonProcessing = false;
+    }
+  }
+
+  private async showLessonStep(step: LessonStep): Promise<void> {
+    if (!this.lessonSession) return;
+
+    // Open the file if the step references one
+    if (step.file) {
+      if (this.activeEditor) {
+        clearDecorations(this.activeEditor);
+      }
+
+      const fileUri = vscode.Uri.file(join(this.workspaceRoot, step.file));
+      try {
+        const doc = await vscode.workspace.openTextDocument(fileUri);
+        const editor = await vscode.window.showTextDocument(doc, {
+          viewColumn: vscode.ViewColumn.One,
+          preserveFocus: true,
+        });
+        this.activeEditor = editor;
+
+        if (step.startLine && step.endLine) {
+          const range = new vscode.Range(
+            new vscode.Position(step.startLine - 1, 0),
+            new vscode.Position(step.endLine - 1, Number.MAX_SAFE_INTEGER)
+          );
+          editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+          editor.selection = new vscode.Selection(range.start, range.start);
+
+          // Apply decorations using a synthetic node
+          applyDecorations(editor, {
+            file: step.file,
+            startLine: step.startLine,
+            endLine: step.endLine,
+            title: step.title ?? "",
+            explanation: "",
+            edges: [],
+            layer: step.layer,
+          });
+        }
+      } catch {
+        // File might not exist — continue without highlighting
+      }
+    }
+
+    this.webviewProvider.updateLessonStep(step, this.lessonSession.getSessionState());
+  }
+
+  private endLesson(): void {
+    if (this.lessonSession) {
+      // Save the completed lesson as a static tour for replay
+      try {
+        const tour = this.lessonSession.toTourDocument();
+        if (Object.keys(tour.nodes).length > 0) {
+          tourStore.saveTour(this.workspaceRoot, tour);
+          vscode.commands.executeCommand("sideBae.refreshFeatures");
+          vscode.window.showInformationMessage(
+            `Lesson saved — replay "${tour.name}" anytime from the sidebar.`
+          );
+        }
+      } catch {
+        // Non-critical — lesson already completed
+      }
+    }
+
+    if (this.activeEditor) {
+      clearDecorations(this.activeEditor);
+    }
+    this.lessonSession = null;
+    this.webviewProvider.dispose();
+    this.setTourActiveContext(false);
+  }
+
+  private makeLessonProgress(): import("../../claude/adapter.js").GenerationProgress {
+    return { onProgress: () => {}, onCancel: () => {} };
   }
 
   private async applyFix(

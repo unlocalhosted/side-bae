@@ -10,6 +10,14 @@ const KIND_COLORS: Record<string, string> = {
   solution: "testing.iconPassed",
 };
 
+const LAYER_COLORS: Record<string, string> = {
+  outcome: "textLink.foreground",
+  architecture: "charts.purple",
+  rationale: "charts.yellow",
+  insight: "charts.orange",
+  challenge: "testing.iconPassed",
+};
+
 function getDecoration(): vscode.TextEditorDecorationType {
   if (!highlightDecoration) {
     highlightDecoration = vscode.window.createTextEditorDecorationType({
@@ -27,9 +35,9 @@ function getDecoration(): vscode.TextEditorDecorationType {
   return highlightDecoration;
 }
 
-function getKindDecoration(kind: string): vscode.TextEditorDecorationType {
+function getColoredDecoration(kind: string): vscode.TextEditorDecorationType {
   kindDecoration?.dispose();
-  const colorToken = KIND_COLORS[kind] ?? "focusBorder";
+  const colorToken = KIND_COLORS[kind] ?? LAYER_COLORS[kind] ?? "focusBorder";
   kindDecoration = vscode.window.createTextEditorDecorationType({
     borderWidth: "0 0 0 3px",
     borderStyle: "solid",
@@ -54,8 +62,12 @@ export function applyDecorations(
   );
 
   if (node.kind) {
-    const kindDeco = getKindDecoration(node.kind);
+    const kindDeco = getColoredDecoration(node.kind);
     editor.setDecorations(kindDeco, [{ range }]);
+    editor.setDecorations(getDecoration(), []);
+  } else if (node.layer && LAYER_COLORS[node.layer]) {
+    const layerDeco = getColoredDecoration(node.layer);
+    editor.setDecorations(layerDeco, [{ range }]);
     editor.setDecorations(getDecoration(), []);
   } else {
     editor.setDecorations(getDecoration(), [
