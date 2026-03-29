@@ -18,22 +18,25 @@ export function registerGenerateTourCommand(
       "sideBae.generateTour",
       async (featureName?: string) => {
         if (generating) {
-          vscode.window.showWarningMessage("A tour is already being generated.");
+          vscode.window.showWarningMessage(
+            "A tour is already being generated. Wait for it to finish or cancel it."
+          );
           return;
         }
-        if (!(await requireClaude(checkClaude))) return;
-
-        const query =
-          featureName ??
-          (await vscode.window.showInputBox({
-            prompt: "What do you want to understand about this codebase?",
-            placeHolder: "e.g., how does authentication work?",
-          }));
-
-        if (!query) return;
-
         generating = true;
+
         try {
+          if (!(await requireClaude(checkClaude))) return;
+
+          const query =
+            featureName ??
+            (await vscode.window.showInputBox({
+              prompt: "What do you want to understand about this codebase?",
+              placeHolder: "e.g., how does authentication work?",
+            }));
+
+          if (!query) return;
+
           await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,

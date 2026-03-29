@@ -53,9 +53,11 @@ const TOUR_PROGRESS = [
   "Tracing code paths related to your query...",
   "Identifying entry points and call chains...",
   "Mapping connections between files...",
+  "Reading deeper into the code...",
   "Writing explanations for each stop...",
   "Building the tour graph...",
-  "Finalizing tour structure...",
+  "Still working — complex features take longer...",
+  "Almost there — finalizing the tour...",
 ];
 
 const FEATURE_PROGRESS = [
@@ -217,14 +219,7 @@ export class ClaudeAdapter {
     const abortController = new AbortController();
     progress.onCancel(() => abortController.abort());
 
-    let msgIdx = 0;
     progress.onProgress(progressMessages[0]!);
-    const timer = setInterval(() => {
-      msgIdx++;
-      if (msgIdx < progressMessages.length) {
-        progress.onProgress(progressMessages[msgIdx]!);
-      }
-    }, 6000);
 
     try {
       const q = query({
@@ -246,6 +241,20 @@ export class ClaudeAdapter {
       });
 
       for await (const message of q) {
+        // Surface real activity from the SDK as progress
+        if (message.type === "assistant" && "message" in message) {
+          const assistantMsg = message.message as { content?: Array<{ type: string; name?: string; input?: { file_path?: string; pattern?: string; command?: string } }> };
+          if (assistantMsg.content) {
+            for (const block of assistantMsg.content) {
+              if (block.type === "tool_use" && block.name) {
+                const target = block.input?.file_path || block.input?.pattern || block.input?.command || "";
+                const shortTarget = target.length > 50 ? "..." + target.slice(-47) : target;
+                const label = shortTarget ? `${block.name}: ${shortTarget}` : block.name;
+                progress.onProgress(label);
+              }
+            }
+          }
+        }
         if (message.type !== "result") continue;
 
         switch (message.subtype) {
@@ -289,7 +298,7 @@ export class ClaudeAdapter {
       }
       throw err;
     } finally {
-      clearInterval(timer);
+      // cleanup if needed
     }
   }
 }

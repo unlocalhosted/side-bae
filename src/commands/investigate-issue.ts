@@ -56,36 +56,37 @@ export function registerInvestigateIssueCommand(
           vscode.window.showWarningMessage("An investigation is already in progress.");
           return;
         }
-        if (!(await requireClaude(checkClaude))) return;
-
-        const input = await vscode.window.showInputBox({
-          prompt: "Paste a GitHub issue URL or describe the bug",
-          placeHolder:
-            "e.g., https://github.com/org/repo/issues/42 or 'login times out under load'",
-        });
-
-        if (!input) return;
-
-        let issueTitle: string;
-        let issueBody: string;
-
-        if (isGitHubIssueUrl(input)) {
-          const issue = await fetchGitHubIssue(input, workspaceRoot);
-          if (!issue) {
-            vscode.window.showErrorMessage(
-              "Failed to fetch issue. Make sure the `gh` CLI is installed and authenticated."
-            );
-            return;
-          }
-          issueTitle = issue.title;
-          issueBody = issue.body;
-        } else {
-          issueTitle = input;
-          issueBody = input;
-        }
-
         investigating = true;
+
         try {
+          if (!(await requireClaude(checkClaude))) return;
+
+          const input = await vscode.window.showInputBox({
+            prompt: "Paste a GitHub issue URL or describe the bug",
+            placeHolder:
+              "e.g., https://github.com/org/repo/issues/42 or 'login times out under load'",
+          });
+
+          if (!input) return;
+
+          let issueTitle: string;
+          let issueBody: string;
+
+          if (isGitHubIssueUrl(input)) {
+            const issue = await fetchGitHubIssue(input, workspaceRoot);
+            if (!issue) {
+              vscode.window.showErrorMessage(
+                "Failed to fetch issue. Make sure the `gh` CLI is installed and authenticated."
+              );
+              return;
+            }
+            issueTitle = issue.title;
+            issueBody = issue.body;
+          } else {
+            issueTitle = input;
+            issueBody = input;
+          }
+
           await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
