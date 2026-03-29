@@ -950,7 +950,7 @@
     bindInvestigationEvents(step, state);
   }
 
-  function bindInvestigationEvents(step, state) {
+  function bindInvestigationEvents(_step, _state) {
     // Text send
     const sendBtn = document.getElementById("investigation-send");
     const textarea = document.getElementById("investigation-input");
