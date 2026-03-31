@@ -25,6 +25,8 @@ export class LessonSession {
   private checkResults: CheckResult[] = [];
   private prefetchedContent: Map<number, StepContent> = new Map();
   private prefetchAbortController: AbortController | null = null;
+  /** SDK session ID for step content calls (per-schema session scoping). */
+  private stepSessionId: string | null = null;
 
   constructor(
     private adapter: ClaudeAdapter,
@@ -85,7 +87,15 @@ export class LessonSession {
     // Pre-load file content locally (avoids a Read tool call)
     const fileContent = await this.readStepFile(step.plan.file);
     const prompt = buildStepContentPrompt(this.subject, step.plan, priorSummaries, fileContent);
-    const content = await this.adapter.generateStepContent(prompt, progress);
+    const content = await this.adapter.generateStepContent(prompt, progress, {
+      persistSession: true,
+      resumeSessionId: this.stepSessionId ?? undefined,
+    });
+
+    // Capture session ID from first step content call for reuse
+    if (!this.stepSessionId) {
+      this.stepSessionId = this.adapter.getLastSessionId() ?? null;
+    }
 
     // Handle skip
     if (content.skipReason) {
@@ -222,7 +232,14 @@ export class LessonSession {
     };
 
     try {
-      const content = await this.adapter.generateStepContent(prompt, silentProgress);
+      const content = await this.adapter.generateStepContent(prompt, silentProgress, {
+        persistSession: true,
+        resumeSessionId: this.stepSessionId ?? undefined,
+      });
+      // Capture session ID if this is the first step content call
+      if (!this.stepSessionId) {
+        this.stepSessionId = this.adapter.getLastSessionId() ?? null;
+      }
       if (!abortController.signal.aborted && step.status === "upcoming") {
         this.prefetchedContent.set(index, content);
       }

@@ -303,6 +303,14 @@ export class ClaudeAdapter {
     return (result as { features: FeatureTreeNode[] }).features;
   }
 
+  /** Session ID captured from the most recent query result. */
+  private lastSessionId: string | undefined;
+
+  /** Get the session ID from the last completed query (for session resumption). */
+  getLastSessionId(): string | undefined {
+    return this.lastSessionId;
+  }
+
   private async runStructuredQuery(
     prompt: string,
     schema: Record<string, unknown>,
@@ -357,6 +365,12 @@ export class ClaudeAdapter {
           }
         }
         if (message.type !== "result") continue;
+
+        // Capture session_id for resumption (available on all result types)
+        const resultAny = message as Record<string, unknown>;
+        if (typeof resultAny.session_id === "string") {
+          this.lastSessionId = resultAny.session_id;
+        }
 
         switch (message.subtype) {
           case "success":

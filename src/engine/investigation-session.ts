@@ -20,6 +20,8 @@ export class InvestigationSession {
   private testsRun = false;
   private prCreated = false;
   private readonly systemPrompt: string;
+  /** SDK session ID for investigation step calls (per-schema session scoping). */
+  private sdkSessionId: string | null = null;
 
   constructor(
     private adapter: ClaudeAdapter,
@@ -167,7 +169,16 @@ Generate the first step: an "orient" phase. Describe what you think the issue is
     prompt: string,
     progress: GenerationProgress
   ): Promise<InvestigationStep> {
-    const step = await this.adapter.generateInvestigationStep(prompt, progress);
+    const step = await this.adapter.generateInvestigationStep(prompt, progress, {
+      persistSession: true,
+      resumeSessionId: this.sdkSessionId ?? undefined,
+    });
+
+    // Capture session ID from first call for reuse
+    if (!this.sdkSessionId) {
+      this.sdkSessionId = this.adapter.getLastSessionId() ?? null;
+    }
+
     this.currentStep = step;
     this.stepCount++;
     this.history.push({ role: "investigator", step });
