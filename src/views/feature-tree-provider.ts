@@ -4,6 +4,7 @@ import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
 import type { LearnableConcept } from "../types/lesson.js";
 import * as tourStore from "../engine/tour-store.js";
+import * as statusBar from "./status-bar.js";
 import { requireClaude } from "../commands/preflight.js";
 
 // ── Semantic icon mapping ──
@@ -100,14 +101,20 @@ export class FeatureTreeProvider
   }
 
   async discoverFeatures(): Promise<void> {
-    if (!(await requireClaude(this.checkClaude))) return;
-
+    if (this.isLoading) return;
     this.isLoading = true;
     this.loadingMessage = "Starting scan...";
     this.error = null;
     this.features = null;
     this._onDidChangeTreeData.fire(undefined);
+    statusBar.show("Discovering features...");
 
+    if (!(await requireClaude(this.checkClaude))) {
+      this.isLoading = false;
+      statusBar.hide();
+      this._onDidChangeTreeData.fire(undefined);
+      return;
+    }
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -120,6 +127,7 @@ export class FeatureTreeProvider
           this.features = await adapter.discoverFeatures({
             onProgress: (msg) => {
               progress.report({ message: msg });
+              statusBar.show(msg);
               this.loadingMessage = msg;
               this._onDidChangeTreeData.fire(undefined);
             },
@@ -148,6 +156,7 @@ export class FeatureTreeProvider
           this.features = null;
         } finally {
           this.isLoading = false;
+          statusBar.hide();
           this._onDidChangeTreeData.fire(undefined);
         }
       }
@@ -158,12 +167,14 @@ export class FeatureTreeProvider
     adapter: ClaudeAdapter,
     range: string
   ): Promise<void> {
+    if (this.whatsNewLoading) return;
     this.whatsNewLoading = true;
     this.whatsNewLoadingMessage = "Reading git history...";
     this.whatsNewError = null;
     this.recentChanges = null;
     this._onDidChangeTreeData.fire(undefined);
 
+    statusBar.show("Analyzing recent changes...");
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -175,6 +186,7 @@ export class FeatureTreeProvider
           this.recentChanges = await adapter.analyzeRecentChanges(range, {
             onProgress: (msg) => {
               progress.report({ message: msg });
+              statusBar.show(msg);
               this.whatsNewLoadingMessage = msg;
               this._onDidChangeTreeData.fire(undefined);
             },
@@ -197,6 +209,7 @@ export class FeatureTreeProvider
           this.recentChanges = null;
         } finally {
           this.whatsNewLoading = false;
+          statusBar.hide();
           this._onDidChangeTreeData.fire(undefined);
         }
       }
@@ -204,14 +217,20 @@ export class FeatureTreeProvider
   }
 
   async discoverLearnableConcepts(): Promise<void> {
-    if (!(await requireClaude(this.checkClaude))) return;
-
+    if (this.learnableLoading) return;
     this.learnableLoading = true;
     this.learnableLoadingMessage = "Scanning codebase...";
     this.learnableError = null;
     this.learnableConcepts = null;
     this._onDidChangeTreeData.fire(undefined);
+    statusBar.show("Scanning for learnable topics...");
 
+    if (!(await requireClaude(this.checkClaude))) {
+      this.learnableLoading = false;
+      statusBar.hide();
+      this._onDidChangeTreeData.fire(undefined);
+      return;
+    }
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -224,6 +243,7 @@ export class FeatureTreeProvider
           this.learnableConcepts = await adapter.discoverLearnableConcepts({
             onProgress: (msg) => {
               progress.report({ message: msg });
+              statusBar.show(msg);
               this.learnableLoadingMessage = msg;
               this._onDidChangeTreeData.fire(undefined);
             },
@@ -247,6 +267,7 @@ export class FeatureTreeProvider
           this.learnableConcepts = null;
         } finally {
           this.learnableLoading = false;
+          statusBar.hide();
           this._onDidChangeTreeData.fire(undefined);
         }
       }

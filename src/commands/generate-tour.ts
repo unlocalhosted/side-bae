@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
 import * as tourStore from "../engine/tour-store.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
+import * as statusBar from "../views/status-bar.js";
 import { requireClaude } from "./preflight.js";
 
 export function registerGenerateTourCommand(
@@ -37,6 +38,7 @@ export function registerGenerateTourCommand(
 
           if (!query) return;
 
+          statusBar.show("Generating tour...");
           await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
@@ -47,7 +49,10 @@ export function registerGenerateTourCommand(
               try {
                 const adapter = getAdapter();
                 const tour = await adapter.generateTour(query, {
-                  onProgress: (msg) => progress.report({ message: msg }),
+                  onProgress: (msg) => {
+                    progress.report({ message: msg });
+                    statusBar.show(msg);
+                  },
                   onCancel: (callback) =>
                     token.onCancellationRequested(callback),
                 });
@@ -77,6 +82,7 @@ export function registerGenerateTourCommand(
           );
         } finally {
           generating = false;
+          statusBar.hide();
         }
       }
     )
