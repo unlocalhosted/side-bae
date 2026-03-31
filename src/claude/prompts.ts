@@ -1,8 +1,15 @@
-export function buildTourGenerationPrompt(query: string): string {
+export function buildTourGenerationPrompt(
+  query: string,
+  codebaseStructure?: string
+): string {
+  const contextSection = codebaseStructure
+    ? `\n\n## Codebase structure (pre-scanned)\n\n${codebaseStructure}\n\nUse this structure to navigate directly to relevant files. Do NOT scan the entire codebase — read ONLY the files needed for the tour.\n`
+    : "";
+
   return `You are writing an interactive article about a codebase. Not documentation. Not a function reference. An article — with a narrative arc, a point of view, and a voice that sounds like a sharp friend explaining their favorite codebase over coffee.
 
 The workspace root is the current directory. The reader wants to understand: "${query}"
-
+${contextSection}
 Read the relevant source files. Trace the code paths. Then produce a tour as a JSON object following the provided schema.
 
 ## Voice and tone
@@ -201,24 +208,60 @@ Be direct and confident. Never announce what you're about to do ("I'm going to i
 - Do not include node_modules, dist, or build artifacts`;
 }
 
+// ── History truncation ──
+// Safety net: cap conversation history to prevent context overflow.
+// Keeps the most recent turns verbatim and drops older ones.
+const MAX_RECENT_TURNS = 8;
+const MAX_CHARS_PER_TURN = 300;
+
+function truncateHistoryEntries(
+  turns: Array<{ role: string; step?: unknown; text?: string; choiceIndex?: number }>,
+  formatTurn: (turn: typeof turns[number]) => string[]
+): string[] {
+  const dropped = Math.max(0, turns.length - MAX_RECENT_TURNS);
+  const recent = dropped > 0 ? turns.slice(-MAX_RECENT_TURNS) : turns;
+
+  const lines: string[] = [];
+  if (dropped > 0) {
+    lines.push(`[...${dropped} earlier turns omitted]\n`);
+  }
+
+  for (const turn of recent) {
+    const turnLines = formatTurn(turn);
+    // Cap per-turn content
+    let chars = 0;
+    for (const line of turnLines) {
+      if (chars + line.length > MAX_CHARS_PER_TURN) {
+        lines.push(line.slice(0, MAX_CHARS_PER_TURN - chars) + "...");
+        break;
+      }
+      lines.push(line);
+      chars += line.length;
+    }
+  }
+
+  return lines;
+}
+
 export function buildInvestigationTurnPrompt(
   history: Array<{ role: string; step?: unknown; text?: string }>,
   userInput?: { text?: string; type: "response" | "confirm" | "runTests" | "requestFix" | "applyFix" | "createPR" }
 ): string {
-  const historyLines: string[] = [];
-  for (const turn of history) {
+  const historyLines = truncateHistoryEntries(history, (turn) => {
+    const lines: string[] = [];
     if (turn.role === "investigator" && turn.step) {
       const step = turn.step as { phase?: string; title?: string; content?: string; prompt?: string };
-      historyLines.push(`[Investigator — ${step.phase}${step.title ? `: ${step.title}` : ""}]`);
+      lines.push(`[Investigator — ${step.phase}${step.title ? `: ${step.title}` : ""}]`);
       if (step.content) {
         const preview = step.content.length > 200 ? step.content.slice(0, 200) + "..." : step.content;
-        historyLines.push(preview);
+        lines.push(preview);
       }
-      if (step.prompt) historyLines.push(`Question: ${step.prompt}`);
+      if (step.prompt) lines.push(`Question: ${step.prompt}`);
     } else if (turn.role === "user") {
-      if (turn.text) historyLines.push(`[User]: ${turn.text}`);
+      if (turn.text) lines.push(`[User]: ${turn.text}`);
     }
-  }
+    return lines;
+  });
 
   let inputSection = "";
   if (userInput) {
@@ -253,9 +296,13 @@ ${inputSection}
 Generate the next InvestigationStep. Adapt based on the user's input and what you've found so far.`;
 }
 
-export function buildLearnableConceptsPrompt(): string {
-  return `Analyze this codebase and identify the most interesting and teachable aspects — things a developer could deeply learn from by studying the implementation.
+export function buildLearnableConceptsPrompt(codebaseStructure?: string): string {
+  const contextSection = codebaseStructure
+    ? `\n\n## Codebase structure (pre-scanned)\n\n${codebaseStructure}\n\nUse this structure to navigate directly to relevant files. Do NOT scan broadly.\n`
+    : "";
 
+  return `Analyze this codebase and identify the most interesting and teachable aspects — things a developer could deeply learn from by studying the implementation.
+${contextSection}
 This could be ANY type of codebase: a UI library, a game engine, a compiler, a CLI tool, a backend framework, a build system — anything. Look for what makes this codebase interesting and well-crafted.
 
 Look for:
@@ -282,11 +329,15 @@ Do not include generic things like "project structure" or "configuration" unless
 Focus on topics where the implementation itself is worth studying — where a developer would say "I want to learn how they did that."`;
 }
 
-export function buildLessonPlanPrompt(subject: string, entryFile?: string): string {
+export function buildLessonPlanPrompt(subject: string, entryFile?: string, codebaseStructure?: string): string {
   const entryHint = entryFile ? `\nStart by examining: ${entryFile}` : "";
+  const contextSection = codebaseStructure
+    ? `\n\n## Codebase structure (pre-scanned)\n\n${codebaseStructure}\n\nUse this structure to navigate directly to relevant files. Read ONLY the files needed for specific steps — do NOT scan broadly.\n`
+    : "";
+
   return `You are creating a lesson plan for teaching about: "${subject}"
-${entryHint}
-Scan the codebase and create a structured lesson plan with 6-10 steps (more if the subject demands it). Each step should focus on a specific code region that teaches a concept.
+${entryHint}${contextSection}
+Create a structured lesson plan with 6-10 steps (more if the subject demands it). Each step should focus on a specific code region that teaches a concept.
 
 ## Plan structure
 
@@ -324,15 +375,29 @@ Before finalizing your plan, verify: could a reader follow your steps in order w
 export function buildStepContentPrompt(
   subject: string,
   step: { title: string; file: string; startLine: number; endLine: number; concepts: string[]; layer?: string },
-  priorSummaries: string[]
+  priorSummaries: string[],
+  fileContent?: string
 ): string {
   const priorContext = priorSummaries.length > 0
     ? `\n\n## What the learner already covered\n${priorSummaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
     : "";
 
+  const fileSection = fileContent
+    ? `The code region is in \`${step.file}\` lines ${step.startLine}-${step.endLine}.
+Here is the full file content:
+
+\`\`\`
+${fileContent}
+\`\`\`
+
+The learner sees lines ${step.startLine}-${step.endLine} highlighted in their editor.
+Focus your explanation on those lines, but use the surrounding code for context.
+If you need to reference code from another file (e.g., an imported type), use the Read tool.`
+    : `The code region is in \`${step.file}\` lines ${step.startLine}-${step.endLine}. Read this file now.`;
+
   return `You are teaching step "${step.title}" in a lesson about "${subject}".
 
-The code region is in \`${step.file}\` lines ${step.startLine}-${step.endLine}. Read this file now.
+${fileSection}
 Concepts to cover: ${step.concepts.join(", ")}
 Pedagogical layer: ${step.layer ?? "unspecified"}
 ${priorContext}
@@ -465,22 +530,22 @@ export function buildLessonTurnPrompt(
   checkResults: Array<{ concept: string; correct: boolean; userAnswer: string }>,
   userInput?: { text?: string; choiceIndex?: number; type: "response" | "choice" | "skip" | "followUp" }
 ): string {
-  // Build conversation history summary
-  const historyLines: string[] = [];
-  for (const turn of history) {
+  const historyLines = truncateHistoryEntries(history, (turn) => {
+    const lines: string[] = [];
     if (turn.role === "tutor" && turn.step) {
       const step = turn.step as { phase?: string; title?: string; content?: string; prompt?: string };
-      historyLines.push(`[Tutor — ${step.phase}${step.title ? `: ${step.title}` : ""}]`);
+      lines.push(`[Tutor — ${step.phase}${step.title ? `: ${step.title}` : ""}]`);
       if (step.content) {
         const preview = step.content.length > 200 ? step.content.slice(0, 200) + "..." : step.content;
-        historyLines.push(preview);
+        lines.push(preview);
       }
-      if (step.prompt) historyLines.push(`Question: ${step.prompt}`);
+      if (step.prompt) lines.push(`Question: ${step.prompt}`);
     } else if (turn.role === "learner") {
-      if (turn.text) historyLines.push(`[Learner]: ${turn.text}`);
-      if (turn.choiceIndex !== undefined) historyLines.push(`[Learner chose option ${turn.choiceIndex}]`);
+      if (turn.text) lines.push(`[Learner]: ${turn.text}`);
+      if (turn.choiceIndex !== undefined) lines.push(`[Learner chose option ${turn.choiceIndex}]`);
     }
-  }
+    return lines;
+  });
 
   // Build understanding state
   const conceptLines: string[] = [];
@@ -531,8 +596,14 @@ Generate the next LessonStep. Adapt depth and direction based on the learner's d
 - When you've covered the main concepts (typically after 8-15 steps), generate a recap step with isComplete: true`;
 }
 
-export function buildFeatureDiscoveryPrompt(): string {
-  return `Analyze this codebase and identify the major features and capabilities. Look at:
+export function buildFeatureDiscoveryPrompt(codebaseStructure?: string): string {
+  const contextSection = codebaseStructure
+    ? `\n\n## Codebase structure (pre-scanned)\n\n${codebaseStructure}\n\nUse this structure to identify features. Read specific files for details — do NOT scan broadly.\n`
+    : "";
+
+  return `Analyze this codebase and identify the major features and capabilities.
+${contextSection}
+Look at:
 - Directory structure and naming
 - Entry points (main files, route definitions, command handlers)
 - Exported modules and their purposes
