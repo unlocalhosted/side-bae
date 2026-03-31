@@ -181,7 +181,7 @@ export class TourPlayer {
     if (this.investigationSession) this.endInvestigation();
     if (this.engine.isLoaded()) this.stopTour();
 
-    this.lessonSession = new LessonSession(adapter, subject, entryFile);
+    this.lessonSession = new LessonSession(adapter, subject, this.workspaceRoot, entryFile);
     this.setTourActiveContext(true);
 
     // Phase 1: Generate plan with VS Code notification progress (like tours)

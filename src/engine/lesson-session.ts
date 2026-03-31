@@ -1,3 +1,5 @@
+import * as fs from "node:fs/promises";
+import { join } from "node:path";
 import type { ClaudeAdapter, GenerationProgress } from "../claude/adapter.js";
 import type {
   LessonPlan,
@@ -27,11 +29,13 @@ export class LessonSession {
   constructor(
     private adapter: ClaudeAdapter,
     private subject: string,
+    private workspaceRoot: string,
     private entryFile?: string
   ) {}
 
   async generatePlan(progress: GenerationProgress): Promise<LessonPlan> {
-    const prompt = buildLessonPlanPrompt(this.subject, this.entryFile);
+    const codebaseStructure = await this.adapter.getFormattedContext();
+    const prompt = buildLessonPlanPrompt(this.subject, this.entryFile, codebaseStructure);
     const result = await this.adapter.generateLessonPlan(prompt, progress);
 
     this.plan = {
@@ -46,6 +50,9 @@ export class LessonSession {
       plan: step,
     }));
     this.activeStepIndex = 0;
+
+    // Immediately start prefetching first 2 steps (non-blocking)
+    this.prefetchSteps([0, 1]);
 
     return this.plan;
   }
@@ -75,7 +82,9 @@ export class LessonSession {
       .filter((s) => s.status === "completed" && s.summary)
       .map((s) => s.summary!);
 
-    const prompt = buildStepContentPrompt(this.subject, step.plan, priorSummaries);
+    // Pre-load file content locally (avoids a Read tool call)
+    const fileContent = await this.readStepFile(step.plan.file);
+    const prompt = buildStepContentPrompt(this.subject, step.plan, priorSummaries, fileContent);
     const content = await this.adapter.generateStepContent(prompt, progress);
 
     // Handle skip
@@ -176,23 +185,34 @@ export class LessonSession {
     return null;
   }
 
-  async prefetchNextStep(): Promise<void> {
-    // Cancel any in-progress prefetch first
-    this.prefetchAbortController?.abort();
-    this.prefetchAbortController = null;
+  /** Prefetch multiple steps in parallel. Non-blocking, fire-and-forget. */
+  prefetchSteps(indices: number[]): void {
+    for (const i of indices) {
+      if (i < 0 || i >= this.stepStates.length) continue;
+      if (this.prefetchedContent.has(i)) continue;
+      if (this.stepStates[i]!.status === "skipped") continue;
+      this.prefetchOneStep(i).catch(() => {});
+    }
+  }
 
+  async prefetchNextStep(): Promise<void> {
     const nextIndex = this.getNextTeachableStepIndex();
     if (nextIndex === null) return;
-    if (this.prefetchedContent.has(nextIndex)) return;
+    // Prefetch N+1 and N+2 for more lead time
+    this.prefetchSteps([nextIndex, nextIndex + 1]);
+  }
 
-    const step = this.stepStates[nextIndex]!;
+  private async prefetchOneStep(index: number): Promise<void> {
+    if (this.prefetchedContent.has(index)) return;
+
+    const step = this.stepStates[index]!;
     const priorSummaries = this.stepStates
       .filter((s) => s.status === "completed" && s.summary)
       .map((s) => s.summary!);
 
-    const prompt = buildStepContentPrompt(this.subject, step.plan, priorSummaries);
+    const fileContent = await this.readStepFile(step.plan.file);
+    const prompt = buildStepContentPrompt(this.subject, step.plan, priorSummaries, fileContent);
     const abortController = new AbortController();
-    this.prefetchAbortController = abortController;
 
     const silentProgress: GenerationProgress = {
       onProgress: () => {},
@@ -204,20 +224,25 @@ export class LessonSession {
     try {
       const content = await this.adapter.generateStepContent(prompt, silentProgress);
       if (!abortController.signal.aborted && step.status === "upcoming") {
-        this.prefetchedContent.set(nextIndex, content);
+        this.prefetchedContent.set(index, content);
       }
     } catch {
       // Prefetch failure is non-fatal
-    } finally {
-      if (this.prefetchAbortController === abortController) {
-        this.prefetchAbortController = null;
-      }
     }
   }
 
   cancelPrefetch(): void {
     this.prefetchAbortController?.abort();
     this.prefetchAbortController = null;
+  }
+
+  /** Read a step's file locally. Returns content or undefined on failure. */
+  private async readStepFile(file: string): Promise<string | undefined> {
+    try {
+      return await fs.readFile(join(this.workspaceRoot, file), "utf-8");
+    } catch {
+      return undefined; // File might not exist — Claude will use Read tool
+    }
   }
 
   isComplete(): boolean {
@@ -246,9 +271,10 @@ export class LessonSession {
   static fromSaved(
     adapter: ClaudeAdapter,
     plan: LessonPlan,
-    stepStates: LessonStepState[]
+    stepStates: LessonStepState[],
+    workspaceRoot = ""
   ): LessonSession {
-    const session = new LessonSession(adapter, plan.subject);
+    const session = new LessonSession(adapter, plan.subject, workspaceRoot);
     session.plan = plan;
     session.stepStates = stepStates;
 
