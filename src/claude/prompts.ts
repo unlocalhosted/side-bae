@@ -286,7 +286,7 @@ export function buildLessonPlanPrompt(subject: string, entryFile?: string): stri
   const entryHint = entryFile ? `\nStart by examining: ${entryFile}` : "";
   return `You are creating a lesson plan for teaching about: "${subject}"
 ${entryHint}
-Scan the codebase and create a structured lesson plan with 6-10 steps. Each step should focus on a specific code region that teaches a concept.
+Scan the codebase and create a structured lesson plan with 6-10 steps (more if the subject demands it). Each step should focus on a specific code region that teaches a concept.
 
 ## Plan structure
 
@@ -305,6 +305,14 @@ Order steps from foundational to advanced:
 - **concepts**: Named patterns or techniques (e.g., "Observer Pattern", "Memoization")
 - **layer**: Which pedagogical layer — outcome, architecture, rationale, insight, or challenge
 
+## Completeness — CRITICAL
+
+DO NOT skip logical progressions. If the code shows a clear progression (base case → variant 1 → variant 2 → variant 3), include EVERY step in that progression. Each builds incremental understanding that the next step depends on. Skipping intermediate steps creates logical gaps — the learner won't understand step N+2 if they missed step N+1.
+
+If full coverage requires more than 10 steps, generate more than 10. Completeness beats brevity. The step count (6-10) is a guideline for typical codebases, NOT a hard cap when the material demands more.
+
+Before finalizing your plan, verify: could a reader follow your steps in order without any "wait, where did that come from?" moments? If not, you're missing a step.
+
 ## Rules
 
 - Each step MUST reference a real file with accurate line numbers — verify by reading the file
@@ -315,7 +323,7 @@ Order steps from foundational to advanced:
 
 export function buildStepContentPrompt(
   subject: string,
-  step: { title: string; file: string; startLine: number; endLine: number; concepts: string[] },
+  step: { title: string; file: string; startLine: number; endLine: number; concepts: string[]; layer?: string },
   priorSummaries: string[]
 ): string {
   const priorContext = priorSummaries.length > 0
@@ -326,6 +334,7 @@ export function buildStepContentPrompt(
 
 The code region is in \`${step.file}\` lines ${step.startLine}-${step.endLine}. Read this file now.
 Concepts to cover: ${step.concepts.join(", ")}
+Pedagogical layer: ${step.layer ?? "unspecified"}
 ${priorContext}
 
 ## If the learner already demonstrated understanding
@@ -344,10 +353,24 @@ Write a vivid explanation of this code region. Then ask ONE question to check un
 - Explain WHY, not just WHAT
 - Use concrete → abstract: show the code, explain what it does, THEN name the pattern
 
-### Question format
-- Set inputType to "choice" for concept recognition, "text" for deeper reasoning
-- For choice questions: provide 3-4 options, set correctIndex, and write correctExplanation + incorrectExplanation
-- For text questions: just set the prompt
+### Code references — IMPORTANT
+The learner sees the actual source file open in their editor with the relevant lines highlighted.
+Do NOT include fenced code blocks (\`\`\`) or large code excerpts in your explanation.
+Instead, reference code inline: mention \`functionName()\`, \`variableName\`, \`TypeName\` in backticks.
+Point the reader to what they can see: "Look at line 42 — notice how \`dispatch()\` fires before..."
+The editor IS the code view. Your explanation is the narrative companion, not a code viewer.
+
+### Question type — MANDATORY RULES
+
+You MUST select inputType based on the pedagogical layer:
+- "outcome" or "architecture" → inputType: "choice" (concept recognition, factual recall)
+- "rationale", "insight", or "challenge" → inputType: "text" (the learner must explain in their own words)
+- If the layer is unspecified → alternate: use "text" if the previous step used "choice", and vice versa
+
+IMPORTANT: A lesson that is 100% multiple-choice is a bad lesson. The learner needs to articulate reasoning, not just pick letters. NEVER default to "choice" for every step.
+
+For choice questions: provide 3-4 options, set correctIndex, and write correctExplanation + incorrectExplanation.
+For text questions: write a prompt that asks the learner to explain WHY or HOW, not just WHAT.
 
 Do not include node_modules, dist, or build artifacts in references.`;
 }
