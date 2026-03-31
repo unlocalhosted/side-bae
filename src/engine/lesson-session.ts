@@ -21,6 +21,8 @@ export class LessonSession {
   private stepStates: LessonStepState[] = [];
   private activeStepIndex = -1;
   private checkResults: CheckResult[] = [];
+  private prefetchedContent: Map<number, StepContent> = new Map();
+  private prefetchAbortController: AbortController | null = null;
 
   constructor(
     private adapter: ClaudeAdapter,
@@ -52,6 +54,23 @@ export class LessonSession {
     const step = this.stepStates[this.activeStepIndex];
     if (!step) throw new Error("No active step");
 
+    // Cancel any in-progress prefetch to avoid concurrent API calls
+    this.cancelPrefetch();
+
+    // Check prefetch cache first
+    const cached = this.prefetchedContent.get(this.activeStepIndex);
+    if (cached) {
+      this.prefetchedContent.delete(this.activeStepIndex);
+      if (cached.skipReason) {
+        step.status = "skipped";
+        step.summary = cached.skipReason;
+        return cached;
+      }
+      step.content = cached;
+      return cached;
+    }
+
+    // Cache miss — generate on demand
     const priorSummaries = this.stepStates
       .filter((s) => s.status === "completed" && s.summary)
       .map((s) => s.summary!);
@@ -136,18 +155,69 @@ export class LessonSession {
     const current = this.stepStates[this.activeStepIndex];
     if (current) current.status = "completed";
 
-    // Find next non-skipped step
-    for (let i = this.activeStepIndex + 1; i < this.stepStates.length; i++) {
-      if (this.stepStates[i]!.status !== "skipped") {
-        this.activeStepIndex = i;
-        this.stepStates[i]!.status = "active";
-        return i;
-      }
+    const nextIndex = this.getNextTeachableStepIndex();
+    if (nextIndex !== null) {
+      this.activeStepIndex = nextIndex;
+      this.stepStates[nextIndex]!.status = "active";
+      return nextIndex;
     }
 
     // All done
     this.activeStepIndex = this.stepStates.length;
     return -1;
+  }
+
+  private getNextTeachableStepIndex(): number | null {
+    for (let i = this.activeStepIndex + 1; i < this.stepStates.length; i++) {
+      if (this.stepStates[i]!.status !== "skipped") {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  async prefetchNextStep(): Promise<void> {
+    // Cancel any in-progress prefetch first
+    this.prefetchAbortController?.abort();
+    this.prefetchAbortController = null;
+
+    const nextIndex = this.getNextTeachableStepIndex();
+    if (nextIndex === null) return;
+    if (this.prefetchedContent.has(nextIndex)) return;
+
+    const step = this.stepStates[nextIndex]!;
+    const priorSummaries = this.stepStates
+      .filter((s) => s.status === "completed" && s.summary)
+      .map((s) => s.summary!);
+
+    const prompt = buildStepContentPrompt(this.subject, step.plan, priorSummaries);
+    const abortController = new AbortController();
+    this.prefetchAbortController = abortController;
+
+    const silentProgress: GenerationProgress = {
+      onProgress: () => {},
+      onCancel: (callback) => {
+        abortController.signal.addEventListener("abort", callback);
+      },
+    };
+
+    try {
+      const content = await this.adapter.generateStepContent(prompt, silentProgress);
+      if (!abortController.signal.aborted && step.status === "upcoming") {
+        this.prefetchedContent.set(nextIndex, content);
+      }
+    } catch {
+      // Prefetch failure is non-fatal
+    } finally {
+      if (this.prefetchAbortController === abortController) {
+        this.prefetchAbortController = null;
+      }
+    }
+  }
+
+  cancelPrefetch(): void {
+    this.prefetchAbortController?.abort();
+    this.prefetchAbortController = null;
   }
 
   isComplete(): boolean {
