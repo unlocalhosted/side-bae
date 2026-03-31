@@ -50,6 +50,19 @@ export interface ClaudeStatus {
   error?: string;
 }
 
+export interface QueryOptions {
+  tools?: string[];
+  maxTurns?: number;
+  effort?: "low" | "medium" | "high";
+  resumeSessionId?: string;
+  persistSession?: boolean;
+}
+
+export interface QueryResult<T> {
+  data: T;
+  sessionId?: string;
+}
+
 /** Human-friendly labels for SDK tool names */
 const TOOL_LABELS: Record<string, string> = {
   Read: "Reading",
@@ -150,10 +163,21 @@ async function checkClaudeStatusUncached(
   }
 }
 
+// ── Shared system prompt (~150 tokens, cached by SDK) ──
+const SHARED_SYSTEM_PROMPT = `You are Side Bae, an AI assistant in a VS Code extension that teaches developers about codebases through guided tours, interactive lessons, and bug investigations.
+
+Voice: sound like a sharp friend explaining their favorite codebase over coffee — not documentation.
+- Reference code with \`backticks\`, bold **key concepts** on first mention
+- Explain WHY, not just WHAT. Have opinions: "this is clever because..."
+- Concrete before abstract: show code, explain behavior, then name the pattern
+- Never announce actions ("I'm going to..."): just do it
+- Do not include node_modules, dist, or build artifacts in file references`;
+
 export class ClaudeAdapter {
   private workspaceRoot: string;
   private model: string;
   private maxBudgetUsd: number;
+  private codebaseContextPromise: Promise<import("./codebase-context.js").CodebaseContext> | null = null;
 
   constructor(options: ClaudeAdapterOptions) {
     this.workspaceRoot = options.workspaceRoot;
@@ -161,12 +185,28 @@ export class ClaudeAdapter {
     this.maxBudgetUsd = options.maxBudgetUsd ?? 0.5;
   }
 
+  /** Get the formatted codebase structure for prompt injection. */
+  async getFormattedContext(): Promise<string> {
+    if (!this.codebaseContextPromise) {
+      const { buildCodebaseContext } = await import("./codebase-context.js");
+      this.codebaseContextPromise = buildCodebaseContext(this.workspaceRoot);
+    }
+    const ctx = await this.codebaseContextPromise;
+    const { formatContextForPrompt } = await import("./codebase-context.js");
+    return formatContextForPrompt(ctx);
+  }
+
   async generateTour(
     queryText: string,
     progress: GenerationProgress
   ): Promise<TourDocument> {
-    const prompt = buildTourGenerationPrompt(queryText);
-    const result = await this.runStructuredQuery(prompt, TOUR_DOCUMENT_SCHEMA, progress);
+    const structure = await this.getFormattedContext();
+    const prompt = buildTourGenerationPrompt(queryText, structure);
+    const result = await this.runStructuredQuery(prompt, TOUR_DOCUMENT_SCHEMA, progress, {
+      tools: ["Read", "Grep", "Glob"],
+      maxTurns: 15,
+      effort: "medium",
+    });
     return validateTourDocument(result);
   }
 
@@ -175,31 +215,53 @@ export class ClaudeAdapter {
     progress: GenerationProgress
   ): Promise<RecentChange[]> {
     const prompt = buildWhatsNewPrompt(range);
-    const result = await this.runStructuredQuery(prompt, RECENT_CHANGES_SCHEMA, progress);
+    const result = await this.runStructuredQuery(prompt, RECENT_CHANGES_SCHEMA, progress, {
+      tools: ["Read", "Grep", "Glob", "Bash"],
+      maxTurns: 10,
+      effort: "low",
+    });
     return (result as { changes: RecentChange[] }).changes;
   }
 
   async generateInvestigationStep(
     prompt: string,
-    progress: GenerationProgress
+    progress: GenerationProgress,
+    options?: QueryOptions
   ): Promise<InvestigationStep> {
-    const result = await this.runStructuredQuery(prompt, INVESTIGATION_STEP_SCHEMA, progress);
+    const result = await this.runStructuredQuery(prompt, INVESTIGATION_STEP_SCHEMA, progress, {
+      tools: ["Read", "Grep", "Glob", "Bash"],
+      maxTurns: 20,
+      effort: "high",
+      ...options,
+    });
     return result as InvestigationStep;
   }
 
   async generateLessonPlan(
     prompt: string,
-    progress: GenerationProgress
+    progress: GenerationProgress,
+    options?: QueryOptions
   ): Promise<{ steps: LessonPlanStep[] }> {
-    const result = await this.runStructuredQuery(prompt, LESSON_PLAN_SCHEMA, progress);
+    const result = await this.runStructuredQuery(prompt, LESSON_PLAN_SCHEMA, progress, {
+      tools: ["Read", "Grep", "Glob"],
+      maxTurns: 20,
+      effort: "medium",
+      ...options,
+    });
     return result as { steps: LessonPlanStep[] };
   }
 
   async generateStepContent(
     prompt: string,
-    progress: GenerationProgress
+    progress: GenerationProgress,
+    options?: QueryOptions
   ): Promise<StepContent> {
-    const result = await this.runStructuredQuery(prompt, STEP_CONTENT_SCHEMA, progress);
+    const result = await this.runStructuredQuery(prompt, STEP_CONTENT_SCHEMA, progress, {
+      tools: ["Read"],
+      maxTurns: 3,
+      effort: "medium",
+      ...options,
+    });
     return result as StepContent;
   }
 
@@ -207,36 +269,53 @@ export class ClaudeAdapter {
     prompt: string,
     progress: GenerationProgress
   ): Promise<StepResponse> {
-    const result = await this.runStructuredQuery(prompt, STEP_RESPONSE_SCHEMA, progress);
+    const result = await this.runStructuredQuery(prompt, STEP_RESPONSE_SCHEMA, progress, {
+      tools: [],
+      maxTurns: 2,
+      effort: "low",
+    });
     return result as StepResponse;
   }
 
   async discoverLearnableConcepts(
     progress: GenerationProgress
   ): Promise<LearnableConcept[]> {
-    const prompt = buildLearnableConceptsPrompt();
-    const result = await this.runStructuredQuery(prompt, LEARNABLE_CONCEPTS_SCHEMA, progress);
+    const structure = await this.getFormattedContext();
+    const prompt = buildLearnableConceptsPrompt(structure);
+    const result = await this.runStructuredQuery(prompt, LEARNABLE_CONCEPTS_SCHEMA, progress, {
+      tools: ["Read", "Grep", "Glob"],
+      maxTurns: 15,
+      effort: "low",
+    });
     return (result as { concepts: LearnableConcept[] }).concepts;
   }
 
   async discoverFeatures(
     progress: GenerationProgress
   ): Promise<FeatureTreeNode[]> {
-    const prompt = buildFeatureDiscoveryPrompt();
-    const result = await this.runStructuredQuery(prompt, FEATURE_TREE_SCHEMA, progress);
+    const structure = await this.getFormattedContext();
+    const prompt = buildFeatureDiscoveryPrompt(structure);
+    const result = await this.runStructuredQuery(prompt, FEATURE_TREE_SCHEMA, progress, {
+      tools: ["Read", "Grep", "Glob"],
+      maxTurns: 12,
+      effort: "low",
+    });
     return (result as { features: FeatureTreeNode[] }).features;
   }
 
   private async runStructuredQuery(
     prompt: string,
     schema: Record<string, unknown>,
-    progress: GenerationProgress
+    progress: GenerationProgress,
+    options?: QueryOptions
   ): Promise<unknown> {
     const { query } = await import("@anthropic-ai/claude-agent-sdk");
     const claudePath = getConfiguredClaudePath();
 
     const abortController = new AbortController();
     progress.onCancel(() => abortController.abort());
+
+    const tools = options?.tools ?? ["Read", "Grep", "Glob", "Bash"];
 
     try {
       const q = query({
@@ -245,14 +324,18 @@ export class ClaudeAdapter {
           cwd: this.workspaceRoot,
           model: this.model,
           pathToClaudeCodeExecutable: claudePath,
-          maxTurns: 30,
+          systemPrompt: SHARED_SYSTEM_PROMPT,
+          maxTurns: options?.maxTurns ?? 30,
+          effort: options?.effort ?? "medium",
           maxBudgetUsd: this.maxBudgetUsd,
           abortController,
-          allowedTools: ["Read", "Grep", "Glob", "Bash"],
+          tools: tools.length > 0 ? tools : [],
+          allowedTools: tools.length > 0 ? tools : undefined,
           permissionMode: "bypassPermissions",
           allowDangerouslySkipPermissions: true,
           outputFormat: { type: "json_schema", schema },
-          persistSession: false,
+          persistSession: options?.persistSession ?? false,
+          resume: options?.resumeSessionId,
           settingSources: ["user", "project"],
         },
       });
