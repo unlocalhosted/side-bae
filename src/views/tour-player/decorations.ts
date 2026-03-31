@@ -39,6 +39,9 @@ function getColoredDecoration(kind: string): vscode.TextEditorDecorationType {
   kindDecoration?.dispose();
   const colorToken = KIND_COLORS[kind] ?? LAYER_COLORS[kind] ?? "focusBorder";
   kindDecoration = vscode.window.createTextEditorDecorationType({
+    backgroundColor: new vscode.ThemeColor(
+      "editor.findMatchHighlightBackground"
+    ),
     borderWidth: "0 0 0 3px",
     borderStyle: "solid",
     borderColor: new vscode.ThemeColor(colorToken),
