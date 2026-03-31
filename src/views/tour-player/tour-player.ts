@@ -9,6 +9,7 @@ import { INVESTIGATION_PHASE_KIND, type InvestigationStep } from "../../types/in
 import { applyDecorations, clearDecorations } from "./decorations.js";
 import type { TourCardPanelProvider } from "./webview-provider.js";
 import * as tourStore from "../../engine/tour-store.js";
+import * as statusBar from "../status-bar.js";
 
 export class TourPlayer {
   private engine = new TourEngine();
@@ -184,6 +185,7 @@ export class TourPlayer {
     this.setTourActiveContext(true);
 
     // Phase 1: Generate plan with VS Code notification progress (like tours)
+    statusBar.show("Generating lesson plan...");
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -193,19 +195,24 @@ export class TourPlayer {
       async (progress, token) => {
         try {
           const lessonProgress = {
-            onProgress: (msg: string) => progress.report({ message: msg }),
+            onProgress: (msg: string) => {
+              progress.report({ message: msg });
+              statusBar.show(msg);
+            },
             onCancel: (callback: () => void) => token.onCancellationRequested(callback),
           };
 
           await this.lessonSession!.generatePlan(lessonProgress);
 
           if (token.isCancellationRequested) {
+            statusBar.hide();
             this.lessonSession = null;
             this.setTourActiveContext(false);
             return;
           }
 
           // Plan ready — NOW open the panel
+          statusBar.hide();
           this.webviewProvider.open(`Learning: ${subject}`);
           this.webviewProvider.sendLessonPlan(this.lessonSession!.getSessionState());
           await this.autoSaveLesson();
@@ -213,6 +220,7 @@ export class TourPlayer {
           // Phase 2: Teach the first step
           await this.teachCurrentStep();
         } catch (err) {
+          statusBar.hide();
           if (token.isCancellationRequested) {
             vscode.window.showInformationMessage("Lesson generation cancelled.");
             this.lessonSession = null;
@@ -253,8 +261,11 @@ export class TourPlayer {
         this.webviewProvider.sendStepContent(stepIndex, content);
         await this.openStepFile(stepIndex);
         await this.autoSaveLesson();
+        this.webviewProvider.reveal();
+        this.triggerPrefetch();
       }
     } catch (err) {
+      if (!this.lessonSession) return;
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Lesson error: ${msg}`);
       this.webviewProvider.sendLessonPlan(this.lessonSession.getSessionState());
@@ -292,7 +303,7 @@ export class TourPlayer {
   }
 
   private async handleLessonContinue(): Promise<void> {
-    if (!this.lessonSession) return;
+    if (!this.lessonSession || this.lessonProcessing) return;
 
     const nextIndex = this.lessonSession.advanceToNextStep();
     this.webviewProvider.sendLessonPlan(this.lessonSession.getSessionState());
@@ -353,6 +364,7 @@ export class TourPlayer {
 
   private endLesson(): void {
     if (this.lessonSession) {
+      this.lessonSession.cancelPrefetch();
       this.saveLessonAsTour();
     }
 
@@ -380,6 +392,11 @@ export class TourPlayer {
     if (data) {
       tourStore.saveLessonState(this.workspaceRoot, data.plan, data.stepStates);
     }
+  }
+
+  private triggerPrefetch(): void {
+    if (!this.lessonSession) return;
+    this.lessonSession.prefetchNextStep().catch(() => {});
   }
 
   private makeLessonProgress(): import("../../claude/adapter.js").GenerationProgress {
@@ -619,15 +636,39 @@ export class TourPlayer {
   }
 
   onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined): void {
-    if (!editor || !this.engine.isLoaded()) return;
+    if (!editor) return;
 
-    const node = this.engine.getCurrentNode();
-    if (!node) return;
+    // Tour mode
+    if (this.engine.isLoaded()) {
+      const node = this.engine.getCurrentNode();
+      if (!node) return;
+      const filePath = join(this.workspaceRoot, node.file);
+      if (editor.document.uri.fsPath === filePath) {
+        this.activeEditor = editor;
+        applyDecorations(editor, node);
+      }
+      return;
+    }
 
-    const filePath = join(this.workspaceRoot, node.file);
-    if (editor.document.uri.fsPath === filePath) {
-      this.activeEditor = editor;
-      applyDecorations(editor, node);
+    // Lesson mode — re-apply decorations when user switches back to the step's file
+    if (this.lessonSession) {
+      const state = this.lessonSession.getSessionState();
+      const step = state.steps[state.activeStepIndex]?.plan;
+      if (step?.file) {
+        const filePath = join(this.workspaceRoot, step.file);
+        if (editor.document.uri.fsPath === filePath) {
+          this.activeEditor = editor;
+          applyDecorations(editor, {
+            file: step.file,
+            startLine: step.startLine,
+            endLine: step.endLine,
+            title: step.title,
+            explanation: "",
+            edges: [],
+            layer: step.layer,
+          });
+        }
+      }
     }
   }
 
