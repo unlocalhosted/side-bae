@@ -66,11 +66,40 @@ function shortPath(path: string): string {
   return parts.length > 2 ? parts.slice(-2).join("/") : path;
 }
 
+// ── Claude status cache ──
+// Caches a successful check so we don't spawn a subprocess on every command.
+// Also deduplicates concurrent checks (join the in-flight promise).
+let cachedStatus: ClaudeStatus | null = null;
+let pendingCheck: Promise<ClaudeStatus> | null = null;
+
+export async function checkClaudeStatus(
+  workspaceRoot: string
+): Promise<ClaudeStatus> {
+  // Return cached success immediately
+  if (cachedStatus?.available && cachedStatus?.authenticated) {
+    return cachedStatus;
+  }
+  // Join in-flight check instead of spawning a duplicate
+  if (pendingCheck) {
+    return pendingCheck;
+  }
+  pendingCheck = checkClaudeStatusUncached(workspaceRoot);
+  try {
+    const status = await pendingCheck;
+    if (status.available && status.authenticated) {
+      cachedStatus = status;
+    }
+    return status;
+  } finally {
+    pendingCheck = null;
+  }
+}
+
 /**
  * Check if the Claude Agent SDK can connect and authenticate.
  * Uses the SDK itself (not execFile) so it tests the exact same code path.
  */
-export async function checkClaudeStatus(
+async function checkClaudeStatusUncached(
   workspaceRoot: string
 ): Promise<ClaudeStatus> {
   try {
