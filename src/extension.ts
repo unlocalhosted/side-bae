@@ -10,6 +10,7 @@ import { registerInvestigateIssueCommand } from "./commands/investigate-issue.js
 import { registerStartLessonCommand } from "./commands/start-lesson.js";
 import { registerScanLearnableCommand } from "./commands/scan-learnable.js";
 import { disposeDecorations } from "./views/tour-player/decorations.js";
+import * as statusBar from "./views/status-bar.js";
 import * as tourStore from "./engine/tour-store.js";
 import { requireClaude } from "./commands/preflight.js";
 
@@ -38,6 +39,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Check on activation (non-blocking)
   requireClaude(checkClaude);
+
+  // Status bar indicator
+  context.subscriptions.push(statusBar.init());
 
   // Create panel provider and tour player
   const webviewProvider = new TourCardPanelProvider(context.extensionUri);
