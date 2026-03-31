@@ -1,10 +1,17 @@
+/** Format a pre-scanned codebase structure block for prompt injection. */
+function contextBlock(structure: string | undefined, instruction: string): string {
+  if (!structure) return "";
+  return `\n\n## Codebase structure (pre-scanned)\n\n${structure}\n\n${instruction}\n`;
+}
+
 export function buildTourGenerationPrompt(
   query: string,
   codebaseStructure?: string
 ): string {
-  const contextSection = codebaseStructure
-    ? `\n\n## Codebase structure (pre-scanned)\n\n${codebaseStructure}\n\nUse this structure to navigate directly to relevant files. Do NOT scan the entire codebase — read ONLY the files needed for the tour.\n`
-    : "";
+  const contextSection = contextBlock(
+    codebaseStructure,
+    "Use this structure to navigate directly to relevant files. Do NOT scan the entire codebase — read ONLY the files needed for the tour."
+  );
 
   return `You are writing an interactive article about a codebase. Not documentation. Not a function reference. An article — with a narrative arc, a point of view, and a voice that sounds like a sharp friend explaining their favorite codebase over coffee.
 
@@ -297,9 +304,10 @@ Generate the next InvestigationStep. Adapt based on the user's input and what yo
 }
 
 export function buildLearnableConceptsPrompt(codebaseStructure?: string): string {
-  const contextSection = codebaseStructure
-    ? `\n\n## Codebase structure (pre-scanned)\n\n${codebaseStructure}\n\nUse this structure to navigate directly to relevant files. Do NOT scan broadly.\n`
-    : "";
+  const contextSection = contextBlock(
+    codebaseStructure,
+    "Use this structure to navigate directly to relevant files. Do NOT scan broadly."
+  );
 
   return `Analyze this codebase and identify the most interesting and teachable aspects — things a developer could deeply learn from by studying the implementation.
 ${contextSection}
@@ -331,9 +339,10 @@ Focus on topics where the implementation itself is worth studying — where a de
 
 export function buildLessonPlanPrompt(subject: string, entryFile?: string, codebaseStructure?: string): string {
   const entryHint = entryFile ? `\nStart by examining: ${entryFile}` : "";
-  const contextSection = codebaseStructure
-    ? `\n\n## Codebase structure (pre-scanned)\n\n${codebaseStructure}\n\nUse this structure to navigate directly to relevant files. Read ONLY the files needed for specific steps — do NOT scan broadly.\n`
-    : "";
+  const contextSection = contextBlock(
+    codebaseStructure,
+    "Use this structure to navigate directly to relevant files. Read ONLY the files needed for specific steps — do NOT scan broadly."
+  );
 
   return `You are creating a lesson plan for teaching about: "${subject}"
 ${entryHint}${contextSection}
@@ -597,9 +606,10 @@ Generate the next LessonStep. Adapt depth and direction based on the learner's d
 }
 
 export function buildFeatureDiscoveryPrompt(codebaseStructure?: string): string {
-  const contextSection = codebaseStructure
-    ? `\n\n## Codebase structure (pre-scanned)\n\n${codebaseStructure}\n\nUse this structure to identify features. Read specific files for details — do NOT scan broadly.\n`
-    : "";
+  const contextSection = contextBlock(
+    codebaseStructure,
+    "Use this structure to identify features. Read specific files for details — do NOT scan broadly."
+  );
 
   return `Analyze this codebase and identify the major features and capabilities.
 ${contextSection}

@@ -93,8 +93,8 @@ export class LessonSession {
     });
 
     // Capture session ID from first step content call for reuse
-    if (!this.stepSessionId) {
-      this.stepSessionId = this.adapter.getLastSessionId() ?? null;
+    if (!this.stepSessionId && content.sessionId) {
+      this.stepSessionId = content.sessionId;
     }
 
     // Handle skip
@@ -196,24 +196,30 @@ export class LessonSession {
   }
 
   /** Prefetch multiple steps in parallel. Non-blocking, fire-and-forget. */
+  /** Prefetch multiple steps in parallel. Non-blocking, fire-and-forget. */
   prefetchSteps(indices: number[]): void {
+    // Cancel any in-flight prefetches before starting new ones
+    this.cancelPrefetch();
+    this.prefetchAbortController = new AbortController();
+    const controller = this.prefetchAbortController;
+
     for (const i of indices) {
       if (i < 0 || i >= this.stepStates.length) continue;
       if (this.prefetchedContent.has(i)) continue;
       if (this.stepStates[i]!.status === "skipped") continue;
-      this.prefetchOneStep(i).catch(() => {});
+      this.prefetchOneStep(i, controller).catch(() => {});
     }
   }
 
   async prefetchNextStep(): Promise<void> {
     const nextIndex = this.getNextTeachableStepIndex();
     if (nextIndex === null) return;
-    // Prefetch N+1 and N+2 for more lead time
     this.prefetchSteps([nextIndex, nextIndex + 1]);
   }
 
-  private async prefetchOneStep(index: number): Promise<void> {
+  private async prefetchOneStep(index: number, controller: AbortController): Promise<void> {
     if (this.prefetchedContent.has(index)) return;
+    if (controller.signal.aborted) return;
 
     const step = this.stepStates[index]!;
     const priorSummaries = this.stepStates
@@ -222,12 +228,11 @@ export class LessonSession {
 
     const fileContent = await this.readStepFile(step.plan.file);
     const prompt = buildStepContentPrompt(this.subject, step.plan, priorSummaries, fileContent);
-    const abortController = new AbortController();
 
     const silentProgress: GenerationProgress = {
       onProgress: () => {},
       onCancel: (callback) => {
-        abortController.signal.addEventListener("abort", callback);
+        controller.signal.addEventListener("abort", callback);
       },
     };
 
@@ -236,11 +241,10 @@ export class LessonSession {
         persistSession: true,
         resumeSessionId: this.stepSessionId ?? undefined,
       });
-      // Capture session ID if this is the first step content call
-      if (!this.stepSessionId) {
-        this.stepSessionId = this.adapter.getLastSessionId() ?? null;
+      if (!this.stepSessionId && content.sessionId) {
+        this.stepSessionId = content.sessionId;
       }
-      if (!abortController.signal.aborted && step.status === "upcoming") {
+      if (!controller.signal.aborted && step.status === "upcoming") {
         this.prefetchedContent.set(index, content);
       }
     } catch {
@@ -253,12 +257,18 @@ export class LessonSession {
     this.prefetchAbortController = null;
   }
 
-  /** Read a step's file locally. Returns content or undefined on failure. */
+  private fileCache = new Map<string, string | undefined>();
+
+  /** Read a step's file locally. Cached per session to avoid redundant reads. */
   private async readStepFile(file: string): Promise<string | undefined> {
+    if (this.fileCache.has(file)) return this.fileCache.get(file);
     try {
-      return await fs.readFile(join(this.workspaceRoot, file), "utf-8");
+      const content = await fs.readFile(join(this.workspaceRoot, file), "utf-8");
+      this.fileCache.set(file, content);
+      return content;
     } catch {
-      return undefined; // File might not exist — Claude will use Read tool
+      this.fileCache.set(file, undefined);
+      return undefined;
     }
   }
 
@@ -289,7 +299,7 @@ export class LessonSession {
     adapter: ClaudeAdapter,
     plan: LessonPlan,
     stepStates: LessonStepState[],
-    workspaceRoot = ""
+    workspaceRoot: string
   ): LessonSession {
     const session = new LessonSession(adapter, plan.subject, workspaceRoot);
     session.plan = plan;

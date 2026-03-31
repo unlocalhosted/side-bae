@@ -100,10 +100,10 @@ export async function buildCodebaseContext(
 
   walkDir(workspaceRoot, workspaceRoot, files, dirCounts, 0);
 
-  const entryPoints = findEntryPoints(workspaceRoot, files);
+  const pkg = readPackageJson(workspaceRoot);
+  const entryPoints = findEntryPoints(files, pkg);
   const directories = buildDirSummaries(dirCounts);
   const fileTree = buildFileTree(files, directories);
-  const pkg = readPackageJson(workspaceRoot);
 
   const ctx: CodebaseContext = {
     fileTree,
@@ -185,11 +185,12 @@ function walkDir(
   }
 }
 
-function findEntryPoints(root: string, files: string[]): string[] {
+function findEntryPoints(
+  files: string[],
+  pkg: { name?: string; description?: string; main?: string; module?: string } | null
+): string[] {
   const found: string[] = [];
 
-  // Check package.json main/module
-  const pkg = readPackageJson(root);
   if (pkg?.main) found.push(pkg.main);
   if (pkg?.module && pkg.module !== pkg.main) found.push(pkg.module);
 

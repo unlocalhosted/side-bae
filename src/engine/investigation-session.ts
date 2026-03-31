@@ -169,14 +169,14 @@ Generate the first step: an "orient" phase. Describe what you think the issue is
     prompt: string,
     progress: GenerationProgress
   ): Promise<InvestigationStep> {
-    const step = await this.adapter.generateInvestigationStep(prompt, progress, {
+    const result = await this.adapter.generateInvestigationStep(prompt, progress, {
       persistSession: true,
       resumeSessionId: this.sdkSessionId ?? undefined,
     });
 
-    // Capture session ID from first call for reuse
-    if (!this.sdkSessionId) {
-      this.sdkSessionId = this.adapter.getLastSessionId() ?? null;
+    const { sessionId, ...step } = result;
+    if (!this.sdkSessionId && sessionId) {
+      this.sdkSessionId = sessionId;
     }
 
     this.currentStep = step;
