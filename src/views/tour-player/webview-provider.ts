@@ -57,7 +57,7 @@ export class TourCardPanelProvider {
     this.panel = vscode.window.createWebviewPanel(
       "sideBae.tourCard",
       title,
-      { viewColumn: vscode.ViewColumn.Two, preserveFocus: false },
+      { viewColumn: vscode.ViewColumn.Two, preserveFocus: true },
       {
         enableScripts: true,
         retainContextWhenHidden: true,
@@ -70,10 +70,14 @@ export class TourCardPanelProvider {
     this.panel.webview.onDidReceiveMessage((message) => {
       if (message.type === "ready") {
         this.ready = true;
+        const hadPending = this.pendingMessages.length > 0;
         for (const msg of this.pendingMessages) {
           this.panel?.webview.postMessage(msg);
         }
         this.pendingMessages = [];
+        if (hadPending) {
+          this.panel?.reveal(vscode.ViewColumn.Beside, true);
+        }
         return;
       }
       if (this.onNavigation) {
@@ -136,8 +140,8 @@ export class TourCardPanelProvider {
     this.post({ type: "investigationUpdate", step, state });
   }
 
-  showInvestigationLoading(): void {
-    this.post({ type: "investigationLoading" });
+  showInvestigationLoading(message?: string): void {
+    this.post({ type: "investigationLoading", message });
   }
 
   updateInvestigationLoadingMessage(message: string): void {

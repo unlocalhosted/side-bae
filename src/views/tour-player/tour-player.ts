@@ -3,13 +3,25 @@ import { join } from "node:path";
 import { TourEngine } from "../../engine/tour-engine.js";
 import { LessonSession } from "../../engine/lesson-session.js";
 import { InvestigationSession } from "../../engine/investigation-session.js";
-import type { ClaudeAdapter } from "../../claude/adapter.js";
+import type { AIProvider } from "../../ai/index.js";
+import type { FullLesson } from "../../types/full-lesson.js";
 import type { TourDocument, TourEdge, TourNode } from "../../types/tour.js";
 import { INVESTIGATION_PHASE_KIND, type InvestigationStep } from "../../types/investigation.js";
 import { applyDecorations, clearDecorations } from "./decorations.js";
 import type { TourCardPanelProvider } from "./webview-provider.js";
 import * as tourStore from "../../engine/tour-store.js";
 import * as statusBar from "../status-bar.js";
+
+const PHASE_LOADING_MESSAGES: Record<string, string> = {
+  orient: "Understanding the issue...",
+  investigate: "Scanning relevant code...",
+  diagnose: "Looking for root cause...",
+  propose: "Working on a fix...",
+  verify: "Running tests...",
+  revise: "Adjusting the fix...",
+  ship: "Preparing pull request...",
+  recap: "Wrapping up...",
+};
 
 export class TourPlayer {
   private engine = new TourEngine();
@@ -173,7 +185,7 @@ export class TourPlayer {
   // ── Lesson session management (plan-based stepper) ──
 
   async startLesson(
-    adapter: ClaudeAdapter,
+    adapter: AIProvider,
     subject: string,
     entryFile?: string
   ): Promise<void> {
@@ -233,6 +245,23 @@ export class TourPlayer {
         }
       }
     );
+  }
+
+  /** Start a pre-generated lesson — no AI provider needed, instant playback. */
+  async startFullLesson(lesson: FullLesson): Promise<void> {
+    if (this.lessonSession) this.endLesson();
+    if (this.investigationSession) this.endInvestigation();
+    if (this.engine.isLoaded()) this.stopTour();
+
+    this.lessonSession = LessonSession.fromFullLesson(lesson, this.workspaceRoot);
+    this.setTourActiveContext(true);
+
+    // Open panel immediately — no plan generation wait
+    this.webviewProvider.open(`Learning: ${lesson.subject}`);
+    this.webviewProvider.sendLessonPlan(this.lessonSession.getSessionState());
+
+    // Teach the first step instantly (content is pre-loaded)
+    await this.teachCurrentStep();
   }
 
   private async teachCurrentStep(): Promise<void> {
@@ -358,7 +387,9 @@ export class TourPlayer {
         layer: step.layer,
       });
     } catch {
-      // File might not exist
+      vscode.window.showWarningMessage(
+        `File not found: ${step.file} — it may have been renamed or deleted since this lesson was generated.`
+      );
     }
   }
 
@@ -399,7 +430,7 @@ export class TourPlayer {
     this.lessonSession.prefetchNextStep().catch(() => {});
   }
 
-  private makeLessonProgress(): import("../../claude/adapter.js").GenerationProgress {
+  private makeLessonProgress(): import("../../ai/index.js").GenerationProgress {
     return {
       onProgress: (msg: string) => {
         this.webviewProvider.updateLessonLoadingMessage(msg);
@@ -411,7 +442,7 @@ export class TourPlayer {
   // ── Investigation session management ──
 
   async startInvestigation(
-    adapter: ClaudeAdapter,
+    adapter: AIProvider,
     issueTitle: string,
     issueBody: string
   ): Promise<void> {
@@ -422,7 +453,7 @@ export class TourPlayer {
     this.investigationSession = new InvestigationSession(adapter, issueTitle, issueBody);
 
     this.webviewProvider.open(`Investigating: ${issueTitle}`);
-    this.webviewProvider.showInvestigationLoading();
+    this.webviewProvider.showInvestigationLoading("Understanding the issue...");
     this.setTourActiveContext(true);
 
     try {
@@ -441,7 +472,8 @@ export class TourPlayer {
     if (!this.investigationSession || this.investigationProcessing) return;
     this.investigationProcessing = true;
 
-    this.webviewProvider.showInvestigationLoading();
+    const phase = this.investigationSession.getSessionState().currentStep?.phase;
+    this.webviewProvider.showInvestigationLoading(phase ? PHASE_LOADING_MESSAGES[phase] : undefined);
 
     try {
       const step = await action();
@@ -556,7 +588,7 @@ export class TourPlayer {
     this.setTourActiveContext(false);
   }
 
-  private makeInvestigationProgress(): import("../../claude/adapter.js").GenerationProgress {
+  private makeInvestigationProgress(): import("../../ai/index.js").GenerationProgress {
     return {
       onProgress: (msg: string) => {
         this.webviewProvider.updateInvestigationLoadingMessage(msg);
@@ -702,5 +734,6 @@ export class TourPlayer {
 
     applyDecorations(editor, node);
     this.webviewProvider.updateCard(this.engine.getCardState());
+    this.webviewProvider.reveal();
   }
 }
