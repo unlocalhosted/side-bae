@@ -90,6 +90,7 @@
       name: "Ask About a Feature",
       desc: "\u201CHow does auth work?\u201D \u2192 AI-guided code tour",
       shortcut: generateShortcut,
+      primary: true,
     },
     {
       command: "sideBae.discoverFeatures",
@@ -130,7 +131,7 @@
         </div>
         <div class="hub-actions">
           ${hubActions.map(a => `
-            <button class="hub-action" data-command="${a.command}">
+            <button class="hub-action${a.primary ? " hub-action-primary" : ""}" data-command="${a.command}">
               <span class="hub-icon">${a.icon}</span>
               <div class="hub-text">
                 <div class="hub-name">${a.name}</div>
@@ -293,9 +294,6 @@
 
     // Show summary card on new tour instead of jumping straight to first stop
     if (isNewTour && summary) {
-      if (shouldShowCelebrations()) {
-        setTimeout(() => fireConfetti("burst", 45), 200);
-      }
       renderSummary(summary);
       return;
     }
@@ -499,6 +497,7 @@
 
   let lessonState = null;
   let expandedCompletedStep = -1;
+  let lastScrolledStepIndex = -1;
 
   function renderLessonPlanLoading() {
     root.innerHTML = `
@@ -652,6 +651,16 @@
     `;
 
     bindStepperEvents(state);
+
+    // Scroll active step into view only when the step index changes
+    const activeIdx = state.activeStepIndex;
+    if (activeIdx !== lastScrolledStepIndex) {
+      lastScrolledStepIndex = activeIdx;
+      const activeStep = root.querySelector(".stepper-step.active");
+      if (activeStep) {
+        requestAnimationFrame(() => activeStep.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+      }
+    }
   }
 
   function bindStepperEvents(state) {
@@ -719,7 +728,7 @@
 
   // ── Investigation Rendering ──────────────────────────────────
 
-  function renderInvestigationLoading() {
+  function renderInvestigationLoading(initialMessage) {
     root.innerHTML = `
       <div class="panel-header">Investigating...</div>
       <div class="card-scroll">
@@ -729,7 +738,7 @@
             <div class="lesson-loading-dot"></div>
             <div class="lesson-loading-dot"></div>
           </div>
-          <div class="lesson-loading-text" id="investigation-loading-msg"></div>
+          <div class="lesson-loading-text" id="investigation-loading-msg">${initialMessage ? escapeHtml(initialMessage) : ""}</div>
         </div>
       </div>
     `;
@@ -1062,7 +1071,7 @@
         renderInvestigationStep(message.step, message.state);
         break;
       case "investigationLoading":
-        renderInvestigationLoading();
+        renderInvestigationLoading(message.message);
         break;
       case "investigationLoadingMessage":
         updateInvestigationLoadingMessage(message.message);

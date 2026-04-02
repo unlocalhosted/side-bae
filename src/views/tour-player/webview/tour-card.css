@@ -76,6 +76,29 @@ body {
 .hub-action:hover {
   background: var(--vscode-button-secondaryHoverBackground);
 }
+.hub-action-primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+.hub-action-primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+.hub-action-primary .hub-icon {
+  color: var(--vscode-button-foreground);
+}
+.hub-action-primary .hub-name {
+  color: var(--vscode-button-foreground);
+}
+.hub-action-primary .hub-desc {
+  color: var(--vscode-button-foreground);
+  opacity: 0.85;
+}
+.hub-action-primary .hub-shortcut {
+  background: transparent;
+  border-color: var(--vscode-button-foreground);
+  color: var(--vscode-button-foreground);
+  opacity: 0.6;
+}
 .hub-action:focus-visible {
   outline: 2px solid var(--vscode-focusBorder);
   outline-offset: 1px;
@@ -179,7 +202,7 @@ body {
 .card-explanation .md-code-block, .report-body .md-code-block, .lesson-content .md-code-block, .investigation-content .md-code-block {
   font-family: var(--vscode-editor-font-family); font-size: 12px;
   color: var(--vscode-foreground);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
   padding: 8px; border-radius: 4px; margin: 6px 0; overflow-x: auto; white-space: pre;
 }
@@ -213,10 +236,10 @@ body {
 .edge-depth { font-size: 9px; opacity: 0.5; white-space: nowrap; }
 
 /* Edge states */
-.edge-link.edge-complete { opacity: 0.5; border-left: 2px solid var(--vscode-testing-iconPassed, #73c991); }
+.edge-link.edge-complete { opacity: 0.7; border-left: 2px solid var(--vscode-testing-iconPassed, #73c991); }
 .edge-link.edge-complete .arrow { color: var(--vscode-testing-iconPassed, #73c991); font-size: 11px; }
-.edge-link.edge-complete:hover { opacity: 0.8; }
-.edge-link.edge-partial { opacity: 0.75; border-left: 2px solid var(--vscode-charts-yellow, #cca700); }
+.edge-link.edge-complete:hover { opacity: 0.85; }
+.edge-link.edge-partial { opacity: 0.8; border-left: 2px solid var(--vscode-charts-yellow, #cca700); }
 .edge-link.edge-partial .arrow { color: var(--vscode-charts-yellow, #cca700); font-size: 11px; }
 .edge-link.edge-partial:hover { opacity: 0.9; }
 .visited-badge { font-size: 9px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -560,21 +583,6 @@ body {
   display: flex; flex-direction: column; gap: 10px;
   padding: 8px 0;
   animation: slideUp 0.15s ease-out;
-}
-
-/* Lesson content (reuses shared markdown styles) */
-.lesson-content {
-  font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
-  padding: 0; max-width: 65ch;
-  overflow-wrap: break-word; word-break: break-word;
-}
-
-/* Lesson prompt */
-.lesson-prompt {
-  font-size: 13px; font-weight: 500; color: var(--vscode-foreground);
-  padding: 10px 12px; border-radius: 4px;
-  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.08));
-  border-left: 3px solid var(--vscode-textLink-foreground);
 }
 
 /* Q&A exchange (inline within the step) */
