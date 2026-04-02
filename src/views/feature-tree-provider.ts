@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
-import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
+import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
 import type { LearnableConcept } from "../types/lesson.js";
+import type { FullLessonSummary } from "../types/full-lesson.js";
 import * as tourStore from "../engine/tour-store.js";
 import * as statusBar from "./status-bar.js";
 import { requireClaude } from "../commands/preflight.js";
@@ -59,7 +60,8 @@ type TreeItemData =
   | { kind: "retry" }
   | { kind: "hint"; text: string; command?: string; commandTitle?: string; icon?: string }
   | { kind: "change"; change: RecentChange }
-  | { kind: "learnable"; concept: LearnableConcept };
+  | { kind: "learnable"; concept: LearnableConcept }
+  | { kind: "fullLesson"; lesson: FullLessonSummary };
 
 export class FeatureTreeProvider
   implements vscode.TreeDataProvider<TreeItemData>
@@ -83,6 +85,9 @@ export class FeatureTreeProvider
   private whatsNewError: string | null = null;
   private lastHasTours: boolean | null = null;
 
+  // Full lesson cache (pre-generated lessons from .side-bae/)
+  private fullLessonCache: FullLessonSummary[] | null = null;
+
   // Learn state
   private learnableConcepts: LearnableConcept[] | null = null;
   private learnableLoaded = false;
@@ -91,12 +96,13 @@ export class FeatureTreeProvider
   private learnableError: string | null = null;
 
   constructor(
-    private getAdapter: () => ClaudeAdapter,
-    private checkClaude: () => Promise<ClaudeStatus>,
+    private getAdapter: () => AIProvider,
+    private checkClaude: () => Promise<AIProviderStatus>,
     private workspaceRoot: string
   ) {}
 
   refresh(): void {
+    this.fullLessonCache = null; // Invalidate so next render re-reads from disk
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -164,7 +170,7 @@ export class FeatureTreeProvider
   }
 
   async loadWhatsNew(
-    adapter: ClaudeAdapter,
+    adapter: AIProvider,
     range: string
   ): Promise<void> {
     if (this.whatsNewLoading) return;
@@ -194,6 +200,7 @@ export class FeatureTreeProvider
               token.onCancellationRequested(callback),
           });
           this.whatsNewError = null;
+          tourStore.saveWhatsNew(this.workspaceRoot, this.recentChanges);
           const count = this.recentChanges.length;
           vscode.window.showInformationMessage(
             `Found ${count} recent change${count === 1 ? "" : "s"}.`
@@ -410,6 +417,24 @@ export class FeatureTreeProvider
           : new vscode.ThemeIcon(iconId);
         return item;
       }
+      case "fullLesson": {
+        const fl = element.lesson;
+        const item = new vscode.TreeItem(
+          fl.subject,
+          vscode.TreeItemCollapsibleState.None
+        );
+        const depthLabel = fl.depth.charAt(0).toUpperCase() + fl.depth.slice(1);
+        item.description = `${fl.stepCount} steps \u00B7 ${depthLabel}`;
+        item.tooltip = `${fl.subject}\nPre-generated lesson \u2014 instant playback\n${fl.concepts.join(", ")}`;
+        item.command = {
+          command: "sideBae.startFullLesson",
+          title: "Start Lesson",
+          arguments: [fl.id],
+        };
+        item.iconPath = new vscode.ThemeIcon("mortar-board", new vscode.ThemeColor("charts.blue"));
+        item.contextValue = "fullLesson";
+        return item;
+      }
       case "hint": {
         const item = new vscode.TreeItem(
           element.text,
@@ -446,11 +471,16 @@ export class FeatureTreeProvider
     // Load cached data on first render (parallel)
     const needFeatures = !this.featuresLoaded && !this.features && !this.isLoading;
     const needLearnable = !this.learnableLoaded && !this.learnableConcepts && !this.learnableLoading;
-    if (needFeatures || needLearnable) {
-      const [cachedFeatures, cachedLearnable] = await Promise.all([
+    const needWhatsNew = !this.recentChanges && !this.whatsNewLoading;
+    if (needFeatures || needLearnable || needWhatsNew) {
+      const [cachedFeatures, cachedLearnable, cachedWhatsNew] = await Promise.all([
         needFeatures ? tourStore.loadFeatures(this.workspaceRoot) : null,
         needLearnable ? tourStore.loadLearnableConcepts(this.workspaceRoot) : null,
+        needWhatsNew ? tourStore.loadWhatsNew(this.workspaceRoot) : null,
       ]);
+      if (needWhatsNew && cachedWhatsNew) {
+        this.recentChanges = cachedWhatsNew;
+      }
       if (needFeatures) {
         this.featuresLoaded = true;
         if (cachedFeatures) {
@@ -489,19 +519,12 @@ export class FeatureTreeProvider
         isLesson: t.isLesson,
         lessonDepth: t.lessonDepth,
       }));
-      // Add a "generate new" hint at the bottom of the tours section
+      // Quick-access hint at the bottom
       tourItems.push({
         kind: "hint",
         text: "Ask about another feature...",
         command: "sideBae.generateTour",
         commandTitle: "Ask About a Feature",
-      });
-      tourItems.push({
-        kind: "hint",
-        text: "Investigate an issue...",
-        command: "sideBae.investigateIssue",
-        commandTitle: "Investigate Issue",
-        icon: "search-fuzzy",
       });
       sections.push({
         kind: "section",
@@ -561,17 +584,10 @@ export class FeatureTreeProvider
         children: [
           {
             kind: "hint",
-            text: "Scan codebase for features",
+            text: "Auto-detect what this codebase does",
             command: "sideBae.discoverFeatures",
             commandTitle: "Discover All Features",
             icon: "search",
-          },
-          {
-            kind: "hint",
-            text: "Or ask about a specific feature...",
-            command: "sideBae.generateTour",
-            commandTitle: "Ask About a Feature",
-            icon: "compass",
           },
         ],
         collapsed: tours.length > 0,
@@ -579,6 +595,11 @@ export class FeatureTreeProvider
     }
 
     // ── Learn — deep-dive lessons from this codebase ──
+    if (!this.fullLessonCache) {
+      this.fullLessonCache = await tourStore.listFullLessons(this.workspaceRoot);
+    }
+    const fullLessons = this.fullLessonCache;
+
     if (this.learnableLoading) {
       sections.push({
         kind: "section",
@@ -599,11 +620,21 @@ export class FeatureTreeProvider
           },
         ],
       });
-    } else if (this.learnableConcepts) {
-      const learnableItems: TreeItemData[] = this.learnableConcepts.map((c) => ({
-        kind: "learnable" as const,
-        concept: c,
-      }));
+    } else if (this.learnableConcepts || fullLessons.length > 0) {
+      const learnableItems: TreeItemData[] = [];
+
+      // Pre-generated full lessons (instant playback)
+      for (const fl of fullLessons) {
+        learnableItems.push({ kind: "fullLesson" as const, lesson: fl });
+      }
+
+      // AI-discovered learnable concepts
+      if (this.learnableConcepts) {
+        for (const c of this.learnableConcepts) {
+          learnableItems.push({ kind: "learnable" as const, concept: c });
+        }
+      }
+
       learnableItems.push({
         kind: "hint",
         text: "Learn about something specific...",
@@ -618,29 +649,24 @@ export class FeatureTreeProvider
         commandTitle: "Rescan",
         icon: "refresh",
       });
+      const totalCount = fullLessons.length + (this.learnableConcepts?.length ?? 0);
       sections.push({
         kind: "section",
-        label: `Learn (${this.learnableConcepts.length})`,
+        label: `Learn (${totalCount})`,
         children: learnableItems,
         collapsed: tours.length > 0,
       });
     } else {
       sections.push({
         kind: "section",
-        label: "Learn \u2014 patterns & architecture",
+        label: "Learn",
         children: [
           {
             kind: "hint",
-            text: "Scan for things to learn",
+            text: "Find patterns worth learning",
             command: "sideBae.scanLearnable",
             commandTitle: "Scan for Learnable Topics",
             icon: "mortar-board",
-          },
-          {
-            kind: "hint",
-            text: "Learn about something specific...",
-            command: "sideBae.startLesson",
-            commandTitle: "Start a Lesson",
           },
         ],
         collapsed: tours.length > 0,
@@ -696,11 +722,11 @@ export class FeatureTreeProvider
     } else {
       sections.push({
         kind: "section",
-        label: "What\u2019s New \u2014 recent changes",
+        label: "What\u2019s New",
         children: [
           {
             kind: "hint",
-            text: "See what changed recently",
+            text: "See what changed in recent commits",
             command: "sideBae.whatsNew",
             commandTitle: "What's New",
             icon: "history",

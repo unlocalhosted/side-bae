@@ -114,6 +114,18 @@
         "title": "Scan for Things to Learn",
         "category": "Side Bae",
         "icon": "$(mortar-board)"
+      },
+      {
+        "command": "sideBae.startFullLesson",
+        "title": "Start Pre-generated Lesson",
+        "category": "Side Bae",
+        "icon": "$(mortar-board)"
+      },
+      {
+        "command": "sideBae.installSkillFiles",
+        "title": "Install Skill Files for AI Agents",
+        "category": "Side Bae",
+        "icon": "$(cloud-download)"
       }
     ],
     "keybindings": [
@@ -151,24 +163,34 @@
     "menus": {
       "view/title": [
         {
-          "command": "sideBae.refreshFeatures",
-          "when": "view == sideBae.featureTree",
-          "group": "navigation"
-        },
-        {
           "command": "sideBae.discoverFeatures",
           "when": "view == sideBae.featureTree",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "sideBae.refreshFeatures",
+          "when": "view == sideBae.featureTree",
+          "group": "navigation@2"
+        },
+        {
+          "command": "sideBae.investigateIssue",
+          "when": "view == sideBae.featureTree",
+          "group": "1_actions@1"
         },
         {
           "command": "sideBae.whatsNew",
           "when": "view == sideBae.featureTree",
-          "group": "navigation"
+          "group": "1_actions@2"
         },
         {
           "command": "sideBae.scanLearnable",
           "when": "view == sideBae.featureTree",
-          "group": "navigation"
+          "group": "1_actions@3"
+        },
+        {
+          "command": "sideBae.startLesson",
+          "when": "view == sideBae.featureTree",
+          "group": "1_actions@4"
         }
       ],
       "view/item/context": [
@@ -214,12 +236,31 @@
         {
           "command": "sideBae.scanLearnable",
           "when": "false"
+        },
+        {
+          "command": "sideBae.startFullLesson",
+          "when": "false"
         }
       ]
     },
     "configuration": {
       "title": "Side Bae",
       "properties": {
+        "sideBae.provider": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "claude-code",
+            "copilot"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "Auto-detect: try Copilot first, fall back to Claude Code",
+            "Use Claude Code CLI (requires Claude subscription)",
+            "Use GitHub Copilot (requires Copilot subscription)"
+          ],
+          "description": "AI backend for code analysis"
+        },
         "sideBae.claudePath": {
           "type": "string",
           "default": "",
@@ -255,12 +296,12 @@
     "viewsWelcome": [
       {
         "view": "sideBae.featureTree",
-        "contents": "Open a folder to start exploring with Side Bae.\n[Open Folder](command:vscode.openFolder)",
+        "contents": "Open a folder to start exploring with Side Bae.\n[$(folder-opened) Open Folder](command:vscode.openFolder)",
         "when": "workbenchState == empty"
       },
       {
         "view": "sideBae.featureTree",
-        "contents": "Explore this codebase with AI.\n[Ask About a Feature](command:sideBae.generateTour)\nAuto-detect what this codebase can do.\n[Discover All Features](command:sideBae.discoverFeatures)\nPaste a bug report, get root cause + fix.\n[Investigate an Issue](command:sideBae.investigateIssue)\nLive AI tutor teaches patterns from the code.\n[Learn from This Code](command:sideBae.startLesson)\nSee what changed in recent commits.\n[What's New](command:sideBae.whatsNew)",
+        "contents": "New here? Ask a question about how something works and get a guided code tour.\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\nOr auto-scan the entire codebase.\n[$(search) Discover All Features](command:sideBae.discoverFeatures)",
         "when": "workbenchState != empty && !sideBae.hasTours && !sideBae.featuresLoaded"
       }
     ]
