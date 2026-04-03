@@ -21,8 +21,6 @@
 
   let celebrationsSetting = "auto";
 
-
-
   function shouldShowCelebrations() {
     if (celebrationsSetting === "on") return true;
     if (celebrationsSetting === "off") return false;
@@ -241,7 +239,7 @@
           <div class="summary-stops-label">What you'll explore</div>
           <ol class="summary-stop-list">
             ${previewNodes.map((n, i) => `
-              <li class="summary-stop-item ${i === 0 ? "summary-stop-entry" : ""}" data-node-id="${escapeHtml(n.id)}">
+              <li class="summary-stop-item ${i === 0 ? "summary-stop-entry" : ""}" tabindex="0" role="button" data-node-id="${escapeHtml(n.id)}">
                 <span class="stop-number">${i + 1}</span>
                 <span class="stop-title">${escapeHtml(n.title)}</span>
               </li>
@@ -275,13 +273,17 @@
       vscode.postMessage({ type: "dismissSummary" });
     });
 
-    // Stop item click → jump directly to that stop
+    // Stop item click/enter → jump directly to that stop
     root.querySelectorAll(".summary-stop-item").forEach((el) => {
-      el.addEventListener("click", () => {
+      const jump = () => {
         vscode.postMessage({ type: "dismissSummary" });
         setTimeout(() => {
           vscode.postMessage({ type: "navigate", nodeId: el.getAttribute("data-node-id") });
         }, 50);
+      };
+      el.addEventListener("click", jump);
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(); }
       });
     });
   }
@@ -1084,8 +1086,6 @@
         previousNodeId = null;
         hasSeenAllNodes = false;
         currentReport = null;
-    
-    
         particles = [];
         if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
         ctx.clearRect(0, 0, canvas.width, canvas.height);

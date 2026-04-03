@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.3.0
+
+### Multi-Provider AI Architecture
+
+Side Bae no longer requires Claude Code exclusively. The monolithic Claude adapter has been replaced with a pluggable provider system that supports multiple AI backends:
+
+- **Claude Code** — Full-featured provider via the Claude Agent SDK (default)
+- **VS Code Language Model API** — Works with Copilot and any LM API-compatible model
+- **Auto-detection** — Picks the best available provider automatically
+- **`sideBae.provider` setting** — Choose `auto`, `claude-code`, or `copilot`
+
+### Skill-File Architecture
+
+AI agent workflows (tours, lessons, feature discovery, what's-new) are now defined as portable Markdown skill files in `skills/`. This enables:
+
+- **Offline rendering** — Pre-generated full lessons play back instantly with zero AI cost
+- **File watcher** — Externally generated `.tour.json` and `.full-lesson.json` files are picked up automatically
+- **`Side Bae: Install Skill Files`** — One-click command copies skill definitions into `.side-bae/` for external AI agents to use
+
+### Lesson Engine Overhaul
+
+The lesson experience has been substantially rebuilt for speed and depth:
+
+- **Vertical stepper UI** — Replaced flat card view with a structured stepper showing plan, progress, and completed steps at a glance
+- **Instant navigation** — Next step content is prefetched during the current step, so transitions feel immediate
+- **File content pre-loading** — All lesson files are read upfront and injected into prompts, eliminating mid-lesson file reads
+- **Better pedagogy** — Improved prompts for completeness, question variety, inline code refs, and guided discovery
+- **Session persistence** — Lessons survive editor restarts with per-schema scoped state
+- **Codebase context injection** — AI receives a pre-scanned codebase overview for richer, more grounded explanations
+- **History truncation** — Long conversations are intelligently trimmed to stay within context limits
+
+### Performance & Reliability
+
+- **Prefetch pipeline** — Aggressive parallel prefetch of next lesson step content
+- **Status bar progress** — Real-time progress indicator for all long-running operations
+- **Cached status checks** — Claude availability checks are deduplicated and cached
+- **Double-trigger guards** — Prevents duplicate concurrent operations across all flows
+- **Race condition fixes** — Resolved webview dispose race, broken prefetch cancel, stale panel references
+- **Per-query SDK config** — Each AI operation specifies its own effort level, max turns, tools, and system prompt
+
+### UI Polish
+
+- **Command hub primary action** — "Ask About a Feature" uses accent styling with clear visual hierarchy
+- **Redesigned welcome view** — Warm copy, 2 focused buttons instead of 5, codicons
+- **Webview renders on first click** — Fixed the timing/focus/layout bug that required a second click
+- **Sidebar toolbar cleanup** — 2 icons in toolbar, rest in overflow menu with full labels
+- **Earned celebrations only** — Confetti fires for completed tours, leaf nodes, and PRs — not on summary card load
+- **Auto-scroll on step change** — Active lesson step scrolls into view smoothly
+- **Phase-aware loading** — Investigation loading shows "Understanding the issue...", "Scanning code...", etc.
+- **Interaction states** — Every button has hover, active, and focus-visible states with consistent `0.15s ease-out` timing
+- **Keyboard accessibility** — Summary stop items are keyboard-navigable; all interactive elements have focus rings
+- **High contrast support** — Complete `forced-colors` media query coverage
+
+### Documentation
+
+- **Ubiquitous language glossary** — `UBIQUITOUS_LANGUAGE.md` with domain term definitions across all systems
+- **Agent architecture doc** — `docs/architecture/agent-architecture-v1.md` design document
+
 ## 0.2.1
 
 ### Interactive Investigation Mode
