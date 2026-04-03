@@ -52,6 +52,7 @@ export class TourCardPanelProvider {
     }
 
     this.ready = false;
+    this.disposed = false;
     this.pendingMessages = [];
 
     this.panel = vscode.window.createWebviewPanel(
@@ -158,6 +159,7 @@ export class TourCardPanelProvider {
   }
 
   dispose(): void {
+    this.disposed = true;
     if (this.panel) {
       const p = this.panel;
       this.panel = null;
@@ -167,21 +169,31 @@ export class TourCardPanelProvider {
     }
   }
 
+  private disposed = false;
+
   private post(msg: Record<string, unknown>): void {
+    if (this.disposed) return;
     if (this.ready && this.panel) {
       this.panel.webview.postMessage(msg);
-    } else {
+    } else if (this.panel) {
       this.pendingMessages.push(msg);
     }
+    // If no panel exists at all, message is silently dropped — this is
+    // expected when the user closes the panel while an operation is running.
   }
 
   private getHtmlForWebview(webview: vscode.Webview): string {
     const webviewDir = join(this.extensionUri.fsPath, "dist", "webview");
 
-    const htmlTemplate = readFileSync(
-      join(webviewDir, "tour-card.html"),
-      "utf-8"
-    );
+    let htmlTemplate: string;
+    try {
+      htmlTemplate = readFileSync(
+        join(webviewDir, "tour-card.html"),
+        "utf-8"
+      );
+    } catch {
+      return `<html><body><p>Side Bae failed to load. Try reinstalling the extension.</p></body></html>`;
+    }
 
     const cssUri = webview.asWebviewUri(
       vscode.Uri.file(join(webviewDir, "tour-card.css"))

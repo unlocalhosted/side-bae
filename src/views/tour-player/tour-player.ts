@@ -85,22 +85,22 @@ export class TourPlayer {
           this.endLesson();
           break;
         case "investigationResponse":
-          this.handleInvestigationAction(() => this.investigationSession!.respondText(action.text, this.makeInvestigationProgress()));
+          if (this.investigationSession) this.handleInvestigationAction(() => this.investigationSession!.respondText(action.text, this.makeInvestigationProgress()));
           break;
         case "investigationConfirm":
-          this.handleInvestigationAction(() => this.investigationSession!.confirmAndContinue(this.makeInvestigationProgress()));
+          if (this.investigationSession) this.handleInvestigationAction(() => this.investigationSession!.confirmAndContinue(this.makeInvestigationProgress()));
           break;
         case "investigationRunTests":
-          this.handleInvestigationAction(() => this.investigationSession!.requestTests(this.makeInvestigationProgress()));
+          if (this.investigationSession) this.handleInvestigationAction(() => this.investigationSession!.requestTests(this.makeInvestigationProgress()));
           break;
         case "investigationRequestFix":
-          this.handleInvestigationAction(() => this.investigationSession!.requestFix(this.makeInvestigationProgress()));
+          if (this.investigationSession) this.handleInvestigationAction(() => this.investigationSession!.requestFix(this.makeInvestigationProgress()));
           break;
         case "investigationApplyFix":
-          await this.applyInvestigationFix();
+          if (this.investigationSession) await this.applyInvestigationFix();
           break;
         case "investigationCreatePR":
-          this.handleInvestigationAction(() => this.investigationSession!.requestPR(this.makeInvestigationProgress()));
+          if (this.investigationSession) this.handleInvestigationAction(() => this.investigationSession!.requestPR(this.makeInvestigationProgress()));
           break;
         case "investigationEnd":
           this.endInvestigation();
@@ -555,11 +555,18 @@ export class TourPlayer {
       const endPos = doc.positionAt(idx + oldText.length);
       const edit = new vscode.WorkspaceEdit();
       edit.replace(fileUri, new vscode.Range(startPos, endPos), newText);
-      await vscode.workspace.applyEdit(edit);
+      const applied = await vscode.workspace.applyEdit(edit);
+
+      if (!applied) {
+        vscode.window.showWarningMessage("Could not apply the fix \u2014 the file may be read-only.");
+        return;
+      }
 
       vscode.window.showInformationMessage("Fix applied. Use Ctrl+Z to undo.");
 
-      await this.handleInvestigationAction(() => this.investigationSession!.notifyFixApplied(this.makeInvestigationProgress()));
+      if (this.investigationSession) {
+        await this.handleInvestigationAction(() => this.investigationSession!.notifyFixApplied(this.makeInvestigationProgress()));
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Failed to apply fix: ${msg}`);
@@ -624,43 +631,53 @@ export class TourPlayer {
     const node = this.engine.getNode(nodeId);
     if (!node) return;
 
-    const fileUri = vscode.Uri.file(join(this.workspaceRoot, node.file));
-    const doc = await vscode.workspace.openTextDocument(fileUri);
-    const text = doc.getText();
+    try {
+      const fileUri = vscode.Uri.file(join(this.workspaceRoot, node.file));
+      const doc = await vscode.workspace.openTextDocument(fileUri);
+      const text = doc.getText();
 
-    // Search within the node's line range first, fall back to full file
-    const rangeStart = doc.offsetAt(new vscode.Position(node.startLine - 1, 0));
-    const rangeEnd = doc.offsetAt(new vscode.Position(node.endLine, 0));
-    const regionText = text.slice(rangeStart, rangeEnd);
-    let idx = regionText.indexOf(oldText);
-    if (idx !== -1) {
-      idx += rangeStart; // adjust to absolute offset
-    } else {
-      idx = text.indexOf(oldText); // fall back to full file
-    }
+      // Search within the node's line range first, fall back to full file
+      const rangeStart = doc.offsetAt(new vscode.Position(node.startLine - 1, 0));
+      const rangeEnd = doc.offsetAt(new vscode.Position(node.endLine, 0));
+      const regionText = text.slice(rangeStart, rangeEnd);
+      let idx = regionText.indexOf(oldText);
+      if (idx !== -1) {
+        idx += rangeStart; // adjust to absolute offset
+      } else {
+        idx = text.indexOf(oldText); // fall back to full file
+      }
 
-    if (idx === -1) {
-      vscode.window.showWarningMessage(
-        "Could not find the code to replace \u2014 it may have changed."
+      if (idx === -1) {
+        vscode.window.showWarningMessage(
+          "Could not find the code to replace \u2014 it may have changed."
+        );
+        return;
+      }
+
+      const startPos = doc.positionAt(idx);
+      const endPos = doc.positionAt(idx + oldText.length);
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(fileUri, new vscode.Range(startPos, endPos), newText);
+      const applied = await vscode.workspace.applyEdit(edit);
+
+      if (!applied) {
+        vscode.window.showWarningMessage("Could not apply the fix \u2014 the file may be read-only.");
+        return;
+      }
+
+      // Re-apply decorations so the highlight stays visible after the edit
+      const currentNode = this.engine.getCurrentNode();
+      if (this.activeEditor && currentNode) {
+        applyDecorations(this.activeEditor, currentNode);
+      }
+
+      vscode.window.showInformationMessage(
+        "Fix applied. Use Ctrl+Z to undo."
       );
-      return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Failed to apply fix: ${msg}`);
     }
-
-    const startPos = doc.positionAt(idx);
-    const endPos = doc.positionAt(idx + oldText.length);
-    const edit = new vscode.WorkspaceEdit();
-    edit.replace(fileUri, new vscode.Range(startPos, endPos), newText);
-    await vscode.workspace.applyEdit(edit);
-
-    // Re-apply decorations so the highlight stays visible after the edit
-    const currentNode = this.engine.getCurrentNode();
-    if (this.activeEditor && currentNode) {
-      applyDecorations(this.activeEditor, currentNode);
-    }
-
-    vscode.window.showInformationMessage(
-      "Fix applied. Use Ctrl+Z to undo."
-    );
   }
 
   getAvailableEdges(): TourEdge[] {
