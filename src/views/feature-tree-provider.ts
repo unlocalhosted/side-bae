@@ -572,7 +572,7 @@ export class FeatureTreeProvider
       }));
       featureItems.push({
         kind: "hint",
-        text: "Rescan codebase...",
+        text: "Rescan for features...",
         command: "sideBae.discoverFeatures",
         commandTitle: "Rescan",
         icon: "refresh",
@@ -590,7 +590,7 @@ export class FeatureTreeProvider
         children: [
           {
             kind: "hint",
-            text: "Auto-detect what this codebase does",
+            text: "Scan this codebase for features",
             command: "sideBae.discoverFeatures",
             commandTitle: "Discover All Features",
             icon: "search",
@@ -650,7 +650,7 @@ export class FeatureTreeProvider
       });
       learnableItems.push({
         kind: "hint",
-        text: "Rescan codebase...",
+        text: "Rescan for topics...",
         command: "sideBae.scanLearnable",
         commandTitle: "Rescan",
         icon: "refresh",

@@ -269,7 +269,7 @@
         "sideBae.model": {
           "type": "string",
           "default": "haiku",
-          "description": "Claude model for tour generation (haiku = fast, sonnet = balanced, opus = thorough)"
+          "description": "Claude model (haiku = fast, sonnet = balanced, opus = thorough)"
         },
         "sideBae.maxBudgetUsd": {
           "type": "number",

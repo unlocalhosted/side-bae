@@ -27,14 +27,20 @@ export async function requireClaude(
   }
   if (!status.authenticated) {
     const providerName = status.displayName || "AI provider";
+    const isClaude = providerName.toLowerCase().includes("claude");
+    const hint = isClaude
+      ? " Run 'claude login' in your terminal."
+      : " Check that you're signed in.";
     const action = await vscode.window.showErrorMessage(
-      `${providerName} is not logged in. Run 'claude login' in your terminal.`,
-      "Open Terminal"
+      `${providerName} is not logged in.${hint}`,
+      isClaude ? "Open Terminal" : "Open Settings"
     );
     if (action === "Open Terminal") {
-      const terminal = vscode.window.createTerminal("Claude Login");
+      const terminal = vscode.window.createTerminal("Side Bae");
       terminal.show();
       terminal.sendText("claude login");
+    } else if (action === "Open Settings") {
+      vscode.commands.executeCommand("workbench.action.openSettings", "sideBae");
     }
     return false;
   }

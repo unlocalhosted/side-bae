@@ -263,7 +263,7 @@
       </div>
       <div class="card-dock">
         <button class="summary-start-btn" id="btn-start-tour">
-          Begin walkthrough
+          Start tour
           <svg class="btn-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </div>
