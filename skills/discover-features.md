@@ -43,7 +43,7 @@ Write the output to `.side-bae/features.json`.
 
 ### Rules
 
-- 3-8 top-level features depending on project size
+- Include as many features as the project actually has — a microservice might have 3, a large monorepo might have 20
 - Each feature needs a semantically relevant VS Code codicon icon
 - Don't include build tooling, CI/CD, or dev dependencies as features unless they are the project's primary purpose
 - Children are optional — use them for features with clear sub-components

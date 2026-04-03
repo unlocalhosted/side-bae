@@ -42,6 +42,6 @@ Write the output to `.side-bae/learnable-concepts.json`.
 
 ### Rules
 
-- Return 4-10 topics, ordered from most foundational to most advanced
+- Return as many topics as the codebase warrants, ordered from most foundational to most advanced
 - Don't include generic things like "project structure" unless it demonstrates genuinely interesting patterns
 - Each topic needs a semantically relevant VS Code codicon icon

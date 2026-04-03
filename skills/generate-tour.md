@@ -33,7 +33,7 @@ The tour is a tree — it can branch but never loops back. Each branch terminate
 
 - No cycles. Edges never point back to an ancestor node.
 - Only branch when the code genuinely forks (happy path vs error path, read vs write).
-- 5-8 nodes. Enough to tell the story, not so many it loses focus.
+- Use as many nodes as the feature ACTUALLY requires. A simple utility might need 3. A complex auth flow spanning 12 files needs 12+. The code determines the scope.
 - Edge labels read as continuations: "which validates the token", "then queries the user table"
 
 ### What each stop should do

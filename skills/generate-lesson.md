@@ -20,7 +20,7 @@ Read the relevant source files. Understand the subject thoroughly before plannin
 
 ### Step 2: Plan the lesson
 
-Create 6-10+ steps ordered from foundational to advanced:
+Create as many steps as the subject requires, ordered from foundational to advanced. A small utility might need 4 steps; a complex system needs 15+. Do NOT cap arbitrarily.
 1. First steps: set the scene — what does this feature/module do?
 2. Middle steps: how is it built, what patterns are used, what decisions were made?
 3. Later steps: the clever parts — optimizations, patterns, edge case handling
@@ -45,7 +45,7 @@ For text questions: write a `prompt` that asks WHY or HOW, and provide a `modelA
 
 ### Completeness
 
-DO NOT skip logical progressions. If the code shows a clear progression, include EVERY step. Completeness beats brevity. If full coverage requires more than 10 steps, generate more.
+DO NOT skip logical progressions. If the code shows a clear progression, include EVERY step. Completeness beats brevity. There is NO step count cap.
 
 ## Output Schema
 
