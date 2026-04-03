@@ -1,192 +1,172 @@
 # Side Bae
 
-AI-powered codebase onboarding for VS Code. Ask about a feature, get a guided walkthrough.
+**Understand any codebase from the inside.** Side Bae is a VS Code extension that uses AI to generate interactive walkthroughs, live coding lessons, and collaborative debugging sessions — all from within your editor.
 
-## What it does
-
-You join a new project. You open Side Bae. You type "how does authentication work?" Claude reads your codebase, traces the relevant code paths, and generates an interactive walkthrough — a graph of annotated stops across your source files that you navigate like a guided tour.
-
-Each stop highlights a code region, explains what it does and why, and offers clickable links to follow the code flow deeper. When you're done, the walkthrough is saved as a `.tour.json` file you can replay instantly or share with teammates.
+Open a new project. Ask a question. Navigate the answer through real code.
 
 ## Install
 
-Download the latest `.vsix` and install for your editor:
+Download the latest `.vsix` from [Releases](https://github.com/unlocalhosted/side-bae/releases) and install:
 
 ```bash
 # VS Code
-curl -sL https://github.com/unlocalhosted/side-bae/releases/latest/download/side-bae.vsix -o /tmp/side-bae.vsix && code --install-extension /tmp/side-bae.vsix
+code --install-extension side-bae.vsix
 
 # Cursor
-curl -sL https://github.com/unlocalhosted/side-bae/releases/latest/download/side-bae.vsix -o /tmp/side-bae.vsix && cursor --install-extension /tmp/side-bae.vsix
+cursor --install-extension side-bae.vsix
 
 # Windsurf
-curl -sL https://github.com/unlocalhosted/side-bae/releases/latest/download/side-bae.vsix -o /tmp/side-bae.vsix && windsurf --install-extension /tmp/side-bae.vsix
+windsurf --install-extension side-bae.vsix
 ```
 
-Or install manually: download `side-bae.vsix` from [Releases](https://github.com/unlocalhosted/side-bae/releases), then in your editor run `Extensions: Install from VSIX...` from the command palette.
+Or use the command palette: `Extensions: Install from VSIX...`
 
-Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) to be installed and authenticated (`claude login`).
+**Requirements:** One of the following AI backends:
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) — install and run `claude login`
+- [GitHub Copilot](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) — works via VS Code's Language Model API
 
-## Quick start
+Side Bae auto-detects which is available. You can override with the `sideBae.provider` setting.
 
-1. Open any codebase in VS Code
-4. Press `Cmd+Shift+T` (Mac) / `Ctrl+Shift+T` (Windows) and ask a question
-5. Wait ~30s for the walkthrough to generate, then follow the stops
+---
 
-## Features
+## Five ways to explore
 
-**Ask about a feature** — Type a question like "how does payment processing work?" or "where does the user object get the role field?" Claude scans your codebase and builds a walkthrough.
+Side Bae has five modes, each designed for a different situation. All are accessible from the **command hub** (the panel that appears when you click the Side Bae icon in the activity bar) or from the sidebar tree view.
 
-**Discover features** — Click "Discover Features" in the sidebar to get an AI-generated map of what your codebase does. Click any feature to generate a walkthrough for it.
+### Ask About a Feature
 
-**Saved walkthroughs** — Generated walkthroughs are saved to `.side-bae/` and appear in the sidebar. Replaying is instant and free (no API calls).
+> "How does authentication work?" "Where does the user role get set?" "What happens when a payment fails?"
 
-**Graph navigation** — Each stop has clickable edge links that show where the code flows next. Edges show how many stops are reachable ("3 stops") and whether you've already explored that path (new / in progress / done).
+Type a question, wait ~30 seconds, and get an interactive walkthrough through the actual code. Each stop highlights a file region, explains what it does and why, and offers links to follow the code flow deeper.
 
-**Connective context** — When you follow a link, the next stop shows how you got there ("calls validateToken()") so you never lose the narrative thread.
+**How to start:** `Cmd+Shift+T` / `Ctrl+Shift+T`, or click "Ask About a Feature" in the command hub.
 
-**Tour summary** — Before the first stop, you see an overview: name, query, file count, and file list. Click "Start walkthrough" when you're ready.
+**What you get:**
+- A **tour summary** showing the stops ahead, so you know what to expect
+- **Annotated code stops** with explanations, highlighted regions, and inline labels
+- **Clickable edges** showing where the code flows next, how many stops are reachable, and whether you've visited them
+- **Connective context** — each stop shows how you got there ("calls `validateToken()`") so you never lose the thread
+- **Saved walkthroughs** in `.side-bae/` — replay instantly without any AI calls, or commit to git and share with your team
 
-## Architecture
+**Navigate:** `Alt+Down` to follow a path, `Alt+Left` to go back, `Alt+Right` to go forward, `Escape` to stop.
 
-```
-┌─────────────────────────────────────────────────┐
-│                  VS Code Extension               │
-│                                                   │
-│  ┌──────────────┐   ┌────────────────────────┐   │
-│  │ Feature Tree  │   │      Tour Player       │   │
-│  │ (TreeView)    │   │                        │   │
-│  │               │   │  TourEngine (state)    │   │
-│  │ - Saved tours │   │  Decorations (editor)  │   │
-│  │ - Discovered  │   │  WebviewProvider (card) │   │
-│  │   features    │   │                        │   │
-│  └───────┬───────┘   └───────────┬────────────┘   │
-│          │                       │                 │
-│          └───────┬───────────────┘                 │
-│                  │                                 │
-│         ┌────────▼─────────┐                       │
-│         │   Claude Adapter  │                       │
-│         │ (Agent SDK query) │                       │
-│         └────────┬─────────┘                       │
-│                  │                                 │
-│         ┌────────▼─────────┐                       │
-│         │    Tour Store     │                       │
-│         │ (.side-bae/*.json)                      │
-│         └──────────────────┘                       │
-└─────────────────────────────────────────────────┘
-```
+---
 
-### Layers
+### Discover Features
 
-| Layer | Files | Responsibility |
-|-------|-------|----------------|
-| **Types** | `src/types/tour.ts` | `TourDocument`, `TourNode`, `TourEdge` — the DSL data model. Includes `validateTourDocument()` for boundary validation. |
-| **Engine** | `src/engine/tour-engine.ts` | Pure TypeScript state machine. Graph navigation, history, breadcrumbs, visited node tracking, edge depth counting. No VS Code imports — fully testable. |
-| **Store** | `src/engine/tour-store.ts` | Read/write `.side-bae/*.tour.json` files. Uses Node `fs/promises` — testable without VS Code. |
-| **Adapter** | `src/claude/adapter.ts` | Wraps `@anthropic-ai/claude-agent-sdk`. Sends prompts with JSON Schema, gets structured output back. Handles auth, progress, cancellation. |
-| **Prompts** | `src/claude/prompts.ts` | Prompt templates for tour generation and feature discovery. |
-| **Tree View** | `src/views/feature-tree-provider.ts` | Sidebar tree: saved tours (primary) + discovered features (secondary). Manages feature scan lifecycle. |
-| **Tour Player** | `src/views/tour-player/tour-player.ts` | Orchestrates file navigation, decorations, and webview updates. |
-| **Webview** | `src/views/tour-player/webview-provider.ts` | Bridge between extension and sidebar webview card. |
-| **Card UI** | `src/views/tour-player/webview/tour-card.{js,css,html}` | The interactive tour card: summary, explanation, edges, breadcrumb, confetti. |
-| **Decorations** | `src/views/tour-player/decorations.ts` | Code highlighting: background color + left border + inline title on annotated regions. |
-| **Entry** | `src/extension.ts` | Wires everything together. Registers commands, providers, keybindings. |
+Auto-scan a codebase to see what it does at a glance.
 
-### Data flow
+**How to start:** Click "Discover Features" in the sidebar toolbar, or use the command hub.
 
-```
-User asks "how does auth work?"
-  │
-  ▼
-ClaudeAdapter.generateTour(query)
-  │  Uses Agent SDK: query() with outputFormat: json_schema
-  │  Claude reads files, traces code, returns structured JSON
-  ▼
-validateTourDocument(result)
-  │  Checks all fields, edge targets, line numbers
-  ▼
-TourStore.saveTour(tour)
-  │  Writes to .side-bae/auth-flow.tour.json
-  ▼
-TourPlayer.startTour(tour)
-  │
-  ├─▶ TourEngine.load(tour)
-  │     Sets up state, navigates to entry node
-  │
-  ├─▶ showNode(node)
-  │     Opens file, scrolls to line range
-  │     Applies decorations (highlight + title)
-  │
-  └─▶ WebviewProvider.updateCard(engine.getCardState())
-        Sends summary (first stop) or stop card to webview
-        Webview renders: title, explanation, edges, breadcrumb
-```
+**What you get:** A categorized tree of features the AI found in the codebase — auth, API routes, database layer, UI components, etc. Each feature has a semantic icon and description. Click any feature to generate a full walkthrough for it.
 
-### Tour DSL format
+The feature list is cached in `.side-bae/features.json`, so it loads instantly on subsequent opens.
 
-Walkthroughs are stored as `.tour.json` files:
+---
 
-```jsonc
-{
-  "version": 1,
-  "id": "auth-flow",
-  "name": "Authentication Flow",
-  "query": "how does auth work?",
-  "entryNode": "auth-middleware",
-  "nodes": {
-    "auth-middleware": {
-      "file": "src/auth/middleware.ts",
-      "startLine": 12,
-      "endLine": 34,
-      "title": "Request Authentication Gate",
-      "explanation": "Every request hits this middleware first...",
-      "edges": [
-        { "target": "validate-token", "label": "calls validateToken()" }
-      ]
-    },
-    "validate-token": {
-      "file": "src/auth/validate.ts",
-      "startLine": 5,
-      "endLine": 22,
-      "title": "Token Validation",
-      "explanation": "Called by the auth middleware to verify the JWT...",
-      "edges": []
-    }
-  }
-}
-```
+### Learn from This Code
 
-The DSL is a **directed graph** — nodes are annotated code regions, edges are navigable links between them. The file is the single artifact: generated by Claude, rendered by the player, stored on disk, committable to git.
+Clone any codebase you admire and learn from it with a live AI tutor. The AI walks you through the code step by step, asks you questions, reacts to your answers, and adapts based on your understanding.
 
-## Development
+**How to start:** `Cmd+Shift+L` / `Ctrl+Shift+L`, or click "Learn from This Code" in the command hub. You'll be asked what you want to learn about and at what depth (foundational, intermediate, or advanced).
 
-```sh
-pnpm install         # install dependencies
-pnpm build           # bundle with esbuild (copies webview assets to dist/)
-pnpm typecheck       # tsc --noEmit
-pnpm test            # vitest (watch mode)
-pnpm test:run        # vitest (single run)
-pnpm lint            # oxlint
-```
+**What you get:**
+- A **vertical stepper** showing the full lesson plan — you always know where you are and what's coming
+- **Guided discovery** — the AI asks questions first, then explains. You discover patterns before they're named.
+- **Knowledge checks** — text predictions ("what do you think this does?"), multiple choice, and follow-up questions
+- **Instant feedback** — the AI reacts to YOUR actual words, not a canned response
+- **Personalized recap** — see what clicked, where your thinking evolved, and concepts to revisit
+- **Free replay** — completed lessons save as static tours, replayable without AI calls
 
-**F5 debugging:** Open this repo in VS Code, press F5. A new VS Code window launches with the extension loaded. Open any codebase there to test.
+**Scan for topics:** Click "Scan for Things to Learn" in the sidebar menu to auto-discover learnable patterns in any codebase (design patterns, architectural decisions, domain concepts).
 
-**Build pipeline:** `pnpm lint && pnpm typecheck && pnpm test:run && pnpm build`
+**Pre-generated lessons:** Lesson authors can create `.full-lesson.json` files that play back instantly with no AI required. These appear in the Learn section of the sidebar.
+
+---
+
+### Investigate Issue
+
+Paste a bug description and debug it collaboratively with AI. The AI investigates step by step, shows its work, and asks for your guidance — not a one-shot answer, a back-and-forth debugging session.
+
+**How to start:** Click "Investigate Issue" in the command hub or sidebar menu. Paste or describe the bug.
+
+**What you get:**
+- **Step-by-step investigation** — the AI reads files, traces logic, and shows you what it's finding at each step
+- **Guided checkpoints** — "Am I on the right track?" You can confirm or redirect.
+- **Live fix proposals** — review diffs inline, give feedback, or approve with "Apply this fix"
+- **Test verification** — click "Run tests" to execute the test suite and see pass/fail results
+- **PR creation** — click "Open pull request" to create a branch, commit the fix, and open a PR
+- **Investigation trail** — a color-coded breadcrumb showing each file investigated (blue = context, red = problem, green = fix)
+
+---
+
+### What's New
+
+See what changed in recent commits at a glance, explained in plain language.
+
+**How to start:** Click "What's New" in the sidebar menu. Choose a time range (e.g. "last week", "last 20 commits").
+
+**What you get:** A list of meaningful changes extracted from the git history — not a raw commit log, but grouped changes with author, date, and a human-readable summary. Click any change to generate a walkthrough of the relevant code.
+
+---
 
 ## Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `sideBae.model` | `haiku` | Claude model (haiku = fast, sonnet = balanced, opus = thorough) |
-| `sideBae.maxBudgetUsd` | `0.5` | Max cost per tour or feature scan |
-| `sideBae.celebrations` | `auto` | Confetti animations: auto (follow system), on, off |
+| `sideBae.provider` | `auto` | AI backend: `auto` (detect best available), `claude-code`, or `copilot` |
+| `sideBae.model` | `haiku` | Claude model: `haiku` (fast), `sonnet` (balanced), `opus` (thorough) |
+| `sideBae.maxBudgetUsd` | `0.5` | Max cost per AI request (USD) |
+| `sideBae.claudePath` | _(auto-detect)_ | Path to Claude CLI binary. Leave empty unless auto-detection fails. |
+| `sideBae.celebrations` | `auto` | Confetti animations: `auto` (follows system Reduce Motion), `on`, `off` |
 
 ## Keyboard shortcuts
 
 | Action | Mac | Windows/Linux | When |
 |--------|-----|---------------|------|
 | Ask about a feature | `Cmd+Shift+T` | `Ctrl+Shift+T` | Always |
+| Start a lesson | `Cmd+Shift+L` | `Ctrl+Shift+L` | Always |
 | Go back | `Alt+Left` | `Alt+Left` | During tour |
 | Go forward | `Alt+Right` | `Alt+Right` | During tour |
 | Follow path | `Alt+Down` | `Alt+Down` | During tour |
 | Stop tour | `Escape` | `Escape` | During tour |
+
+## For AI agents
+
+Side Bae includes skill files that let external AI agents (like Claude Code) generate tours and lessons for your project.
+
+Run **Side Bae: Install Skill Files** from the command palette to install them globally (`~/.claude/commands/`) or per-project (`.claude/commands/`). Once installed, you can use commands like `/side-bae-tour` and `/side-bae-lesson` in Claude Code.
+
+The extension watches `.side-bae/` for externally generated files and picks them up automatically.
+
+## Stored files
+
+All generated content is saved to `.side-bae/` in your workspace root:
+
+| File | Purpose |
+|------|---------|
+| `*.tour.json` | Saved walkthroughs (instant replay, no AI needed) |
+| `*.lesson.json` | Lesson session state (survives editor restarts) |
+| `*.full-lesson.json` | Pre-generated lessons (offline playback) |
+| `features.json` | Cached feature discovery results |
+| `learnable-concepts.json` | Cached learnable topics |
+| `whats-new.json` | Cached recent changes |
+
+Add `.side-bae/` to your `.gitignore` to keep generated content local, or commit it to share walkthroughs with your team.
+
+## Development
+
+```sh
+pnpm install         # install dependencies
+pnpm build           # bundle with esbuild
+pnpm typecheck       # tsc --noEmit
+pnpm test            # vitest (watch mode)
+pnpm test:run        # vitest (single run)
+pnpm lint            # oxlint
+```
+
+Press **F5** in VS Code to launch a development instance with the extension loaded.
+
+## License
+
+MIT
