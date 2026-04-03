@@ -10,7 +10,7 @@ export function buildTourGenerationPrompt(
 ): string {
   const contextSection = contextBlock(
     codebaseStructure,
-    "Use this structure to navigate directly to relevant files. Do NOT scan the entire codebase — read ONLY the files needed for the tour."
+    "Use this structure to navigate directly to relevant files. Prefer targeted reads over broad scanning."
   );
 
   return `You are writing an interactive article about a codebase. Not documentation. Not a function reference. An article — with a narrative arc, a point of view, and a voice that sounds like a sharp friend explaining their favorite codebase over coffee.
@@ -306,7 +306,7 @@ Generate the next InvestigationStep. Adapt based on the user's input and what yo
 export function buildLearnableConceptsPrompt(codebaseStructure?: string): string {
   const contextSection = contextBlock(
     codebaseStructure,
-    "Use this structure to navigate directly to relevant files. Do NOT scan broadly."
+    "Use this structure to navigate directly to relevant files. Focus on relevant files rather than scanning broadly."
   );
 
   return `Analyze this codebase and identify the most interesting and teachable aspects — things a developer could deeply learn from by studying the implementation.
@@ -341,7 +341,7 @@ export function buildLessonPlanPrompt(subject: string, entryFile?: string, codeb
   const entryHint = entryFile ? `\nStart by examining: ${entryFile}` : "";
   const contextSection = contextBlock(
     codebaseStructure,
-    "Use this structure to navigate directly to relevant files. Read ONLY the files needed for specific steps — do NOT scan broadly."
+    "Use this structure to navigate directly to relevant files. Focus on files needed for specific steps rather than scanning broadly."
   );
 
   return `You are creating a lesson plan for teaching about: "${subject}"
@@ -608,7 +608,7 @@ Generate the next LessonStep. Adapt depth and direction based on the learner's d
 export function buildFeatureDiscoveryPrompt(codebaseStructure?: string): string {
   const contextSection = contextBlock(
     codebaseStructure,
-    "Use this structure to identify features. Read specific files for details — do NOT scan broadly."
+    "Use this structure to identify features. Read specific files for details, focusing on relevant areas rather than scanning broadly."
   );
 
   return `Analyze this codebase and identify the major features and capabilities.

@@ -31,6 +31,8 @@ export interface StepContent {
   correctExplanation?: string;
   incorrectExplanation?: string;
   skipReason?: string;
+  /** Model answer for self-assessment in offline/pre-generated lessons. */
+  modelAnswer?: string;
 }
 
 // ── Step Response (inline reply to user's answer) ──

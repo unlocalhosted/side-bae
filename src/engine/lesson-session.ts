@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import { join } from "node:path";
-import type { ClaudeAdapter, GenerationProgress } from "../claude/adapter.js";
+import type { AIProvider, GenerationProgress } from "../ai/index.js";
 import type {
   LessonPlan,
   StepContent,
@@ -10,6 +10,7 @@ import type {
   CheckResult,
   StepStatus,
 } from "../types/lesson.js";
+import type { FullLesson } from "../types/full-lesson.js";
 import type { TourDocument, TourNode } from "../types/tour.js";
 import {
   buildLessonPlanPrompt,
@@ -29,13 +30,14 @@ export class LessonSession {
   private stepSessionId: string | null = null;
 
   constructor(
-    private adapter: ClaudeAdapter,
+    private adapter: AIProvider | null,
     private subject: string,
     private workspaceRoot: string,
     private entryFile?: string
   ) {}
 
   async generatePlan(progress: GenerationProgress): Promise<LessonPlan> {
+    if (!this.adapter) throw new Error("Cannot generate plan in offline mode");
     const codebaseStructure = await this.adapter.getFormattedContext();
     const prompt = buildLessonPlanPrompt(this.subject, this.entryFile, codebaseStructure);
     const result = await this.adapter.generateLessonPlan(prompt, progress);
@@ -62,6 +64,16 @@ export class LessonSession {
   async teachActiveStep(progress: GenerationProgress): Promise<StepContent> {
     const step = this.stepStates[this.activeStepIndex];
     if (!step) throw new Error("No active step");
+
+    // Offline mode: content is pre-loaded from FullLesson
+    if (!this.adapter) {
+      if (!step.content) throw new Error("No pre-loaded content for offline step");
+      if (step.content.skipReason) {
+        step.status = "skipped";
+        step.summary = step.content.skipReason;
+      }
+      return step.content;
+    }
 
     // Cancel any in-progress prefetch to avoid concurrent API calls
     this.cancelPrefetch();
@@ -117,6 +129,19 @@ export class LessonSession {
     if (!step?.content) throw new Error("No active content");
 
     step.userAnswer = trimmed;
+
+    // Offline mode: use modelAnswer for self-assessment
+    if (!this.adapter) {
+      const modelAnswer = step.content.modelAnswer;
+      const response: StepResponse = {
+        content: modelAnswer ?? "Compare your answer with the code above.",
+        correct: undefined,
+        summary: `${step.plan.title} — answered`,
+      };
+      step.response = response;
+      step.summary = response.summary;
+      return response;
+    }
 
     const prompt = buildStepResponsePrompt(
       step.content.explanation,
@@ -196,8 +221,8 @@ export class LessonSession {
   }
 
   /** Prefetch multiple steps in parallel. Non-blocking, fire-and-forget. */
-  /** Prefetch multiple steps in parallel. Non-blocking, fire-and-forget. */
   prefetchSteps(indices: number[]): void {
+    if (!this.adapter) return; // Offline mode: content is pre-loaded
     // Cancel any in-flight prefetches before starting new ones
     this.cancelPrefetch();
     this.prefetchAbortController = new AbortController();
@@ -212,6 +237,7 @@ export class LessonSession {
   }
 
   async prefetchNextStep(): Promise<void> {
+    if (!this.adapter) return; // Offline mode: content is pre-loaded
     const nextIndex = this.getNextTeachableStepIndex();
     if (nextIndex === null) return;
     this.prefetchSteps([nextIndex, nextIndex + 1]);
@@ -237,7 +263,7 @@ export class LessonSession {
     };
 
     try {
-      const content = await this.adapter.generateStepContent(prompt, silentProgress, {
+      const content = await this.adapter!.generateStepContent(prompt, silentProgress, {
         persistSession: true,
         resumeSessionId: this.stepSessionId ?? undefined,
       });
@@ -295,8 +321,29 @@ export class LessonSession {
     return { plan: this.plan, stepStates: this.stepStates };
   }
 
+  /** Create an offline session from a pre-generated full lesson. No AI provider needed. */
+  static fromFullLesson(lesson: FullLesson, workspaceRoot: string): LessonSession {
+    const session = new LessonSession(null, lesson.subject, workspaceRoot);
+
+    session.plan = {
+      id: lesson.id,
+      subject: lesson.subject,
+      generatedAt: lesson.generatedAt,
+      steps: lesson.steps.map((s) => s.plan),
+    };
+
+    session.stepStates = lesson.steps.map((s, i) => ({
+      status: (i === 0 ? "active" : "upcoming") as StepStatus,
+      plan: s.plan,
+      content: s.content,
+    }));
+    session.activeStepIndex = 0;
+
+    return session;
+  }
+
   static fromSaved(
-    adapter: ClaudeAdapter,
+    adapter: AIProvider,
     plan: LessonPlan,
     stepStates: LessonStepState[],
     workspaceRoot: string

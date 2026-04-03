@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
+import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import * as tourStore from "../engine/tour-store.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
 import * as statusBar from "../views/status-bar.js";
@@ -7,10 +7,10 @@ import { requireClaude } from "./preflight.js";
 
 export function registerGenerateTourCommand(
   context: vscode.ExtensionContext,
-  getAdapter: () => ClaudeAdapter,
+  getAdapter: () => AIProvider,
   player: TourPlayer,
   workspaceRoot: string,
-  checkClaude: () => Promise<ClaudeStatus>
+  checkClaude: () => Promise<AIProviderStatus>
 ): void {
   let generating = false;
 

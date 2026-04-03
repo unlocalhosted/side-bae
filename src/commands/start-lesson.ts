@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
-import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
+import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
 import { requireClaude } from "./preflight.js";
 
 export function registerStartLessonCommand(
   context: vscode.ExtensionContext,
-  getAdapter: () => ClaudeAdapter,
+  getAdapter: () => AIProvider,
   player: TourPlayer,
-  checkClaude: () => Promise<ClaudeStatus>
+  checkClaude: () => Promise<AIProviderStatus>
 ): void {
   let generating = false;
 

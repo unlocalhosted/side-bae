@@ -384,6 +384,68 @@ export const INVESTIGATION_STEP_SCHEMA = {
   },
 } as const;
 
+/** Exported for skill files — external AI tools reference this schema to generate .full-lesson.json files. */
+export const FULL_LESSON_SCHEMA = {
+  type: "object",
+  required: ["version", "id", "subject", "generatedAt", "depth", "concepts", "synopsis", "steps"],
+  properties: {
+    version: { type: "number", const: 1 },
+    id: { type: "string", description: "Kebab-case unique identifier for the lesson" },
+    subject: { type: "string", description: "What this lesson teaches" },
+    generatedAt: { type: "string", description: "ISO 8601 timestamp" },
+    depth: { type: "string", enum: ["foundational", "intermediate", "advanced"] },
+    concepts: { type: "array", items: { type: "string" }, description: "Named concepts/patterns covered" },
+    synopsis: { type: "string", description: "One-paragraph summary of what the learner will gain" },
+    steps: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["plan", "content"],
+        properties: {
+          plan: {
+            type: "object",
+            required: ["id", "title", "file", "startLine", "endLine", "concepts"],
+            properties: {
+              id: { type: "string", description: "Step ID like 'step-1', 'step-2'." },
+              title: { type: "string", description: "Short title for this lesson step." },
+              file: { type: "string", description: "Relative file path to study." },
+              startLine: { type: "number", description: "1-based start line." },
+              endLine: { type: "number", description: "1-based end line." },
+              concepts: { type: "array", items: { type: "string" }, description: "Concepts taught in this step." },
+              layer: { type: "string", enum: ["outcome", "architecture", "rationale", "insight", "challenge"] },
+            },
+          },
+          content: {
+            type: "object",
+            required: ["explanation"],
+            properties: {
+              explanation: {
+                type: "string",
+                description: "Teaching content in markdown. Reference specific code with backticks, bold key concepts.",
+              },
+              prompt: { type: "string", description: "Question for the learner." },
+              inputType: {
+                type: "string",
+                enum: ["text", "choice", "none"],
+                description: "How the learner responds.",
+              },
+              options: { type: "array", items: { type: "string" }, description: "Choice options." },
+              correctIndex: { type: "number", description: "0-based index of correct option." },
+              correctExplanation: { type: "string", description: "Shown when learner picks the correct choice." },
+              incorrectExplanation: { type: "string", description: "Shown when learner picks a wrong choice." },
+              modelAnswer: {
+                type: "string",
+                description: "Model answer for text questions — shown after user submits for self-assessment.",
+              },
+            },
+          },
+        },
+      },
+      description: "Ordered list of lesson steps with pre-generated content and quiz questions.",
+    },
+  },
+} as const;
+
 export const FEATURE_TREE_SCHEMA = {
   type: "object",
   required: ["features"],

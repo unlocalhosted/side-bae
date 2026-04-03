@@ -131,13 +131,13 @@ export class FeatureTreeProvider
         try {
           const adapter = this.getAdapter();
           this.features = await adapter.discoverFeatures({
-            onProgress: (msg) => {
+            onProgress: (msg: string) => {
               progress.report({ message: msg });
               statusBar.show(msg);
               this.loadingMessage = msg;
               this._onDidChangeTreeData.fire(undefined);
             },
-            onCancel: (callback) =>
+            onCancel: (callback: () => void) =>
               token.onCancellationRequested(callback),
           });
           this.error = null;
@@ -147,8 +147,10 @@ export class FeatureTreeProvider
             true
           );
           this.featuresLoaded = true;
-          tourStore.saveFeatures(this.workspaceRoot, this.features);
-          const count = this.features.length;
+          if (this.features) {
+            tourStore.saveFeatures(this.workspaceRoot, this.features);
+          }
+          const count = this.features?.length ?? 0;
           vscode.window.showInformationMessage(
             `Found ${count} feature${count === 1 ? "" : "s"} in this codebase.`
           );
@@ -190,18 +192,20 @@ export class FeatureTreeProvider
       async (progress, token) => {
         try {
           this.recentChanges = await adapter.analyzeRecentChanges(range, {
-            onProgress: (msg) => {
+            onProgress: (msg: string) => {
               progress.report({ message: msg });
               statusBar.show(msg);
               this.whatsNewLoadingMessage = msg;
               this._onDidChangeTreeData.fire(undefined);
             },
-            onCancel: (callback) =>
+            onCancel: (callback: () => void) =>
               token.onCancellationRequested(callback),
           });
           this.whatsNewError = null;
-          tourStore.saveWhatsNew(this.workspaceRoot, this.recentChanges);
-          const count = this.recentChanges.length;
+          if (this.recentChanges) {
+            tourStore.saveWhatsNew(this.workspaceRoot, this.recentChanges);
+          }
+          const count = this.recentChanges?.length ?? 0;
           vscode.window.showInformationMessage(
             `Found ${count} recent change${count === 1 ? "" : "s"}.`
           );
@@ -248,19 +252,21 @@ export class FeatureTreeProvider
         try {
           const adapter = this.getAdapter();
           this.learnableConcepts = await adapter.discoverLearnableConcepts({
-            onProgress: (msg) => {
+            onProgress: (msg: string) => {
               progress.report({ message: msg });
               statusBar.show(msg);
               this.learnableLoadingMessage = msg;
               this._onDidChangeTreeData.fire(undefined);
             },
-            onCancel: (callback) =>
+            onCancel: (callback: () => void) =>
               token.onCancellationRequested(callback),
           });
           this.learnableError = null;
           this.learnableLoaded = true;
-          tourStore.saveLearnableConcepts(this.workspaceRoot, this.learnableConcepts);
-          const count = this.learnableConcepts.length;
+          if (this.learnableConcepts) {
+            tourStore.saveLearnableConcepts(this.workspaceRoot, this.learnableConcepts);
+          }
+          const count = this.learnableConcepts?.length ?? 0;
           vscode.window.showInformationMessage(
             `Found ${count} learnable topic${count === 1 ? "" : "s"} in this codebase.`
           );

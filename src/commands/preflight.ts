@@ -1,21 +1,22 @@
 import * as vscode from "vscode";
-import type { ClaudeStatus } from "../claude/adapter.js";
+import type { AIProviderStatus } from "../ai/index.js";
 
 export async function requireClaude(
-  checkClaude: () => Promise<ClaudeStatus>
+  checkClaude: () => Promise<AIProviderStatus>
 ): Promise<boolean> {
   const status = await checkClaude();
   if (!status.available) {
     const detail = status.error ? `\n\nError: ${status.error}` : "";
+    const providerName = status.displayName || "AI provider";
     const action = await vscode.window.showErrorMessage(
-      `Can't connect to Claude.${detail}`,
-      "Set Claude Path",
+      `Can't connect to ${providerName}.${detail}`,
+      "Open Settings",
       "How to Install"
     );
-    if (action === "Set Claude Path") {
+    if (action === "Open Settings") {
       vscode.commands.executeCommand(
         "workbench.action.openSettings",
-        "sideBae.claudePath"
+        "sideBae"
       );
     } else if (action === "How to Install") {
       vscode.env.openExternal(
@@ -25,8 +26,9 @@ export async function requireClaude(
     return false;
   }
   if (!status.authenticated) {
+    const providerName = status.displayName || "AI provider";
     const action = await vscode.window.showErrorMessage(
-      "Claude CLI is not logged in. Run 'claude login' in your terminal.",
+      `${providerName} is not logged in. Run 'claude login' in your terminal.`,
       "Open Terminal"
     );
     if (action === "Open Terminal") {

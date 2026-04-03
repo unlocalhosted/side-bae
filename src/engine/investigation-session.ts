@@ -1,4 +1,4 @@
-import type { ClaudeAdapter, GenerationProgress } from "../claude/adapter.js";
+import type { AIProvider, GenerationProgress } from "../ai/index.js";
 import {
   INVESTIGATION_PHASE_KIND,
   type InvestigationStep,
@@ -24,7 +24,7 @@ export class InvestigationSession {
   private sdkSessionId: string | null = null;
 
   constructor(
-    private adapter: ClaudeAdapter,
+    private adapter: AIProvider,
     private issueTitle: string,
     issueBody: string
   ) {

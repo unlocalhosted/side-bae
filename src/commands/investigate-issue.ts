@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
+import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
 import { requireClaude } from "./preflight.js";
 
@@ -40,10 +40,10 @@ async function fetchGitHubIssue(
 
 export function registerInvestigateIssueCommand(
   context: vscode.ExtensionContext,
-  getAdapter: () => ClaudeAdapter,
+  getAdapter: () => AIProvider,
   player: TourPlayer,
   workspaceRoot: string,
-  checkClaude: () => Promise<ClaudeStatus>
+  checkClaude: () => Promise<AIProviderStatus>
 ): void {
   let investigating = false;
 

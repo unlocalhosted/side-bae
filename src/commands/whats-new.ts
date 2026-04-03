@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
-import type { ClaudeAdapter, ClaudeStatus } from "../claude/adapter.js";
+import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import type { FeatureTreeProvider } from "../views/feature-tree-provider.js";
 import { requireClaude } from "./preflight.js";
 
 export function registerWhatsNewCommand(
   context: vscode.ExtensionContext,
-  getAdapter: () => ClaudeAdapter,
+  getAdapter: () => AIProvider,
   featureTreeProvider: FeatureTreeProvider,
-  checkClaude: () => Promise<ClaudeStatus>
+  checkClaude: () => Promise<AIProviderStatus>
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(

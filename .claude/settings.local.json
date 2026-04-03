@@ -15,7 +15,9 @@
       "WebFetch(domain:agnt.gg)",
       "WebFetch(domain:nader.substack.com)",
       "Read(//Users/v0s06lr/.claude/**)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)"
     ]
   }
 }
