@@ -76,7 +76,7 @@ export function registerInvestigateIssueCommand(
             const issue = await fetchGitHubIssue(trimmedInput, workspaceRoot);
             if (!issue) {
               vscode.window.showErrorMessage(
-                "Failed to fetch issue. Make sure the `gh` CLI is installed and authenticated."
+                "Failed to fetch issue. Make sure the gh CLI is installed and authenticated (run gh auth login)."
               );
               return;
             }

@@ -562,7 +562,7 @@ export class TourPlayer {
         return;
       }
 
-      vscode.window.showInformationMessage("Fix applied. Use Ctrl+Z to undo.");
+      vscode.window.showInformationMessage(`Fix applied. Use ${process.platform === "darwin" ? "Cmd" : "Ctrl"}+Z to undo.`);
 
       if (this.investigationSession) {
         await this.handleInvestigationAction(() => this.investigationSession!.notifyFixApplied(this.makeInvestigationProgress()));
@@ -672,7 +672,7 @@ export class TourPlayer {
       }
 
       vscode.window.showInformationMessage(
-        "Fix applied. Use Ctrl+Z to undo."
+        `Fix applied. Use ${process.platform === "darwin" ? "Cmd" : "Ctrl"}+Z to undo.`
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
