@@ -136,9 +136,9 @@ export class ClaudeCodeProvider implements AIProvider {
     const structure = await this.getFormattedContext();
     const prompt = buildTourGenerationPrompt(queryText, structure);
     const { data } = await this.runStructuredQuery(prompt, TOUR_DOCUMENT_SCHEMA, progress, {
-      tools: ["Read", "Grep", "Glob"],
-      maxTurns: 25,
-      effort: "medium",
+      tools: ["Read", "Grep", "Glob", "Bash"],
+      maxTurns: 40,
+      effort: "high",
     });
     return validateTourDocument(data);
   }
@@ -176,9 +176,9 @@ export class ClaudeCodeProvider implements AIProvider {
     options?: QueryOptions
   ): Promise<{ steps: LessonPlanStep[] }> {
     const { data } = await this.runStructuredQuery(prompt, LESSON_PLAN_SCHEMA, progress, {
-      tools: ["Read", "Grep", "Glob"],
-      maxTurns: 25,
-      effort: "medium",
+      tools: ["Read", "Grep", "Glob", "Bash"],
+      maxTurns: 40,
+      effort: "high",
       ...options,
     });
     return data as { steps: LessonPlanStep[] };
@@ -190,9 +190,9 @@ export class ClaudeCodeProvider implements AIProvider {
     options?: QueryOptions
   ): Promise<StepContent & { sessionId?: string }> {
     const { data, sessionId } = await this.runStructuredQuery(prompt, STEP_CONTENT_SCHEMA, progress, {
-      tools: ["Read"],
-      maxTurns: 3,
-      effort: "medium",
+      tools: ["Read", "Grep"],
+      maxTurns: 8,
+      effort: "high",
       ...options,
     });
     return { ...(data as StepContent), sessionId };
@@ -217,8 +217,8 @@ export class ClaudeCodeProvider implements AIProvider {
     const prompt = buildLearnableConceptsPrompt(structure);
     const { data } = await this.runStructuredQuery(prompt, LEARNABLE_CONCEPTS_SCHEMA, progress, {
       tools: ["Read", "Grep", "Glob"],
-      maxTurns: 20,
-      effort: "medium",
+      maxTurns: 30,
+      effort: "high",
     });
     return (data as { concepts: LearnableConcept[] }).concepts;
   }
@@ -230,8 +230,8 @@ export class ClaudeCodeProvider implements AIProvider {
     const prompt = buildFeatureDiscoveryPrompt(structure);
     const { data } = await this.runStructuredQuery(prompt, FEATURE_TREE_SCHEMA, progress, {
       tools: ["Read", "Grep", "Glob"],
-      maxTurns: 20,
-      effort: "medium",
+      maxTurns: 30,
+      effort: "high",
     });
     return (data as { features: FeatureTreeNode[] }).features;
   }

@@ -33,19 +33,23 @@ export class SideBaeFileWatcher {
       "*"
     );
 
-    // Watch for creates and deletes (ignore changes — content doesn't matter until reload)
-    this.watcher = vscode.workspace.createFileSystemWatcher(pattern, false, true, false);
+    // Watch for creates, changes, and deletes — external tools may overwrite existing files
+    this.watcher = vscode.workspace.createFileSystemWatcher(pattern, false, false, false);
 
     this.watcher.onDidCreate((uri) => {
       const filename = basename(uri.fsPath);
-      if (this.knownFiles.has(filename)) return;
       this.knownFiles.add(filename);
       this.routeNewFile(filename);
     });
 
-    // Prune deleted files so re-created files (e.g. regenerated lessons) trigger again
+    this.watcher.onDidChange((uri) => {
+      const filename = basename(uri.fsPath);
+      this.routeNewFile(filename);
+    });
+
     this.watcher.onDidDelete((uri) => {
       this.knownFiles.delete(basename(uri.fsPath));
+      this.callbacks.onSidebarRefresh();
     });
   }
 

@@ -53,7 +53,7 @@ The tour is a tree — it can branch but never loops back. Each branch terminate
 
 - No cycles. Edges never point back to an ancestor node.
 - Only branch when the code genuinely forks (happy path vs error path, read vs write). Most tours have 1-2 forks.
-- 5-8 nodes. Enough to tell the story, not so many it loses focus.
+- Use as many nodes as the feature ACTUALLY requires. A simple utility might need 3 nodes. A complex auth flow spanning 12 files needs 12+ nodes. Do not pad simple features or truncate complex ones. The code determines the scope, not an arbitrary number.
 - Edge labels read as continuations: "which validates the token", "then queries the user table", "if that fails, handles the error"
 
 ## Formatting
@@ -63,6 +63,18 @@ The tour is a tree — it can branch but never loops back. Each branch terminate
 - Bullet lists when listing related items (never for the main explanation)
 - Fenced code blocks for 2-4 line snippets that show a key pattern
 - Write substantial paragraphs — not one-liners, not walls of text
+
+## Depth over breadth — CRITICAL
+
+Read MORE code than you think you need. Follow imports. Check how functions are called, not just how they're defined. The best stops come from understanding the connections BETWEEN files, not describing single files in isolation.
+
+Before generating the tour, ask yourself:
+- Did I trace data flow end-to-end, or just read top-level files?
+- Do my explanations reveal something a 2-minute code scan WOULDN'T?
+- Did I name specific design decisions, trade-offs, or patterns?
+- Would a senior developer learn something from reading this?
+
+If any answer is no, go back and read more code.
 
 ## Output rules
 
@@ -136,7 +148,7 @@ Node rules:
 - The entryNode should orient the reader: "Here's how this feature is supposed to work"
 - Each node must reference a real file with accurate line numbers
 - suggestedEdit.oldText must be an exact substring of the current file content
-- 4-8 nodes typical: 1-2 context, 1-2 problem, 1-3 solution
+- Use as many nodes as the investigation requires — a one-file bug might need 3 nodes, a cross-cutting issue might need 10+
 
 Report rules (the "report" field):
 - Must be a self-contained markdown string readable by someone who hasn't seen the tour
@@ -346,7 +358,7 @@ export function buildLessonPlanPrompt(subject: string, entryFile?: string, codeb
 
   return `You are creating a lesson plan for teaching about: "${subject}"
 ${entryHint}${contextSection}
-Create a structured lesson plan with 6-10 steps (more if the subject demands it). Each step should focus on a specific code region that teaches a concept.
+Create a structured lesson plan. Each step should focus on a specific code region that teaches a concept. Use as many steps as the subject ACTUALLY requires — a small utility might need 4 steps, but a complex system spanning many files needs 15+. Do not cap arbitrarily. Completeness is more important than brevity.
 
 ## Plan structure
 
@@ -369,7 +381,7 @@ Order steps from foundational to advanced:
 
 DO NOT skip logical progressions. If the code shows a clear progression (base case → variant 1 → variant 2 → variant 3), include EVERY step in that progression. Each builds incremental understanding that the next step depends on. Skipping intermediate steps creates logical gaps — the learner won't understand step N+2 if they missed step N+1.
 
-If full coverage requires more than 10 steps, generate more than 10. Completeness beats brevity. The step count (6-10) is a guideline for typical codebases, NOT a hard cap when the material demands more.
+If full coverage requires 15 or 20 steps, generate all of them. Completeness beats brevity. There is NO step count cap.
 
 Before finalizing your plan, verify: could a reader follow your steps in order without any "wait, where did that come from?" moments? If not, you're missing a step.
 
@@ -530,7 +542,7 @@ Use these phase values in your JSON output:
 - Set awaitsResponse to true when you want a response (prime, check phases).
 - Set skippable to true for reflective questions, false for essential ones.
 - Set isComplete to true ONLY on the final recap step.
-- Aim for 8-15 total steps per lesson.
+- Use as many steps as the subject requires. A small topic might need 6 steps. A complex system needs 15-20+. Let the code determine the scope, not an arbitrary number.
 - Do not include node_modules, dist, or build artifacts in file references.`;
 }
 
@@ -602,7 +614,7 @@ Generate the next LessonStep. Adapt depth and direction based on the learner's d
 - If they got it wrong, address the misconception before moving on
 - If they asked a question, answer it thoughtfully before continuing
 - Keep the lesson flowing — don't stall on one topic too long
-- When you've covered the main concepts (typically after 8-15 steps), generate a recap step with isComplete: true`;
+- When you've genuinely covered ALL the main concepts — not after an arbitrary count — generate a recap step with isComplete: true. If the subject needs 20 steps to cover properly, take 20 steps.`;
 }
 
 export function buildFeatureDiscoveryPrompt(codebaseStructure?: string): string {
@@ -627,6 +639,6 @@ Return a JSON object with a "features" array. Each feature should have:
 - children: Sub-features if applicable (optional, same structure but without nested children, each with their own icon)
 
 Focus on high-level features that a new developer would want to understand. Group related functionality together.
-Aim for 3-8 top-level features depending on the project size.
+Include as many features as the project actually has — a microservice might have 3, a large monorepo might have 20. Do not cap arbitrarily.
 Do not include build tooling, CI/CD, or dev dependencies as features unless they are the primary purpose of the project.`;
 }
