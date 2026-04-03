@@ -2,17 +2,15 @@ name: Release
 on:
   push:
     tags: ["v*"]
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -28,9 +26,8 @@ jobs:
         run: pnpm exec vsce publish --packagePath side-bae.vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      - name: Create GitHub Release
+      - name: Upload VSIX to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: side-bae.vsix
-          generate_release_notes: true
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}

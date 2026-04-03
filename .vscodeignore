@@ -2,6 +2,7 @@
 .github/**
 .claude/**
 src/**
+docs/**
 *.vsix
 .env*
 .gitignore
@@ -10,19 +11,17 @@ src/**
 .impeccable.md
 CLAUDE.md
 SPEC.md
+UBIQUITOUS_LANGUAGE.md
 tsconfig.json
 vitest.config.ts
 esbuild.mjs
 pnpm-lock.yaml
 **/*.test.ts
 **/*.spec.ts
+**/*.map
+.githooks/**
 
-# Keep only the SDK and its direct dependency (zod), exclude everything else
-node_modules/@img/**
-node_modules/@types/**
-node_modules/@vscode/**
-node_modules/esbuild/**
-node_modules/oxlint/**
-node_modules/typescript/**
-node_modules/vitest/**
-node_modules/.package-lock.json
+# Exclude all node_modules except the Claude SDK (external, loaded at runtime)
+node_modules/**
+!node_modules/@anthropic-ai/
+!node_modules/@anthropic-ai/**

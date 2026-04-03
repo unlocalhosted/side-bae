@@ -33,13 +33,19 @@ async function computeSkillFilesHash(extensionPath: string): Promise<string> {
   const hash = createHash("sha256");
 
   const sourceFiles = Object.keys(SKILL_FILES).sort();
-  for (const file of sourceFiles) {
-    try {
-      const content = await readFile(join(skillDir, file), "utf-8");
-      hash.update(file);
-      hash.update(content);
-    } catch {
-      // File missing from bundle — skip
+  const contents = await Promise.all(
+    sourceFiles.map(async (file) => {
+      try {
+        return { file, content: await readFile(join(skillDir, file), "utf-8") };
+      } catch {
+        return null;
+      }
+    })
+  );
+  for (const entry of contents) {
+    if (entry) {
+      hash.update(entry.file);
+      hash.update(entry.content);
     }
   }
 
@@ -48,15 +54,17 @@ async function computeSkillFilesHash(extensionPath: string): Promise<string> {
 
 /** Check if any side-bae skill files exist in a target directory. */
 async function hasInstalledSkillFiles(targetDir: string): Promise<boolean> {
-  for (const targetFile of Object.values(SKILL_FILES)) {
-    try {
-      await stat(join(targetDir, targetFile));
-      return true;
-    } catch {
-      continue;
-    }
-  }
-  return false;
+  const checks = await Promise.all(
+    Object.values(SKILL_FILES).map(async (targetFile) => {
+      try {
+        await stat(join(targetDir, targetFile));
+        return true;
+      } catch {
+        return false;
+      }
+    })
+  );
+  return checks.some(Boolean);
 }
 
 async function installSkillFiles(
@@ -71,15 +79,15 @@ async function installSkillFiles(
 
   await mkdir(targetDir, { recursive: true });
 
-  let installed = 0;
-  for (const sourceFile of skillFiles) {
-    const content = await readFile(join(skillSourceDir, sourceFile), "utf-8");
-    const targetFile = SKILL_FILES[sourceFile]!;
-    await writeFile(join(targetDir, targetFile), content, "utf-8");
-    installed++;
-  }
+  await Promise.all(
+    skillFiles.map(async (sourceFile) => {
+      const content = await readFile(join(skillSourceDir, sourceFile), "utf-8");
+      const targetFile = SKILL_FILES[sourceFile]!;
+      await writeFile(join(targetDir, targetFile), content, "utf-8");
+    })
+  );
 
-  return installed;
+  return skillFiles.length;
 }
 
 /** Check for stale skill files on activation and prompt user to update. */

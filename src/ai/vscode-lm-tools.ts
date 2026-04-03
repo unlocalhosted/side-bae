@@ -196,29 +196,28 @@ async function executeSearchFiles(
       100
     );
 
-    const regex = new RegExp(pattern, "gi");
-    const results: string[] = [];
-    let matchCount = 0;
-
-    for (const file of files) {
-      if (matchCount >= 200) break;
-      try {
-        const content = await fs.readFile(file.fsPath, "utf-8");
-        const lines = content.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-          if (regex.test(lines[i]!)) {
-            const relPath = vscode.workspace.asRelativePath(file);
-            results.push(`${relPath}:${i + 1}: ${lines[i]!.trim()}`);
-            matchCount++;
-            if (matchCount >= 200) break;
+    const fileMatches = await Promise.all(
+      files.map(async (file) => {
+        try {
+          const content = await fs.readFile(file.fsPath, "utf-8");
+          const lines = content.split("\n");
+          const regex = new RegExp(pattern, "gi");
+          const hits: string[] = [];
+          const relPath = vscode.workspace.asRelativePath(file);
+          for (let i = 0; i < lines.length; i++) {
+            if (regex.test(lines[i]!)) {
+              hits.push(`${relPath}:${i + 1}: ${lines[i]!.trim()}`);
+            }
+            regex.lastIndex = 0;
           }
-          regex.lastIndex = 0; // Reset for global regex
+          return hits;
+        } catch {
+          return [];
         }
-      } catch {
-        // Skip unreadable files
-      }
-    }
+      })
+    );
 
+    const results = fileMatches.flat().slice(0, 200);
     return results.length > 0
       ? results.join("\n")
       : `No matches found for pattern "${pattern}"`;

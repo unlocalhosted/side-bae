@@ -212,6 +212,7 @@ export class VSCodeLMProvider implements AIProvider {
         throw new Error("Query cancelled.");
       }
 
+      // eslint-disable-next-line no-await-in-loop -- sequential tool-calling loop: each round depends on the previous
       const response = await model.sendRequest(
         messages,
         requestOptions,
@@ -221,7 +222,7 @@ export class VSCodeLMProvider implements AIProvider {
       let fullText = "";
       const toolCalls: vscode.LanguageModelToolCallPart[] = [];
 
-      for await (const part of response.stream) {
+      for await (const part of response.stream) { // eslint-disable-line no-await-in-loop -- streaming
         if (part instanceof vscode.LanguageModelTextPart) {
           fullText += part.value;
         } else if (part instanceof vscode.LanguageModelToolCallPart) {
@@ -239,6 +240,7 @@ export class VSCodeLMProvider implements AIProvider {
         const input = (call.input ?? {}) as Record<string, unknown>;
         progress.onProgress(describeToolCall(call.name, input));
 
+        // eslint-disable-next-line no-await-in-loop -- tool results feed back into next round sequentially
         const result = await executeTool(call.name, input, this.workspaceRoot);
 
         // Append assistant message with tool call, then user message with result
