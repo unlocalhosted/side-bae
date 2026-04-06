@@ -71,10 +71,15 @@
   }
 
   function lighten(hex, amount) {
-    hex = hex.replace("#", "");
-    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-    const num = parseInt(hex, 16);
-    return `rgb(${Math.min(255, ((num >> 16) & 255) + amount)},${Math.min(255, ((num >> 8) & 255) + amount)},${Math.min(255, (num & 255) + amount)})`;
+    try {
+      hex = hex.replace("#", "");
+      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      const num = parseInt(hex, 16);
+      if (isNaN(num)) return "#ffffff";
+      return `rgb(${Math.min(255, ((num >> 16) & 255) + amount)},${Math.min(255, ((num >> 8) & 255) + amount)},${Math.min(255, (num & 255) + amount)})`;
+    } catch {
+      return "#ffffff";
+    }
   }
 
   // ── Rendering ────────────────────────────────────────────────────
@@ -125,17 +130,17 @@
       <div class="command-hub fade-in">
         <div class="hub-header">
           <div class="hub-title">Side Bae</div>
-          <div class="hub-subtitle">Pick a way to explore this codebase</div>
+          <div class="hub-subtitle">Ask how something works. Get an interactive tour that traces real code, explains decisions, and connects the dots.</div>
         </div>
         <div class="hub-actions">
-          ${hubActions.map(a => `
-            <button class="hub-action${a.primary ? " hub-action-primary" : ""}" data-command="${a.command}">
-              <span class="hub-icon">${a.icon}</span>
+          ${hubActions.map((a, i) => `${i === 1 ? '<div class="hub-divider"></div>' : ""}
+            <button class="hub-action${a.primary ? " hub-action-primary" : ""}" data-command="${a.command}" aria-label="${a.name} — ${a.desc}">
+              <span class="hub-icon" aria-hidden="true">${a.icon}</span>
               <div class="hub-text">
                 <div class="hub-name">${a.name}</div>
                 <div class="hub-desc">${a.desc}</div>
               </div>
-              ${a.shortcut ? `<kbd class="hub-shortcut">${a.shortcut}</kbd>` : ""}
+              ${a.shortcut ? `<kbd class="hub-shortcut" aria-label="Keyboard shortcut: ${a.shortcut}">${a.shortcut}</kbd>` : ""}
             </button>
           `).join("")}
         </div>
@@ -239,7 +244,7 @@
           <div class="summary-stops-label">What you'll explore</div>
           <ol class="summary-stop-list">
             ${previewNodes.map((n, i) => `
-              <li class="summary-stop-item ${i === 0 ? "summary-stop-entry" : ""}" tabindex="0" role="button" data-node-id="${escapeHtml(n.id)}">
+              <li class="summary-stop-item ${i === 0 ? "summary-stop-entry" : ""}" tabindex="0" role="button" aria-label="Stop ${i + 1}: ${escapeHtml(n.title)}" data-node-id="${escapeHtml(n.id)}">
                 <span class="stop-number">${i + 1}</span>
                 <span class="stop-title">${escapeHtml(n.title)}</span>
               </li>
@@ -378,8 +383,8 @@
             const badge = info.state === "complete" ? "done" : info.state === "partial" ? "in progress" : "";
             const depth = info.reachableCount > 1 ? `<span class="edge-depth">${info.reachableCount} stops</span>` : info.reachableCount === 1 ? `<span class="edge-depth">1 stop</span>` : "";
             return `
-            <button class="edge-link ${stateClass} ${nodeChanged ? "edge-enter" : ""}" data-target="${escapeHtml(edge.target)}" style="${nodeChanged ? `animation-delay: ${i * 60}ms` : ""}">
-              <span class="arrow">${icon}</span>
+            <button class="edge-link ${stateClass} ${nodeChanged ? "edge-enter" : ""}" data-target="${escapeHtml(edge.target)}" aria-label="${escapeHtml(edge.label)}${badge ? ` (${badge})` : ""}${info.reachableCount ? `, ${info.reachableCount} stop${info.reachableCount === 1 ? "" : "s"}` : ""}" style="${nodeChanged ? `animation-delay: ${i * 60}ms` : ""}">
+              <span class="arrow" aria-hidden="true">${icon}</span>
               <span class="edge-label">${escapeHtml(edge.label)}</span>
               <span class="edge-meta">${badge ? `<span class="visited-badge">${badge}</span>` : ""}${depth}</span>
             </button>`;
@@ -577,6 +582,7 @@
           if (step.content.inputType === "text") {
             inputHtml = `
               <div class="lesson-input-area">
+                <label for="lesson-input" class="sr-only">Your answer</label>
                 <textarea class="lesson-textarea" id="lesson-input" placeholder="What do you think? (${isMac ? "\u2318" : "Ctrl"}+Enter to send)" rows="3"></textarea>
                 <div class="lesson-input-actions">
                   <button class="lesson-send-btn" id="lesson-send">Send</button>
@@ -587,8 +593,8 @@
             inputHtml = `
               <div class="lesson-choices">
                 ${step.content.options.map((opt, ci) => `
-                  <button class="lesson-choice-btn" data-index="${ci}">
-                    <span class="choice-letter">${letters[ci] || ci + 1}</span>
+                  <button class="lesson-choice-btn" data-index="${ci}" aria-label="Option ${letters[ci] || ci + 1}: ${escapeHtml(opt)}">
+                    <span class="choice-letter" aria-hidden="true">${letters[ci] || ci + 1}</span>
                     <span class="choice-text">${escapeHtml(opt)}</span>
                   </button>
                 `).join("")}
@@ -624,7 +630,7 @@
         contentHtml = `
           <div class="stepper-content">
             <div class="step-loading">
-              <div class="lesson-loading-dots"><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div></div>
+              <div class="lesson-loading-dots" role="status" aria-label="Loading"><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div></div>
               <span id="step-loading-msg"></span>
             </div>
           </div>
@@ -660,7 +666,7 @@
       lastScrolledStepIndex = activeIdx;
       const activeStep = root.querySelector(".stepper-step.active");
       if (activeStep) {
-        requestAnimationFrame(() => activeStep.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+        requestAnimationFrame(() => activeStep.scrollIntoView({ behavior: systemReducedMotion ? "auto" : "smooth", block: "nearest" }));
       }
     }
   }
@@ -754,15 +760,14 @@
   function renderInvestigationTrail(trail) {
     if (!trail || trail.length === 0) return "";
     const display = trail.length > 15 ? trail.slice(-15) : trail;
-    trail = display;
     return `
       <div class="investigation-trail">
-        ${trail.map((entry, i) => `
+        ${display.map((entry, i) => `
           <div class="trail-entry" style="animation-delay: ${i * 60}ms">
-            <span class="trail-dot trail-${entry.kind}"></span>
+            <span class="trail-dot trail-${escapeHtml(entry.kind || "context")}"></span>
             <span class="trail-file">${escapeHtml(shortFileName(entry.file))}</span>
           </div>
-          ${i < trail.length - 1 ? '<span class="trail-separator">\u203A</span>' : ""}
+          ${i < display.length - 1 ? '<span class="trail-separator">\u203A</span>' : ""}
         `).join("")}
       </div>
     `;
@@ -817,7 +822,7 @@
       testHtml = `
         <div class="test-results ${passed ? "tests-passed" : "tests-failed"}">
           <div class="test-results-summary">${passed ? "\u2713" : "\u2717"} ${summaryText}</div>
-          ${step.testResults.errors.length > 0 ? `<pre class="test-results-errors">${escapeHtml(step.testResults.errors.slice(0, 5).join("\n").slice(0, 2000))}</pre>` : ""}
+          ${(step.testResults.errors ?? []).length > 0 ? `<pre class="test-results-errors">${escapeHtml((step.testResults.errors ?? []).slice(0, 5).join("\n").slice(0, 2000))}</pre>` : ""}
         </div>
       `;
     }

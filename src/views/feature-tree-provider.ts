@@ -102,7 +102,14 @@ export class FeatureTreeProvider
   ) {}
 
   refresh(): void {
-    this.fullLessonCache = null; // Invalidate so next render re-reads from disk
+    // Invalidate all disk-backed caches so next render re-reads from disk.
+    // This is critical for external writes (skill files, CLI tools).
+    this.fullLessonCache = null;
+    this.features = null;
+    this.featuresLoaded = false;
+    this.learnableConcepts = null;
+    this.learnableLoaded = false;
+    this.recentChanges = null;
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -507,10 +514,20 @@ export class FeatureTreeProvider
 
     // ── Saved Tours (PRIMARY — always first, always expanded) ──
     const tours = await tourStore.listTours(this.workspaceRoot);
+    const fullLessonsForCheck = this.fullLessonCache ?? await tourStore.listFullLessons(this.workspaceRoot);
     const hasTours = tours.length > 0;
     if (this.lastHasTours !== hasTours) {
       this.lastHasTours = hasTours;
       vscode.commands.executeCommand("setContext", "sideBae.hasTours", hasTours);
+    }
+
+    // Pristine state: no content at all → return empty so viewsWelcome shows
+    const hasAnyContent = hasTours || !!this.features || !!this.learnableConcepts
+      || !!this.recentChanges || fullLessonsForCheck.length > 0
+      || this.isLoading || this.learnableLoading || this.whatsNewLoading;
+    vscode.commands.executeCommand("setContext", "sideBae.hasContent", hasAnyContent);
+    if (!hasAnyContent) {
+      return [];
     }
 
     // Build explored set from tour queries (features the user has already toured)

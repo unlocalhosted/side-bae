@@ -73,8 +73,11 @@ Before generating the tour, ask yourself:
 - Do my explanations reveal something a 2-minute code scan WOULDN'T?
 - Did I name specific design decisions, trade-offs, or patterns?
 - Would a senior developer learn something from reading this?
+- Does every explanation have at least 3-4 sentences of genuine insight?
 
 If any answer is no, go back and read more code.
+
+A shallow tour that skims the surface of 5 files is worse than a deep tour that thoroughly explains 12. Every node must be reachable from entryNode by following edges.
 
 ## Output rules
 

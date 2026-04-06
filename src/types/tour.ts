@@ -152,18 +152,39 @@ export function validateTourDocument(data: unknown): TourDocument {
     lesson: tour.lesson,
   };
 
-  // Enforce DAG: strip edges that create cycles (back-references to ancestors)
-  const visited = new Set<string>();
-  function stripCycles(nodeId: string) {
-    if (visited.has(nodeId)) return;
-    visited.add(nodeId);
+  // Step 1: Walk reachability on the ORIGINAL edges (before cycle stripping)
+  // to determine which nodes are part of the tour at all.
+  const reachable = new Set<string>();
+  function walkReachable(nodeId: string) {
+    if (reachable.has(nodeId)) return;
+    reachable.add(nodeId);
     const node = result.nodes[nodeId];
     if (!node) return;
-    node.edges = node.edges.filter((e) => !visited.has(e.target));
+    for (const edge of node.edges) {
+      walkReachable(edge.target);
+    }
+  }
+  walkReachable(result.entryNode);
+
+  // Step 2: Remove orphan nodes unreachable from entryNode
+  for (const nodeId of Object.keys(result.nodes)) {
+    if (!reachable.has(nodeId)) {
+      delete result.nodes[nodeId];
+    }
+  }
+
+  // Step 3: Enforce DAG within the reachable subgraph — strip back-edges
+  const ancestors = new Set<string>();
+  function stripCycles(nodeId: string) {
+    if (ancestors.has(nodeId)) return;
+    ancestors.add(nodeId);
+    const node = result.nodes[nodeId];
+    if (!node) return;
+    node.edges = node.edges.filter((e) => !ancestors.has(e.target));
     for (const edge of node.edges) {
       stripCycles(edge.target);
     }
-    visited.delete(nodeId); // allow visiting from different branches
+    ancestors.delete(nodeId); // allow visiting from different branches
   }
   stripCycles(result.entryNode);
 

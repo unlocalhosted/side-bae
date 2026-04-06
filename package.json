@@ -1,7 +1,7 @@
 {
   "name": "side-bae",
   "displayName": "Side Bae",
-  "version": "0.3.0-beta.4",
+  "version": "0.3.0-beta.5",
   "description": "AI-powered codebase onboarding via guided code tours",
   "publisher": "side-bae",
   "license": "MIT",
@@ -301,8 +301,8 @@
       },
       {
         "view": "sideBae.featureTree",
-        "contents": "New here? Ask a question about how something works and get a guided code tour.\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\nOr auto-scan the entire codebase.\n[$(search) Discover All Features](command:sideBae.discoverFeatures)",
-        "when": "workbenchState != empty && !sideBae.hasTours && !sideBae.featuresLoaded"
+        "contents": "Ask how something works and get an interactive code tour that traces the real code paths, explains design decisions, and connects the dots.\n\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\n\nOr let AI map the entire codebase first.\n\n[$(search) Discover All Features](command:sideBae.discoverFeatures)",
+        "when": "workbenchState != empty && !sideBae.hasContent"
       }
     ]
   },

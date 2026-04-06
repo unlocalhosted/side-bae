@@ -40,8 +40,10 @@ Write the output to `.side-bae/whats-new.json`.
 
 ### Rules
 
-- Aim for 3-10 logical changes
+- Aim for 3-10 logical changes — complete coverage, not just the biggest ones
 - If more than 15 commits, group aggressively by author + topic
 - If fewer than 3 commits, each commit can be its own change
 - Order most recent first
-- Don't include merge commits or automated commits (dependabot, CI bots)
+- Don't include merge commits or automated commits (dependabot, CI bots) unless they are the only activity
+- `summary` should explain what the change accomplishes for the user, not describe files touched
+- `name` should be specific: "Redesigned tour card UI" not "UI changes"

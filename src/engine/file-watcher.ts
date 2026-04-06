@@ -13,6 +13,8 @@ export interface FileWatcherCallbacks {
 export class SideBaeFileWatcher {
   private watcher: vscode.FileSystemWatcher | null = null;
   private knownFiles = new Set<string>();
+  /** Debounce timers per filename to avoid duplicate notifications (macOS fires create+change). */
+  private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private workspaceRoot: string,
@@ -38,13 +40,14 @@ export class SideBaeFileWatcher {
 
     this.watcher.onDidCreate((uri) => {
       const filename = basename(uri.fsPath);
+      const wasKnown = this.knownFiles.has(filename);
       this.knownFiles.add(filename);
-      this.routeNewFile(filename);
+      this.debouncedRoute(filename, !wasKnown);
     });
 
     this.watcher.onDidChange((uri) => {
       const filename = basename(uri.fsPath);
-      this.routeNewFile(filename);
+      this.debouncedRoute(filename, false);
     });
 
     this.watcher.onDidDelete((uri) => {
@@ -53,13 +56,31 @@ export class SideBaeFileWatcher {
     });
   }
 
-  private routeNewFile(filename: string): void {
+  /** Debounce file routing to coalesce rapid create+change events (common on macOS). */
+  private debouncedRoute(filename: string, isNew: boolean): void {
+    const existing = this.debounceTimers.get(filename);
+    if (existing) clearTimeout(existing);
+    this.debounceTimers.set(
+      filename,
+      setTimeout(() => {
+        this.debounceTimers.delete(filename);
+        this.routeFile(filename, isNew);
+      }, 300)
+    );
+  }
+
+  private routeFile(filename: string, isNew: boolean): void {
     if (filename.endsWith(".full-lesson.json")) {
       const lessonId = filename.replace(".full-lesson.json", "");
       this.callbacks.onNewFullLesson(lessonId);
     } else if (filename.endsWith(".tour.json")) {
       const tourId = filename.replace(".tour.json", "");
-      this.callbacks.onNewTour(tourId);
+      if (isNew) {
+        this.callbacks.onNewTour(tourId);
+      } else {
+        // Tour was updated, not created — refresh sidebar without "New tour" prompt
+        this.callbacks.onSidebarRefresh();
+      }
     } else if (
       filename === "features.json" ||
       filename === "learnable-concepts.json" ||
@@ -70,6 +91,8 @@ export class SideBaeFileWatcher {
   }
 
   dispose(): void {
+    for (const timer of this.debounceTimers.values()) clearTimeout(timer);
+    this.debounceTimers.clear();
     this.watcher?.dispose();
     this.watcher = null;
   }

@@ -10,6 +10,7 @@ const SKILL_DIR_NAME = "skills";
 const SKILL_FILES: Record<string, string> = {
   "generate-tour.md": "side-bae-tour.md",
   "generate-lesson.md": "side-bae-lesson.md",
+  "investigate-issue.md": "side-bae-investigate.md",
   "discover-features.md": "side-bae-features.md",
   "discover-concepts.md": "side-bae-concepts.md",
   "whats-new.md": "side-bae-whats-new.md",

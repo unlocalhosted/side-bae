@@ -148,6 +148,11 @@ export class TourPlayer {
     this.webviewProvider.updateCard(this.engine.getCardState());
   }
 
+  /** Open the command hub panel without starting a tour. Used for first-run onboarding. */
+  showWelcome(): void {
+    this.webviewProvider.open("Side Bae");
+  }
+
   async navigateToNode(nodeId: string): Promise<void> {
     const node = this.engine.navigateToNode(nodeId);
     if (node) {

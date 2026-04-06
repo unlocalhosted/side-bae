@@ -173,8 +173,16 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   vscode.commands.executeCommand("setContext", "sideBae.tourActive", false);
-  vscode.commands.executeCommand("setContext", "sideBae.featuresLoaded", false);
-  // sideBae.hasTours is set inside FeatureTreeProvider.getChildren() on every render
+  vscode.commands.executeCommand("setContext", "sideBae.hasContent", false);
+  // sideBae.hasTours and sideBae.hasContent are set inside FeatureTreeProvider.getChildren() on every render
+
+  // First-run: show the command hub so new users see a clear entry point
+  const WELCOMED_KEY = "sideBae.welcomed";
+  if (!context.globalState.get<boolean>(WELCOMED_KEY)) {
+    context.globalState.update(WELCOMED_KEY, true);
+    // Short delay so VS Code settles — the sidebar and editor area are ready
+    setTimeout(() => player.showWelcome(), 800);
+  }
 }
 
 export function deactivate() {
