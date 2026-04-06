@@ -179,6 +179,8 @@ export class TourPlayer {
       clearDecorations(this.activeEditor);
     }
     this.engine.reset();
+    if (this.lessonSession) this.endLesson();
+    if (this.investigationSession) this.endInvestigation();
     this.webviewProvider.dispose();
     this.setTourActiveContext(false);
   }
@@ -426,7 +428,11 @@ export class TourPlayer {
   private async autoSaveLesson(): Promise<void> {
     const data = this.lessonSession?.getSerializableState();
     if (data) {
-      tourStore.saveLessonState(this.workspaceRoot, data.plan, data.stepStates);
+      try {
+        await tourStore.saveLessonState(this.workspaceRoot, data.plan, data.stepStates);
+      } catch {
+        vscode.window.showWarningMessage("Side Bae: could not save lesson progress.");
+      }
     }
   }
 
@@ -735,26 +741,33 @@ export class TourPlayer {
       clearDecorations(this.activeEditor);
     }
 
-    const fileUri = vscode.Uri.file(join(this.workspaceRoot, node.file));
-    const doc = await vscode.workspace.openTextDocument(fileUri);
-    const editor = await vscode.window.showTextDocument(doc, {
-      viewColumn: vscode.ViewColumn.One,
-      preserveFocus: false,
-    });
+    try {
+      const fileUri = vscode.Uri.file(join(this.workspaceRoot, node.file));
+      const doc = await vscode.workspace.openTextDocument(fileUri);
+      const editor = await vscode.window.showTextDocument(doc, {
+        viewColumn: vscode.ViewColumn.One,
+        preserveFocus: false,
+      });
 
-    this.activeEditor = editor;
+      this.activeEditor = editor;
 
-    const range = new vscode.Range(
-      new vscode.Position(node.startLine - 1, 0),
-      new vscode.Position(node.endLine - 1, Number.MAX_SAFE_INTEGER)
-    );
-    editor.revealRange(
-      range,
-      vscode.TextEditorRevealType.InCenterIfOutsideViewport
-    );
-    editor.selection = new vscode.Selection(range.start, range.start);
+      const range = new vscode.Range(
+        new vscode.Position(node.startLine - 1, 0),
+        new vscode.Position(node.endLine - 1, Number.MAX_SAFE_INTEGER)
+      );
+      editor.revealRange(
+        range,
+        vscode.TextEditorRevealType.InCenterIfOutsideViewport
+      );
+      editor.selection = new vscode.Selection(range.start, range.start);
 
-    applyDecorations(editor, node);
+      applyDecorations(editor, node);
+    } catch {
+      vscode.window.showWarningMessage(
+        `Could not open ${node.file} — the file may have been moved or deleted.`
+      );
+    }
+
     this.webviewProvider.updateCard(this.engine.getCardState());
     this.webviewProvider.reveal();
   }

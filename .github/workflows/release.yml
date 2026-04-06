@@ -26,8 +26,12 @@ jobs:
         run: pnpm exec vsce publish --packagePath side-bae.vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Publish to Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx ovsx publish side-bae.vsix -p "$OVSX_PAT"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
       - name: Upload VSIX to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: side-bae.vsix
-          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}

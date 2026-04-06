@@ -1,10 +1,20 @@
 {
   "name": "side-bae",
   "displayName": "Side Bae",
-  "version": "0.3.0-beta.5",
+  "version": "1.0.0",
   "description": "AI-powered codebase onboarding via guided code tours",
-  "publisher": "side-bae",
+  "publisher": "unlocalhosted",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "keywords": [
+    "codebase",
+    "onboarding",
+    "code tour",
+    "AI",
+    "walkthrough",
+    "documentation",
+    "learning"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/unlocalhosted/side-bae.git"
@@ -15,7 +25,8 @@
   },
   "main": "./dist/extension.js",
   "categories": [
-    "Other"
+    "Education",
+    "Visualization"
   ],
   "activationEvents": [],
   "contributes": {
