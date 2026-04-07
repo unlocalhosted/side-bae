@@ -57,6 +57,27 @@ export interface LessonStepState {
   summary?: string;
 }
 
+// ── Recap (shown when lesson completes) ──
+
+export interface RecapConcept {
+  name: string;
+  solid: boolean;
+  note?: string;
+}
+
+export interface RecapPrediction {
+  stepTitle: string;
+  userSaid: string;
+  aiFeedback: string;
+  correct: boolean;
+}
+
+export interface RecapData {
+  concepts: RecapConcept[];
+  predictions: RecapPrediction[];
+  score: { solid: number; total: number };
+}
+
 // ── Session State (sent to webview) ──
 
 export interface LessonSessionState {
@@ -65,6 +86,7 @@ export interface LessonSessionState {
   steps: LessonStepState[];
   activeStepIndex: number;
   isComplete: boolean;
+  recapData?: RecapData;
 }
 
 // ── Shared types (unchanged) ──

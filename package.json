@@ -312,7 +312,7 @@
       },
       {
         "view": "sideBae.featureTree",
-        "contents": "Ask how something works and get an interactive code tour that traces the real code paths, explains design decisions, and connects the dots.\n\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\n\nOr let AI map the entire codebase first.\n\n[$(search) Discover All Features](command:sideBae.discoverFeatures)",
+        "contents": "Ask how something works and get an interactive code tour that traces the real code paths, explains design decisions, and connects the dots.\n\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\n\nOr let AI map the entire codebase first.\n\n[$(search) Discover All Features](command:sideBae.discoverFeatures)\n\nNo Claude or Copilot? Use skill files with any AI chat.\n\n[$(cloud-download) Install Skill Files](command:sideBae.installSkillFiles)",
         "when": "workbenchState != empty && !sideBae.hasContent"
       }
     ]

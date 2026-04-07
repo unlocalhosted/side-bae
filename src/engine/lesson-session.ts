@@ -9,6 +9,9 @@ import type {
   LessonSessionState,
   CheckResult,
   StepStatus,
+  RecapData,
+  RecapConcept,
+  RecapPrediction,
 } from "../types/lesson.js";
 import type { FullLesson } from "../types/full-lesson.js";
 import type { TourDocument, TourNode } from "../types/tour.js";
@@ -307,13 +310,44 @@ export class LessonSession {
   }
 
   getSessionState(): LessonSessionState {
+    const complete = this.isComplete();
     return {
       subject: this.subject,
       planId: this.plan?.id ?? "",
       steps: this.stepStates,
       activeStepIndex: this.activeStepIndex,
-      isComplete: this.isComplete(),
+      isComplete: complete,
+      recapData: complete ? this.buildRecapData() : undefined,
     };
+  }
+
+  private buildRecapData(): RecapData {
+    // Deduplicate concepts — keep the last result per concept name
+    const conceptMap = new Map<string, CheckResult>();
+    for (const cr of this.checkResults) {
+      conceptMap.set(cr.concept, cr);
+    }
+
+    const concepts: RecapConcept[] = [...conceptMap.entries()].map(([name, cr]) => ({
+      name,
+      solid: cr.correct,
+      note: cr.userAnswer,
+    }));
+
+    // Collect prediction moments from completed steps with user answers
+    const predictions: RecapPrediction[] = [];
+    for (const step of this.stepStates) {
+      if (step.status !== "completed" || !step.userAnswer || !step.response) continue;
+      predictions.push({
+        stepTitle: step.plan.title,
+        userSaid: step.userAnswer,
+        aiFeedback: step.response.content,
+        correct: step.response.correct ?? true,
+      });
+    }
+
+    const solid = concepts.filter((c) => c.solid).length;
+    return { concepts, predictions, score: { solid, total: concepts.length } };
   }
 
   getSerializableState(): { plan: LessonPlan; stepStates: LessonStepState[] } | null {

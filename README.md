@@ -29,10 +29,12 @@ Side Bae works in two modes. Pick whichever fits your setup — or use both.
 
 The extension calls an AI backend directly to generate tours, lessons, and investigations on demand. Requires one of:
 
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) — install and run `claude login`
-- [GitHub Copilot](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) — works via VS Code's Language Model API
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) — install and run `claude login` (supports all features)
+- [GitHub Copilot](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) — works via VS Code's Language Model API (tours, lessons, discovery — no investigation)
 
-Side Bae auto-detects which is available. Override with the `sideBae.provider` setting.
+Side Bae auto-detects which is available (tries Copilot first, then Claude Code). Override with the `sideBae.provider` setting.
+
+> **Note:** Investigate Issue requires Claude Code. If you only have Copilot, tours, lessons, feature discovery, and What's New all work — but the interactive debugger needs Claude Code's tool-use capabilities.
 
 ### Skill files (use with any AI chat)
 
@@ -106,7 +108,7 @@ Clone any codebase you admire and learn from it with a live AI tutor. The AI wal
 - **Guided discovery** — the AI asks questions first, then explains. You discover patterns before they're named.
 - **Knowledge checks** — text predictions ("what do you think this does?"), multiple choice, and follow-up questions
 - **Instant feedback** — the AI reacts to YOUR actual words, not a canned response
-- **Personalized recap** — see what clicked, where your thinking evolved, and concepts to revisit
+- **Personalized recap** — a summary card showing which concepts you nailed, which need review, and your prediction moments throughout the lesson
 - **Free replay** — completed lessons save as static tours, replayable without AI calls
 
 **Scan for topics:** Click "Scan for Things to Learn" in the sidebar menu to auto-discover learnable patterns in any codebase.
@@ -120,6 +122,8 @@ Clone any codebase you admire and learn from it with a live AI tutor. The AI wal
 
 Paste a bug description and debug it collaboratively with AI. The AI investigates step by step, shows its work, and asks for your guidance.
 
+> **Requires Claude Code.** Investigation uses tool-calling capabilities only available with the Claude Code provider. If you're using Copilot, this feature is not available.
+
 **How to start:** Click "Investigate Issue" in the command hub or sidebar menu. Paste or describe the bug.
 **Skill file:** `/side-bae-investigate login fails with 401 after session timeout`
 
@@ -127,7 +131,7 @@ Paste a bug description and debug it collaboratively with AI. The AI investigate
 - **Step-by-step investigation** — the AI reads files, traces logic, and shows you what it's finding at each step
 - **Guided checkpoints** — "Am I on the right track?" You can confirm or redirect.
 - **Live fix proposals** — review diffs inline, give feedback, or approve with "Apply this fix"
-- **Test verification** — click "Run tests" to execute the test suite and see pass/fail results
+- **Test verification** — click "Run tests" and the AI executes your test suite via the CLI, reporting pass/fail results
 - **PR creation** — click "Open pull request" to create a branch, commit the fix, and open a PR
 - **Investigation trail** — a color-coded breadcrumb showing each file investigated (blue = context, red = problem, green = fix)
 
