@@ -37,6 +37,7 @@ export class TourPlayer {
   private activeEditor?: vscode.TextEditor;
   private aiAdapter: AIProvider | null = null;
   private askFollowUpInFlight = false;
+  private navigating = false;
 
   constructor(
     workspaceRoot: string,
@@ -48,13 +49,13 @@ export class TourPlayer {
     this.webviewProvider.setNavigationCallback(async (action) => {
       switch (action.type) {
         case "navigate":
-          this.navigateToNode(action.nodeId);
+          await this.navigateToNode(action.nodeId);
           break;
         case "back":
-          this.goBack();
+          await this.goBack();
           break;
         case "forward":
-          this.goForward();
+          await this.goForward();
           break;
         case "stop":
           this.stopTour();
@@ -191,6 +192,8 @@ export class TourPlayer {
     }
     this.engine.reset();
     this.atlasActive = false;
+    this.navigating = false;
+    this.askFollowUpInFlight = false;
     if (this.lessonSession) this.endLesson();
     if (this.investigationSession) this.endInvestigation();
     this.webviewProvider.dispose();
@@ -293,6 +296,7 @@ export class TourPlayer {
 
     try {
       const content = await this.lessonSession.teachActiveStep(this.makeLessonProgress());
+      if (!this.lessonSession) return; // session ended during await
 
       if (content.skipReason) {
         this.webviewProvider.sendStepSkipped(stepIndex, content.skipReason);
@@ -300,6 +304,7 @@ export class TourPlayer {
         this.lessonSession.advanceToNextStep();
         this.webviewProvider.sendLessonPlan(this.lessonSession.getSessionState());
         await this.autoSaveLesson();
+        if (!this.lessonSession) return;
         if (!this.lessonSession.isComplete()) {
           this.lessonProcessing = false;
           await this.teachCurrentStep();
@@ -331,9 +336,11 @@ export class TourPlayer {
 
     try {
       const response = await this.lessonSession.respondToText(text, this.makeLessonProgress());
+      if (!this.lessonSession) return;
       this.webviewProvider.sendStepResponse(stepIndex, response);
       await this.autoSaveLesson();
     } catch (err) {
+      if (!this.lessonSession) return;
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Lesson error: ${msg}`);
     } finally {
@@ -500,8 +507,10 @@ export class TourPlayer {
 
     try {
       const step = await action();
+      if (!this.investigationSession) return;
       await this.showInvestigationStep(step);
     } catch (err) {
+      if (!this.investigationSession) return;
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Investigation error: ${msg}`);
       // Restore the last step so the UI isn't stuck on loading
@@ -922,17 +931,27 @@ export class TourPlayer {
   }
 
   private async showNode(node: TourNode): Promise<void> {
-    if (this.activeEditor) {
-      clearDecorations(this.activeEditor);
-    }
+    if (this.navigating) return;
+    this.navigating = true;
 
     try {
+      if (this.activeEditor) {
+        clearDecorations(this.activeEditor);
+      }
+
       const fileUri = vscode.Uri.file(join(this.workspaceRoot, node.file));
       const doc = await vscode.workspace.openTextDocument(fileUri);
+
+      // Bail if the engine was reset during the await (panel closed)
+      if (!this.engine.isLoaded()) return;
+
       const editor = await vscode.window.showTextDocument(doc, {
         viewColumn: vscode.ViewColumn.One,
-        preserveFocus: false,
+        preserveFocus: true,
       });
+
+      // Bail again — showTextDocument can trigger panel layout changes
+      if (!this.engine.isLoaded()) return;
 
       this.activeEditor = editor;
 
@@ -947,16 +966,17 @@ export class TourPlayer {
       editor.selection = new vscode.Selection(range.start, range.start);
 
       applyDecorations(editor, node);
-    } catch {
-      vscode.window.showWarningMessage(
-        `Could not open ${node.file} — the file may have been moved or deleted.`
-      );
-    }
 
-    // Guard: engine may have been reset while we were opening the file
-    if (this.engine.isLoaded()) {
       this.webviewProvider.updateCard(this.engine.getCardState());
       this.webviewProvider.reveal();
+    } catch {
+      if (this.engine.isLoaded()) {
+        vscode.window.showWarningMessage(
+          `Could not open ${node.file} — the file may have been moved or deleted.`
+        );
+      }
+    } finally {
+      this.navigating = false;
     }
   }
 }
