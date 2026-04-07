@@ -11,6 +11,7 @@ import { registerInvestigateIssueCommand } from "./commands/investigate-issue.js
 import { registerStartLessonCommand } from "./commands/start-lesson.js";
 import { registerScanLearnableCommand } from "./commands/scan-learnable.js";
 import { registerInstallSkillsCommand, checkSkillFilesForUpdates } from "./commands/install-skills.js";
+import { registerExploreAtlasCommand } from "./commands/explore-atlas.js";
 import { disposeDecorations } from "./views/tour-player/decorations.js";
 import * as statusBar from "./views/status-bar.js";
 import * as tourStore from "./engine/tour-store.js";
@@ -72,6 +73,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerInvestigateIssueCommand(context, () => adapter, player, workspaceRoot, checkClaude);
   registerStartLessonCommand(context, () => adapter, player, checkClaude);
   registerScanLearnableCommand(context, featureTreeProvider);
+  registerExploreAtlasCommand(context, () => adapter, player, workspaceRoot, checkClaude);
   registerInstallSkillsCommand(context, workspaceRoot);
 
   // Non-blocking: check if installed skill files are outdated

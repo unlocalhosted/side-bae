@@ -2,8 +2,9 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { saveTour, loadTour, listTours, saveAnnotation } from "./tour-store.js";
+import { saveTour, loadTour, listTours, saveAnnotation, saveAtlas, loadAtlas } from "./tour-store.js";
 import type { TourDocument } from "../types/tour.js";
+import type { SystemAtlas } from "../types/atlas.js";
 
 const MOCK_TOUR: TourDocument = {
   version: 1,
@@ -107,5 +108,70 @@ describe("TourStore", () => {
     });
     const loaded2 = await loadTour(tempDir, "auth-flow");
     expect(loaded2.annotations?.entry).toHaveLength(2);
+  });
+});
+
+// ── System Atlas ──
+
+const MOCK_ATLAS: SystemAtlas = {
+  version: 1,
+  id: "atlas",
+  generatedAt: "2026-04-07T00:00:00Z",
+  projectName: "Test Project",
+  summary: "A test project for unit tests.",
+  techStack: ["TypeScript", "Vitest"],
+  layers: [
+    { id: "core", name: "Core", description: "Core logic", keyFiles: ["src/core.ts"] },
+    { id: "api", name: "API", description: "REST endpoints", keyFiles: ["src/api.ts"] },
+  ],
+  connections: [
+    { from: "api", to: "core", label: "calls business logic" },
+  ],
+  flows: [
+    {
+      id: "create-item",
+      name: "Create Item",
+      trigger: "User submits form",
+      steps: [
+        { summary: "API receives request", explanation: "The handler validates input.", file: "src/api.ts", startLine: 10, endLine: 20, layerId: "api" },
+        { summary: "Core creates record", explanation: "Business logic runs.", file: "src/core.ts", startLine: 5, endLine: 15, layerId: "core" },
+      ],
+    },
+  ],
+  suggestions: [
+    { type: "tour", label: "Explore the API layer", query: "how does the API work?" },
+  ],
+};
+
+describe("Atlas Store", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "side-bae-atlas-test-"));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("saves and loads an atlas", async () => {
+    await saveAtlas(tempDir, MOCK_ATLAS);
+    const loaded = await loadAtlas(tempDir);
+    expect(loaded).toEqual(MOCK_ATLAS);
+  });
+
+  it("returns null when no atlas exists", async () => {
+    const loaded = await loadAtlas(tempDir);
+    expect(loaded).toBeNull();
+  });
+
+  it("handles atlas without optional fields", async () => {
+    const minimal: SystemAtlas = {
+      ...MOCK_ATLAS,
+      suggestions: [],
+    };
+    await saveAtlas(tempDir, minimal);
+    const loaded = await loadAtlas(tempDir);
+    expect(loaded?.suggestions).toEqual([]);
   });
 });

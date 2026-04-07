@@ -14,6 +14,7 @@ import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
 import type { LessonPlanStep, StepContent, StepResponse, LearnableConcept } from "../types/lesson.js";
 import type { InvestigationStep } from "../types/investigation.js";
+import type { SystemAtlas } from "../types/atlas.js";
 
 export type ProviderChoice = "claude-code" | "copilot" | "auto";
 
@@ -66,6 +67,7 @@ class AutoProvider implements AIProvider {
       featureDiscovery: true,
       recentChanges: true,
       learnableConcepts: true,
+      atlas: true,
     };
   }
 
@@ -117,6 +119,11 @@ class AutoProvider implements AIProvider {
   async discoverFeatures(progress: GenerationProgress): Promise<FeatureTreeNode[]> {
     const provider = await this.resolve();
     return provider.discoverFeatures(progress);
+  }
+
+  async generateAtlas(progress: GenerationProgress): Promise<SystemAtlas> {
+    const provider = await this.resolve();
+    return provider.generateAtlas(progress);
   }
 
   private async resolve(): Promise<AIProvider> {

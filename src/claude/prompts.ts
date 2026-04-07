@@ -647,6 +647,72 @@ Generate the next LessonStep. Adapt depth and direction based on the learner's d
 - When you've genuinely covered ALL the main concepts — not after an arbitrary count — generate a recap step with isComplete: true. If the subject needs 20 steps to cover properly, take 20 steps.`;
 }
 
+export function buildAtlasPrompt(
+  codebaseStructure?: string,
+  cachedFeatures?: string
+): string {
+  const contextSection = contextBlock(
+    codebaseStructure,
+    "Use this structure to identify architectural layers, key files, and data flow paths."
+  );
+
+  const featuresSection = cachedFeatures
+    ? `\n\n## Pre-discovered features\n\nThese features were previously identified in this codebase:\n${cachedFeatures}\n\nUse this as a starting point — it tells you what the project does. Focus on HOW it's organized and how data flows.\n`
+    : "";
+
+  return `You are generating a System Atlas — a senior-engineer-level walkthrough of this codebase for someone who has never seen it before. The workspace root is the current directory.
+${contextSection}${featuresSection}
+Read the key files: entry points, main modules, configuration files. Then produce a JSON object following the provided schema.
+
+## What to produce
+
+### Project identity (projectName, summary, techStack)
+- projectName: the actual project name (from package.json, Cargo.toml, etc.)
+- summary: 2-3 sentences. What does this project DO? Not how it's built — what problem it solves. Write for someone who just cloned it and has no idea what it is.
+- techStack: the key technologies (language, framework, key libraries). 3-6 items.
+
+### Architectural layers
+Identify the actual organizational boundaries in the code. These should reflect how the code IS organized, not textbook architecture. If the project has a monolithic index.ts with everything, say that — don't invent layers.
+
+For each layer:
+- id: kebab-case
+- name: human-readable (e.g., "AI Layer", "HTTP Handlers", "Storage Engine")
+- description: 1-2 sentences about what this layer does
+- keyFiles: the 2-5 most important files — the ones you'd tell someone to read first
+
+Order layers top-to-bottom by dependency flow (entry points first, storage/infra last).
+
+### Connections
+For each pair of layers that interact, describe WHAT flows between them and WHY. Don't just say "A calls B" — say "A passes user queries to B, which returns structured tour documents."
+
+### Flow traces
+Identify 3-6 key capabilities and trace each one end-to-end through the layers. Each flow should have:
+- name: the capability (e.g., "Tour Generation", "User Authentication")
+- trigger: what starts it (e.g., "User clicks 'Ask About a Feature'")
+- steps: 4-8 steps, each referencing a real file with accurate line numbers
+
+For each step:
+- summary: one line for the collapsed view
+- explanation: 2-3 sentences with specific code references (\`functionName()\`, \`variableName\`). This is what the user sees when they expand the step — make it useful, not generic.
+- file + startLine + endLine: must be a real file with accurate lines
+- layerId: which architectural layer this step belongs to
+
+### Suggestions
+2-4 recommended next steps — tours or lessons the user should try after reading the atlas. Make these specific: "Learn how the plugin system loads extensions" not "Explore the codebase."
+
+## Voice
+Write like a sharp friend walking someone through a codebase over coffee. Be direct, specific, and opinionated. Name patterns, call out clever design, flag unusual choices.
+
+## Rules
+- Reference real files with accurate line numbers — verify by reading the file
+- Layer boundaries should reflect actual code organization, not theoretical architecture
+- Flow steps must trace a REAL code path, not a hypothetical one
+- Each flow step's explanation should reference specific code (\`backticks\`)
+- Do not include node_modules, dist, or build artifacts
+- generatedAt: current ISO 8601 timestamp
+- id: "atlas"`;
+}
+
 export function buildFeatureDiscoveryPrompt(codebaseStructure?: string): string {
   const contextSection = contextBlock(
     codebaseStructure,

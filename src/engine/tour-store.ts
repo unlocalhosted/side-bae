@@ -5,8 +5,10 @@ import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
 import type { LearnableConcept, LessonPlan, LessonStepState } from "../types/lesson.js";
 import { validateFullLesson, type FullLesson, type FullLessonSummary } from "../types/full-lesson.js";
+import { validateAtlas, type SystemAtlas } from "../types/atlas.js";
 
 const TOUR_DIR = ".side-bae";
+const ATLAS_FILE = "atlas.json";
 const FEATURES_FILE = "features.json";
 const LEARNABLE_FILE = "learnable-concepts.json";
 const WHATS_NEW_FILE = "whats-new.json";
@@ -115,6 +117,35 @@ export async function listTours(
   );
 
   return results.filter((t): t is TourSummary => t !== null);
+}
+
+// ── System Atlas ──
+
+export async function saveAtlas(
+  workspaceRoot: string,
+  atlas: SystemAtlas
+): Promise<void> {
+  const dir = getTourDir(workspaceRoot);
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, ATLAS_FILE),
+    JSON.stringify(atlas, null, 2),
+    "utf-8"
+  );
+}
+
+export async function loadAtlas(
+  workspaceRoot: string
+): Promise<SystemAtlas | null> {
+  try {
+    const content = await readFile(
+      join(getTourDir(workspaceRoot), ATLAS_FILE),
+      "utf-8"
+    );
+    return validateAtlas(JSON.parse(content));
+  } catch {
+    return null;
+  }
 }
 
 export async function saveFeatures(

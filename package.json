@@ -50,6 +50,11 @@
     },
     "commands": [
       {
+        "command": "sideBae.exploreAtlas",
+        "title": "Explore This Codebase",
+        "category": "Side Bae"
+      },
+      {
         "command": "sideBae.generateTour",
         "title": "Ask About a Feature",
         "category": "Side Bae"
@@ -169,6 +174,11 @@
         "command": "sideBae.startLesson",
         "key": "ctrl+shift+l",
         "mac": "cmd+shift+l"
+      },
+      {
+        "command": "sideBae.exploreAtlas",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e"
       }
     ],
     "menus": {
@@ -312,7 +322,7 @@
       },
       {
         "view": "sideBae.featureTree",
-        "contents": "Ask how something works and get an interactive code tour that traces the real code paths, explains design decisions, and connects the dots.\n\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\n\nOr let AI map the entire codebase first.\n\n[$(search) Discover All Features](command:sideBae.discoverFeatures)\n\nNo Claude or Copilot? Use skill files with any AI chat.\n\n[$(cloud-download) Install Skill Files](command:sideBae.installSkillFiles)",
+        "contents": "Get the big picture first — see how this codebase is organized, how data flows, and where to start.\n\n[$(globe) Explore This Codebase](command:sideBae.exploreAtlas)\n\nOr ask about something specific.\n\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\n\nNo Claude or Copilot? Use skill files with any AI chat.\n\n[$(cloud-download) Install Skill Files](command:sideBae.installSkillFiles)",
         "when": "workbenchState != empty && !sideBae.hasContent"
       }
     ]

@@ -1026,6 +1026,199 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════
+   SYSTEM ATLAS — CODEBASE MAP + FLOW TRACES
+   ══════════════════════════════════════════════════════════ */
+
+.atlas { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Phase 1: What is this? ── */
+.atlas-identity { display: flex; flex-direction: column; gap: 8px; animation: slideUp 0.15s ease-out; }
+.atlas-project-name {
+  font-size: 14px; font-weight: 700; color: var(--vscode-foreground);
+}
+.atlas-summary {
+  font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
+  max-width: 65ch;
+}
+.atlas-tech-stack { display: flex; flex-wrap: wrap; gap: 4px; }
+.atlas-tech-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 10px;
+  background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
+  white-space: nowrap;
+}
+
+/* ── Phase 2: How is it organized? ── */
+.atlas-layers { display: flex; flex-direction: column; gap: 0; animation: slideUp 0.15s ease-out; }
+.atlas-section-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--vscode-descriptionForeground); padding: 8px 0 6px;
+}
+.atlas-layer {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 10px; border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.05));
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
+  cursor: pointer; transition: background 0.15s ease-out;
+  min-width: 0;
+}
+.atlas-layer:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
+}
+.atlas-layer:active { opacity: 0.85; }
+.atlas-layer:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.atlas-layer-header { display: flex; align-items: center; gap: 6px; }
+.atlas-layer-name { font-size: 12px; font-weight: 600; color: var(--vscode-foreground); }
+.atlas-layer-desc { font-size: 11px; color: var(--vscode-descriptionForeground); line-height: 1.4; }
+.atlas-layer-files {
+  display: none; flex-direction: column; gap: 2px; padding-top: 4px;
+  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.1));
+}
+.atlas-layer.expanded .atlas-layer-files { display: flex; animation: slideUp 0.12s ease-out; }
+.atlas-layer-file {
+  font-size: 11px; font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-textLink-foreground); cursor: pointer; padding: 2px 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.atlas-layer-file:hover { text-decoration: underline; }
+.atlas-layer-file:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+
+/* Connection arrow between layers */
+.atlas-connection {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 0 3px 14px;
+  font-size: 10px; color: var(--vscode-descriptionForeground);
+}
+.atlas-connection-arrow { color: var(--vscode-textLink-foreground); font-size: 11px; }
+
+/* ── Phase 3: How things flow ── */
+.atlas-flows { display: flex; flex-direction: column; gap: 6px; animation: slideUp 0.15s ease-out; }
+.atlas-flow {
+  display: flex; flex-direction: column;
+  border-radius: 4px; overflow: hidden;
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
+}
+.atlas-flow-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px; cursor: pointer;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.05));
+  border: none; width: 100%; text-align: left;
+  font-family: var(--vscode-font-family); color: var(--vscode-foreground);
+  transition: background 0.15s ease-out;
+}
+.atlas-flow-header:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
+}
+.atlas-flow-header:active { opacity: 0.85; }
+.atlas-flow-header:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: -2px; }
+.atlas-flow-arrow {
+  font-size: 10px; color: var(--vscode-textLink-foreground);
+  transition: transform 0.12s ease-out; flex-shrink: 0;
+}
+.atlas-flow.expanded .atlas-flow-arrow { transform: rotate(90deg); }
+.atlas-flow-name { font-size: 12px; font-weight: 600; flex: 1; }
+.atlas-flow-trigger {
+  font-size: 10px; color: var(--vscode-descriptionForeground);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0;
+}
+
+.atlas-flow-steps {
+  display: none; flex-direction: column; gap: 0;
+  padding: 0;
+}
+.atlas-flow.expanded .atlas-flow-steps { display: flex; }
+
+/* Flow step */
+.atlas-step {
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.1));
+}
+.atlas-step-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 10px; cursor: pointer;
+  transition: background 0.15s ease-out;
+  background: none; border: none; width: 100%; text-align: left;
+  font-family: var(--vscode-font-family); color: var(--vscode-foreground);
+}
+.atlas-step-row:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.08));
+}
+.atlas-step-row:active { opacity: 0.85; }
+.atlas-step-row:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: -2px; }
+.atlas-step-num {
+  font-size: 10px; font-weight: 700; color: var(--vscode-textLink-foreground);
+  width: 16px; flex-shrink: 0; padding-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.atlas-step-summary {
+  font-size: 11px; color: var(--vscode-foreground); flex: 1;
+}
+.atlas-step-file {
+  font-size: 10px; color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family); flex-shrink: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;
+}
+
+/* Expanded step detail */
+.atlas-step-detail {
+  display: none; padding: 6px 10px 10px 34px;
+  flex-direction: column; gap: 6px;
+}
+.atlas-step.expanded .atlas-step-detail {
+  display: flex; animation: qnaAnswerIn 0.12s ease-out;
+}
+.atlas-step-explanation {
+  font-size: 12px; line-height: 1.5; color: var(--vscode-foreground);
+  overflow-wrap: break-word; word-break: break-word;
+}
+/* Shared markdown styles for step explanations */
+.atlas-step-explanation strong { font-weight: 600; }
+.atlas-step-explanation em { font-style: italic; }
+.atlas-step-explanation .md-inline-code {
+  font-family: var(--vscode-editor-font-family); font-size: 12px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  padding: 1px 4px; border-radius: 3px; word-break: break-all;
+}
+.atlas-step-deeper {
+  font-size: 11px; color: var(--vscode-textLink-foreground);
+  background: none; border: none; cursor: pointer; padding: 2px 0;
+  font-family: var(--vscode-font-family); text-align: left;
+}
+.atlas-step-deeper:hover { text-decoration: underline; }
+.atlas-step-deeper:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+
+/* ── Phase 4: Suggestions ── */
+.atlas-suggestions { display: flex; flex-direction: column; gap: 4px; animation: slideUp 0.15s ease-out; }
+.atlas-suggestion {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground);
+  border: none; cursor: pointer; width: 100%; text-align: left;
+  font-size: 12px; font-family: var(--vscode-font-family);
+  transition: background 0.15s ease-out;
+}
+.atlas-suggestion:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.atlas-suggestion:active { opacity: 0.85; }
+.atlas-suggestion:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.atlas-suggestion-icon { flex-shrink: 0; color: var(--vscode-textLink-foreground); font-size: 12px; }
+.atlas-suggestion-label { flex: 1; }
+
+/* ── Atlas loading (in dock) ── */
+.atlas-loading {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--vscode-descriptionForeground);
+  padding: 4px 0;
+}
+
+/* ── Atlas high contrast ── */
+@media (forced-colors: active) {
+  .atlas-layer { border-color: ButtonText; }
+  .atlas-flow { border-color: ButtonText; }
+  .atlas-suggestion { border: 1px solid ButtonText; }
+  .atlas-step-deeper { color: LinkText; }
+}
+
+/* ══════════════════════════════════════════════════════════
    ASK ABOUT SELECTION — FLOATING PILL + Q&A SECTION
    ══════════════════════════════════════════════════════════ */
 

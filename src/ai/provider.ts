@@ -19,6 +19,7 @@ import type {
   LearnableConcept,
 } from "../types/lesson.js";
 import type { InvestigationStep } from "../types/investigation.js";
+import type { SystemAtlas } from "../types/atlas.js";
 
 export interface AIProvider {
   readonly id: string;
@@ -70,6 +71,10 @@ export interface AIProvider {
   discoverFeatures(
     progress: GenerationProgress
   ): Promise<FeatureTreeNode[]>;
+
+  generateAtlas(
+    progress: GenerationProgress
+  ): Promise<SystemAtlas>;
 }
 
 /** Domain-level capabilities — what features this provider supports. */
@@ -80,6 +85,7 @@ export interface AIProviderCapabilities {
   featureDiscovery: boolean;
   recentChanges: boolean;
   learnableConcepts: boolean;
+  atlas: boolean;
 }
 
 export interface AIProviderStatus {

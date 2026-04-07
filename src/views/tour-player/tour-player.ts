@@ -7,6 +7,7 @@ import { readFile } from "node:fs/promises";
 import type { AIProvider } from "../../ai/index.js";
 import type { FullLesson } from "../../types/full-lesson.js";
 import type { TourDocument, TourEdge, TourNode } from "../../types/tour.js";
+import type { SystemAtlas } from "../../types/atlas.js";
 import { INVESTIGATION_PHASE_KIND, type InvestigationStep } from "../../types/investigation.js";
 import { applyDecorations, clearDecorations } from "./decorations.js";
 import type { TourCardPanelProvider } from "./webview-provider.js";
@@ -118,6 +119,9 @@ export class TourPlayer {
         case "askFollowUp":
           this.handleAskFollowUp(action.nodeId, action.selectedText, action.question, action.mode);
           break;
+        case "atlasDeepDive":
+          this.handleAtlasDeepDive(action.query);
+          break;
         case "launchCommand": {
           const allowed = [
             "sideBae.generateTour",
@@ -186,6 +190,7 @@ export class TourPlayer {
       clearDecorations(this.activeEditor);
     }
     this.engine.reset();
+    this.atlasActive = false;
     if (this.lessonSession) this.endLesson();
     if (this.investigationSession) this.endInvestigation();
     this.webviewProvider.dispose();
@@ -193,7 +198,7 @@ export class TourPlayer {
   }
 
   isActive(): boolean {
-    return this.engine.isLoaded();
+    return this.engine.isLoaded() || this.atlasActive;
   }
 
   // ── Lesson session management (plan-based stepper) ──
@@ -696,6 +701,82 @@ export class TourPlayer {
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Failed to apply fix: ${msg}`);
     }
+  }
+
+  // ── System Atlas ──
+
+  private atlasActive = false;
+
+  /** Show a cached atlas instantly (no AI call). */
+  showCachedAtlas(atlas: SystemAtlas): void {
+    if (this.lessonSession) this.endLesson();
+    if (this.investigationSession) this.endInvestigation();
+    if (this.engine.isLoaded()) this.stopTour();
+
+    this.atlasActive = true;
+    this.setTourActiveContext(true);
+    this.webviewProvider.open(`Atlas: ${atlas.projectName}`);
+    this.webviewProvider.sendAtlasFull(atlas);
+  }
+
+  /** Generate a new atlas with progressive rendering. */
+  async startAtlas(adapter: AIProvider): Promise<void> {
+    if (this.lessonSession) this.endLesson();
+    if (this.investigationSession) this.endInvestigation();
+    if (this.engine.isLoaded()) this.stopTour();
+
+    this.atlasActive = true;
+    this.setTourActiveContext(true);
+    this.webviewProvider.open("Exploring codebase...");
+
+    try {
+      const atlas = await adapter.generateAtlas({
+        onProgress: (msg: string) => {
+          this.webviewProvider.updateAtlasLoadingMessage(msg);
+          statusBar.show(msg);
+        },
+        onCancel: () => {},
+      });
+
+      // Send progressively: Phase 1 first, then 2, 3, 4
+      this.webviewProvider.sendAtlasPhase1({
+        projectName: atlas.projectName,
+        summary: atlas.summary,
+        techStack: atlas.techStack,
+      });
+
+      this.webviewProvider.sendAtlasPhase2({
+        layers: atlas.layers,
+        connections: atlas.connections,
+      });
+
+      this.webviewProvider.sendAtlasPhase3({
+        flows: atlas.flows,
+      });
+
+      this.webviewProvider.sendAtlasPhase4({
+        suggestions: atlas.suggestions,
+      });
+
+      // Save to disk
+      await tourStore.saveAtlas(this.workspaceRoot, atlas);
+      statusBar.hide();
+    } catch (err) {
+      statusBar.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Atlas generation failed: ${msg}`);
+      this.atlasActive = false;
+      this.setTourActiveContext(false);
+    }
+  }
+
+  /** Handle "Go deeper" from an atlas flow step — generate a focused tour. */
+  private handleAtlasDeepDive(query: string): void {
+    if (!this.aiAdapter) return;
+    // Stop the atlas but remember we came from it
+    this.atlasActive = false;
+    // Generate a tour with the scoped query
+    vscode.commands.executeCommand("sideBae.generateTour", query);
   }
 
   /** Set the AI provider for follow-up Q&A. */

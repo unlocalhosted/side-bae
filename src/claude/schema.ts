@@ -462,6 +462,90 @@ export const FULL_LESSON_SCHEMA = {
   },
 } as const;
 
+export const SYSTEM_ATLAS_SCHEMA = {
+  type: "object",
+  required: ["projectName", "summary", "techStack", "layers", "connections", "flows", "suggestions"],
+  properties: {
+    projectName: { type: "string", description: "Human-readable project name" },
+    summary: { type: "string", description: "2-3 sentence description of what this project does and why it exists" },
+    techStack: {
+      type: "array",
+      items: { type: "string" },
+      description: "Key technologies (e.g., 'TypeScript', 'React', 'PostgreSQL')",
+    },
+    layers: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "name", "description", "keyFiles"],
+        properties: {
+          id: { type: "string", description: "Kebab-case identifier" },
+          name: { type: "string", description: "Human-readable layer name (e.g., 'AI Layer', 'Engine')" },
+          description: { type: "string", description: "1-2 sentences: what this layer does" },
+          keyFiles: {
+            type: "array",
+            items: { type: "string" },
+            description: "2-5 most important files in this layer (relative paths)",
+          },
+          icon: { type: "string", description: "VS Code codicon name" },
+        },
+      },
+      description: "Architectural layers, ordered top-to-bottom by dependency flow",
+    },
+    connections: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["from", "to", "label"],
+        properties: {
+          from: { type: "string", description: "Source layer id" },
+          to: { type: "string", description: "Target layer id" },
+          label: { type: "string", description: "What flows between them (e.g., 'generates tours', 'renders UI')" },
+        },
+      },
+    },
+    flows: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "name", "trigger", "steps"],
+        properties: {
+          id: { type: "string", description: "Kebab-case identifier" },
+          name: { type: "string", description: "Flow name (e.g., 'Tour Generation')" },
+          trigger: { type: "string", description: "What starts this flow (e.g., 'User asks about a feature')" },
+          steps: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["summary", "explanation", "file", "startLine", "endLine", "layerId"],
+              properties: {
+                summary: { type: "string", description: "One-line summary for collapsed view" },
+                explanation: { type: "string", description: "2-3 sentence mini-explanation for expanded view" },
+                file: { type: "string", description: "Relative file path" },
+                startLine: { type: "number", description: "1-based start line" },
+                endLine: { type: "number", description: "1-based end line" },
+                layerId: { type: "string", description: "Which layer this step belongs to" },
+              },
+            },
+          },
+        },
+      },
+    },
+    suggestions: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["type", "label", "query"],
+        properties: {
+          type: { type: "string", enum: ["tour", "lesson"] },
+          label: { type: "string", description: "Button label (e.g., 'Go deeper into the AI layer')" },
+          query: { type: "string", description: "Pre-scoped prompt for tour or lesson generation" },
+        },
+      },
+    },
+  },
+} as const;
+
 export const FEATURE_TREE_SCHEMA = {
   type: "object",
   required: ["features"],

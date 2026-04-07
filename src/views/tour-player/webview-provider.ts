@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { TourCardState } from "../../engine/tour-engine.js";
 import type { LessonSessionState, StepContent, StepResponse } from "../../types/lesson.js";
 import type { InvestigationStep, InvestigationSessionState } from "../../types/investigation.js";
+import type { SystemAtlas, AtlasLayer, AtlasConnection, AtlasFlow, AtlasSuggestion } from "../../types/atlas.js";
 
 export type NavigationCallback = (
   action:
@@ -30,6 +31,7 @@ export type NavigationCallback = (
     | { type: "openExternal"; url: string }
     | { type: "openFileAtLine"; file: string; line: number }
     | { type: "askFollowUp"; nodeId: string; selectedText: string; question: string; mode: "tour" | "lesson" | "investigation" }
+    | { type: "atlasDeepDive"; query: string }
 ) => void;
 
 export class TourCardPanelProvider {
@@ -152,6 +154,32 @@ export class TourCardPanelProvider {
   sendProviderStatus(available: boolean): void {
     this.lastProviderStatus = available;
     this.post({ type: "providerStatus", available });
+  }
+
+  // ── Atlas ──
+
+  sendAtlasPhase1(data: { projectName: string; summary: string; techStack: string[] }): void {
+    this.post({ type: "atlasPhase1", data });
+  }
+
+  sendAtlasPhase2(data: { layers: AtlasLayer[]; connections: AtlasConnection[] }): void {
+    this.post({ type: "atlasPhase2", data });
+  }
+
+  sendAtlasPhase3(data: { flows: AtlasFlow[] }): void {
+    this.post({ type: "atlasPhase3", data });
+  }
+
+  sendAtlasPhase4(data: { suggestions: AtlasSuggestion[] }): void {
+    this.post({ type: "atlasPhase4", data });
+  }
+
+  sendAtlasFull(data: SystemAtlas): void {
+    this.post({ type: "atlasFull", data });
+  }
+
+  updateAtlasLoadingMessage(message: string): void {
+    this.post({ type: "atlasLoadingMessage", message });
   }
 
   updateInvestigationStep(step: InvestigationStep, state: InvestigationSessionState): void {

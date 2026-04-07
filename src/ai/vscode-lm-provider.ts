@@ -17,10 +17,12 @@ import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
 import type { LessonPlanStep, StepContent, StepResponse, LearnableConcept } from "../types/lesson.js";
 import type { InvestigationStep } from "../types/investigation.js";
-import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA, LESSON_PLAN_SCHEMA, STEP_CONTENT_SCHEMA, STEP_RESPONSE_SCHEMA, LEARNABLE_CONCEPTS_SCHEMA } from "../claude/schema.js";
+import type { SystemAtlas } from "../types/atlas.js";
+import { TOUR_DOCUMENT_SCHEMA, FEATURE_TREE_SCHEMA, RECENT_CHANGES_SCHEMA, LESSON_PLAN_SCHEMA, STEP_CONTENT_SCHEMA, STEP_RESPONSE_SCHEMA, LEARNABLE_CONCEPTS_SCHEMA, SYSTEM_ATLAS_SCHEMA } from "../claude/schema.js";
 import {
   buildTourGenerationPrompt,
   buildFeatureDiscoveryPrompt,
+  buildAtlasPrompt,
   buildWhatsNewPrompt,
   buildLearnableConceptsPrompt,
 } from "../claude/prompts.js";
@@ -54,6 +56,7 @@ export class VSCodeLMProvider implements AIProvider {
     featureDiscovery: true,
     recentChanges: true,
     learnableConcepts: true,
+    atlas: true,
   };
 
   private workspaceRoot: string;
@@ -157,6 +160,20 @@ export class VSCodeLMProvider implements AIProvider {
     const prompt = buildLearnableConceptsPrompt(structure);
     const data = await this.runWithTools(prompt, LEARNABLE_CONCEPTS_SCHEMA, progress);
     return (data as { concepts: LearnableConcept[] }).concepts;
+  }
+
+  async generateAtlas(
+    progress: GenerationProgress
+  ): Promise<SystemAtlas> {
+    const structure = await this.getFormattedContext();
+    const prompt = buildAtlasPrompt(structure);
+    const data = await this.runWithTools(prompt, SYSTEM_ATLAS_SCHEMA, progress);
+    return {
+      version: 1,
+      id: "atlas",
+      generatedAt: new Date().toISOString(),
+      ...(data as Omit<SystemAtlas, "version" | "id" | "generatedAt">),
+    };
   }
 
   async discoverFeatures(

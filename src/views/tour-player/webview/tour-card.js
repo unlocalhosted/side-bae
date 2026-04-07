@@ -86,14 +86,23 @@
 
   const lessonShortcut = isMac ? "\u2318\u21E7L" : "Ctrl+Shift+L";
 
+  const atlasShortcut = isMac ? "\u2318\u21E7E" : "Ctrl+Shift+E";
+
   const hubActions = [
+    {
+      command: "sideBae.exploreAtlas",
+      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+      name: "Explore This Codebase",
+      desc: "Architecture, layers, and how data flows",
+      shortcut: atlasShortcut,
+      primary: true,
+    },
     {
       command: "sideBae.generateTour",
       icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
       name: "Ask About a Feature",
       desc: "\u201CHow does auth work?\u201D \u2192 AI-guided code tour",
       shortcut: generateShortcut,
-      primary: true,
     },
     {
       command: "sideBae.discoverFeatures",
@@ -1120,6 +1129,256 @@
   }
 
   // ══════════════════════════════════════════════════════════
+  // SYSTEM ATLAS — Codebase Map + Flow Traces
+  // ══════════════════════════════════════════════════════════
+
+  let atlasData = null;
+
+  function renderAtlasPhase1(data) {
+    atlasData = data;
+    root.innerHTML = `
+      <div class="panel-header">${escapeHtml(data.projectName)}</div>
+      <div class="card-scroll">
+        <div class="atlas">
+          <div class="atlas-identity">
+            <div class="atlas-project-name">${escapeHtml(data.projectName)}</div>
+            <div class="atlas-summary">${renderMarkdown(data.summary)}</div>
+            <div class="atlas-tech-stack">
+              ${(data.techStack || []).map(t => `<span class="atlas-tech-badge">${escapeHtml(t)}</span>`).join("")}
+            </div>
+          </div>
+          <div id="atlas-phase2"></div>
+          <div id="atlas-phase3"></div>
+          <div id="atlas-phase4"></div>
+        </div>
+      </div>
+      <div class="card-dock">
+        <div class="atlas-loading">
+          <div class="lesson-loading-dots"><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div></div>
+          <span class="lesson-loading-text" id="atlas-loading-msg">Scanning architecture...</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAtlasPhase2(data) {
+    atlasData = { ...atlasData, ...data };
+    const target = document.getElementById("atlas-phase2");
+    if (!target) return;
+
+    // Build layers with connections between them
+    const layerMap = new Map((data.layers || []).map(l => [l.id, l]));
+    const connectionsBySource = new Map();
+    for (const conn of (data.connections || [])) {
+      if (!connectionsBySource.has(conn.from)) connectionsBySource.set(conn.from, []);
+      connectionsBySource.get(conn.from).push(conn);
+    }
+
+    let html = `<div class="atlas-layers"><div class="atlas-section-label">Architecture</div>`;
+
+    for (let i = 0; i < (data.layers || []).length; i++) {
+      const layer = data.layers[i];
+      html += `
+        <div class="atlas-layer" data-layer-id="${escapeHtml(layer.id)}" tabindex="0" role="button" aria-expanded="false">
+          <div class="atlas-layer-header">
+            <div class="atlas-layer-name">${escapeHtml(layer.name)}</div>
+          </div>
+          <div class="atlas-layer-desc">${escapeHtml(layer.description)}</div>
+          <div class="atlas-layer-files">
+            ${(layer.keyFiles || []).map(f => `<span class="atlas-layer-file" data-file="${escapeHtml(f)}" tabindex="0" role="link">${escapeHtml(f)}</span>`).join("")}
+          </div>
+        </div>
+      `;
+
+      // Show connections from this layer to the next
+      const conns = connectionsBySource.get(layer.id) || [];
+      for (const conn of conns) {
+        html += `
+          <div class="atlas-connection">
+            <span class="atlas-connection-arrow">\u2193</span>
+            ${escapeHtml(conn.label)}
+          </div>
+        `;
+      }
+    }
+
+    html += `</div>`;
+    target.innerHTML = html;
+
+    // Bind layer expand/collapse
+    target.querySelectorAll(".atlas-layer").forEach(el => {
+      const toggle = (e) => {
+        if (e.target.classList?.contains("atlas-layer-file")) return;
+        const expanded = el.classList.toggle("expanded");
+        el.setAttribute("aria-expanded", expanded ? "true" : "false");
+      };
+      el.addEventListener("click", toggle);
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(e); }
+      });
+    });
+
+    // Bind file clicks
+    target.querySelectorAll(".atlas-layer-file").forEach(el => {
+      const open = (e) => {
+        e.stopPropagation(); // don't bubble to layer toggle
+        const file = el.getAttribute("data-file");
+        if (file) vscode.postMessage({ type: "openFileAtLine", file, line: 1 });
+      };
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); open(e); }
+      });
+    });
+
+    // Update loading message
+    const msg = document.getElementById("atlas-loading-msg");
+    if (msg) msg.textContent = "Tracing flows...";
+  }
+
+  function renderAtlasPhase3(data) {
+    atlasData = { ...atlasData, ...data };
+    const target = document.getElementById("atlas-phase3");
+    if (!target) return;
+
+    let html = `<div class="atlas-flows"><div class="atlas-section-label">Key Flows</div>`;
+
+    for (const flow of (data.flows || [])) {
+      const stepsHtml = (flow.steps || []).map((step, i) => `
+        <div class="atlas-step" data-step-index="${i}" data-flow-id="${escapeHtml(flow.id)}">
+          <button class="atlas-step-row" aria-expanded="false">
+            <span class="atlas-step-num">${i + 1}</span>
+            <span class="atlas-step-summary">${escapeHtml(step.summary)}</span>
+            <span class="atlas-step-file">${escapeHtml(shortFileName(step.file))}</span>
+          </button>
+          <div class="atlas-step-detail">
+            <div class="atlas-step-explanation">${renderMarkdown(step.explanation)}</div>
+            <button class="atlas-step-deeper" data-query="${escapeHtml("How does " + step.summary.toLowerCase() + " work in " + step.file + "?")}">Go deeper \u2192</button>
+          </div>
+        </div>
+      `).join("");
+
+      html += `
+        <div class="atlas-flow" data-flow-id="${escapeHtml(flow.id)}">
+          <button class="atlas-flow-header" aria-expanded="false">
+            <span class="atlas-flow-arrow">\u25B8</span>
+            <span class="atlas-flow-name">${escapeHtml(flow.name)}</span>
+            <span class="atlas-flow-trigger">${escapeHtml(flow.trigger)}</span>
+          </button>
+          <div class="atlas-flow-steps">${stepsHtml}</div>
+        </div>
+      `;
+    }
+
+    html += `</div>`;
+    target.innerHTML = html;
+
+    // Bind flow accordion
+    target.querySelectorAll(".atlas-flow-header").forEach(header => {
+      header.addEventListener("click", () => {
+        const flow = header.closest(".atlas-flow");
+        const wasExpanded = flow.classList.contains("expanded");
+        // Collapse all flows
+        target.querySelectorAll(".atlas-flow.expanded").forEach(f => f.classList.remove("expanded"));
+        if (!wasExpanded) flow.classList.add("expanded");
+      });
+    });
+
+    // Bind step expand (click step row → expand detail + open file)
+    target.querySelectorAll(".atlas-step-row").forEach(row => {
+      row.addEventListener("click", () => {
+        const step = row.closest(".atlas-step");
+        const wasExpanded = step.classList.contains("expanded");
+
+        // Collapse all steps in this flow
+        step.closest(".atlas-flow-steps")?.querySelectorAll(".atlas-step.expanded").forEach(s => s.classList.remove("expanded"));
+
+        if (!wasExpanded) {
+          step.classList.add("expanded");
+          // Open file in editor
+          const flowId = step.getAttribute("data-flow-id");
+          const stepIdx = parseInt(step.getAttribute("data-step-index"), 10);
+          const flowData = (atlasData?.flows || []).find(f => f.id === flowId);
+          const stepData = flowData?.steps?.[stepIdx];
+          if (stepData?.file) {
+            vscode.postMessage({ type: "openFileAtLine", file: stepData.file, line: stepData.startLine || 1 });
+          }
+        }
+      });
+    });
+
+    // Bind "Go deeper" buttons
+    target.querySelectorAll(".atlas-step-deeper").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const query = btn.getAttribute("data-query");
+        if (query) vscode.postMessage({ type: "atlasDeepDive", query });
+      });
+    });
+
+    // Remove loading, show suggestions placeholder
+    const dock = root.querySelector(".card-dock");
+    if (dock) dock.innerHTML = `<button class="stop-btn" id="atlas-done"><span class="nav-key">Esc</span> Done</button>`;
+    const doneBtn = document.getElementById("atlas-done");
+    if (doneBtn) doneBtn.addEventListener("click", () => vscode.postMessage({ type: "stop" }));
+
+    // Scroll to flows
+    const flowsEl = target.querySelector(".atlas-flows");
+    if (flowsEl) {
+      requestAnimationFrame(() => flowsEl.scrollIntoView({ behavior: systemReducedMotion ? "auto" : "smooth", block: "nearest" }));
+    }
+  }
+
+  function renderAtlasPhase4(data) {
+    atlasData = { ...atlasData, ...data };
+    const target = document.getElementById("atlas-phase4");
+    if (!target) return;
+
+    const suggestions = data.suggestions || [];
+    if (suggestions.length === 0) return;
+
+    const icons = { tour: "\u{1F9ED}", lesson: "\u{1F393}" };
+
+    let html = `<div class="atlas-suggestions"><div class="atlas-section-label">Where to go next</div>`;
+    for (const sug of suggestions) {
+      html += `
+        <button class="atlas-suggestion" data-type="${escapeHtml(sug.type)}" data-query="${escapeHtml(sug.query)}">
+          <span class="atlas-suggestion-icon">${icons[sug.type] || "\u2192"}</span>
+          <span class="atlas-suggestion-label">${escapeHtml(sug.label)}</span>
+        </button>
+      `;
+    }
+    html += `</div>`;
+    target.innerHTML = html;
+
+    // Bind suggestion clicks
+    target.querySelectorAll(".atlas-suggestion").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const type = btn.getAttribute("data-type");
+        const query = btn.getAttribute("data-query");
+        if (type === "tour") {
+          vscode.postMessage({ type: "atlasDeepDive", query });
+        } else if (type === "lesson") {
+          vscode.postMessage({ type: "launchCommand", command: "sideBae.startLesson" });
+        }
+      });
+    });
+  }
+
+  /** Render a complete cached atlas (all phases at once). */
+  function renderAtlasFull(data) {
+    renderAtlasPhase1(data);
+    renderAtlasPhase2(data);
+    renderAtlasPhase3(data);
+    renderAtlasPhase4(data);
+  }
+
+  function updateAtlasLoadingMessage(message) {
+    const el = document.getElementById("atlas-loading-msg");
+    if (el) el.textContent = message;
+  }
+
+  // ══════════════════════════════════════════════════════════
   // ASK ABOUT SELECTION — Shared Q&A Module
   // ══════════════════════════════════════════════════════════
 
@@ -1484,6 +1743,24 @@
       case "investigationLoadingMessage":
         updateInvestigationLoadingMessage(message.message);
         break;
+      case "atlasPhase1":
+        renderAtlasPhase1(message.data);
+        break;
+      case "atlasPhase2":
+        renderAtlasPhase2(message.data);
+        break;
+      case "atlasPhase3":
+        renderAtlasPhase3(message.data);
+        break;
+      case "atlasPhase4":
+        renderAtlasPhase4(message.data);
+        break;
+      case "atlasFull":
+        renderAtlasFull(message.data);
+        break;
+      case "atlasLoadingMessage":
+        updateAtlasLoadingMessage(message.message);
+        break;
       case "askFollowUpResponse":
         handleAskFollowUpResponse(message.nodeId, message.annotation, message.mode);
         break;
@@ -1501,6 +1778,7 @@
         previousNodeId = null;
         hasSeenAllNodes = false;
         currentReport = null;
+        atlasData = null;
         clearSessionQnA();
         particles = [];
         if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
