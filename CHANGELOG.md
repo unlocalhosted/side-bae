@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.1.0
+
+### Ask About Selection
+
+Select unfamiliar text in any tour explanation, lesson step, or investigation finding and ask a contextual question. The AI answers in 2-3 sentences scoped to the specific code you're looking at — not generic definitions.
+
+- **Floating Ask pill** — appears on text selection (3+ characters with word content), dismisses on scroll
+- **Q&A section** — collapsible accordion below explanations, scrollable, with loading state
+- **Persistent annotations (tours)** — Q&As are saved to the `.tour.json` file so shared tours include accumulated knowledge
+- **Session annotations (lessons/investigations)** — Q&As survive back/forward navigation but are cleared when the session ends
+- **Offline replay** — previously saved annotations display without an AI provider
+- **No-provider fallback** — Ask pill still appears; helpful message explains how to connect Claude Code or Copilot
+
+### Improved Copy
+
+- Error messages now include recovery actions ("Try again or rephrase your question")
+- "Already running" warnings explain how to unblock ("Close the panel first to start a new one")
+- "No active tour" shows the keyboard shortcut to start one
+- GitHub CLI error is clearer about what to check
+
+## 1.0.0
+
+Initial stable release with tours, lessons, investigations, feature discovery, What's New, and skill files.
+
 ## 0.3.0
 
 ### Multi-Provider AI Architecture
