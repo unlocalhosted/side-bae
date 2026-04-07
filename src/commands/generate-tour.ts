@@ -20,7 +20,7 @@ export function registerGenerateTourCommand(
       async (featureName?: string) => {
         if (generating) {
           vscode.window.showWarningMessage(
-            "A tour is already generating."
+            "A tour is still generating. Wait for it to finish, or close the panel to cancel."
           );
           return;
         }

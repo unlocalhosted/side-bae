@@ -1,4 +1,4 @@
-import type { TourDocument, TourEdge, TourNode } from "../types/tour.js";
+import type { TourAnnotation, TourDocument, TourEdge, TourNode } from "../types/tour.js";
 
 export interface BreadcrumbEntry {
   id: string;
@@ -54,6 +54,8 @@ export interface TourCardState {
   isNewTour: boolean;
   /** Investigation report — shown at tour completion for investigation tours */
   report: string | null;
+  /** Persisted annotations from the tour file, keyed by node ID */
+  annotations: Record<string, TourAnnotation[]> | null;
 }
 
 export class TourEngine {
@@ -95,6 +97,10 @@ export class TourEngine {
 
   getTour(): TourDocument | null {
     return this.tour;
+  }
+
+  getTourId(): string | null {
+    return this.tour?.id ?? null;
   }
 
   getCurrentNodeId(): string | null {
@@ -273,11 +279,20 @@ export class TourEngine {
       summary,
       isNewTour: this.newTourFlag,
       report: this.tour.report ?? null,
+      annotations: this.tour.annotations ?? null,
     };
 
     this.newTourFlag = false;
 
     return state;
+  }
+
+  /** Add an annotation to the in-memory tour document. */
+  addAnnotation(nodeId: string, annotation: TourAnnotation): void {
+    if (!this.tour) return;
+    if (!this.tour.annotations) this.tour.annotations = {};
+    if (!this.tour.annotations[nodeId]) this.tour.annotations[nodeId] = [];
+    this.tour.annotations[nodeId].push(annotation);
   }
 
   reset(): void {

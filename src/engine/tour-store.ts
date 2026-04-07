@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { validateTourDocument, type TourDocument } from "../types/tour.js";
+import { validateTourDocument, type TourAnnotation, type TourDocument } from "../types/tour.js";
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
 import type { LearnableConcept, LessonPlan, LessonStepState } from "../types/lesson.js";
@@ -38,6 +38,30 @@ export async function loadTour(
   const filePath = getTourPath(workspaceRoot, tourId);
   const content = await readFile(filePath, "utf-8");
   return validateTourDocument(JSON.parse(content));
+}
+
+// Sequential write queue to prevent concurrent read-modify-write on the same file
+let _annotationWriteQueue: Promise<void> = Promise.resolve();
+
+/** Append a single annotation to a tour file on disk (incremental write). */
+export async function saveAnnotation(
+  workspaceRoot: string,
+  tourId: string,
+  nodeId: string,
+  annotation: TourAnnotation
+): Promise<void> {
+  _annotationWriteQueue = _annotationWriteQueue.then(async () => {
+    const filePath = getTourPath(workspaceRoot, tourId);
+    const content = await readFile(filePath, "utf-8");
+    const tour = JSON.parse(content) as TourDocument;
+    if (!tour.annotations) tour.annotations = {};
+    if (!tour.annotations[nodeId]) tour.annotations[nodeId] = [];
+    tour.annotations[nodeId].push(annotation);
+    await writeFile(filePath, JSON.stringify(tour, null, 2), "utf-8");
+  }).catch(() => {
+    // Non-critical — annotation loss is acceptable vs crashing
+  });
+  return _annotationWriteQueue;
 }
 
 export async function deleteTour(

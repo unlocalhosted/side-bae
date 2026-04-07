@@ -50,6 +50,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Create panel provider and tour player
   const webviewProvider = new TourCardPanelProvider(context.extensionUri);
   const player = new TourPlayer(workspaceRoot, webviewProvider);
+  player.setAIAdapter(adapter);
 
   // Feature tree
   const featureTreeProvider = new FeatureTreeProvider(
@@ -167,6 +168,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("sideBae")) {
         adapter = getProvider(workspaceRoot);
+        player.setAIAdapter(adapter);
         webviewProvider.sendCelebrationSetting();
       }
     })

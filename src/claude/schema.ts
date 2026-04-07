@@ -161,6 +161,22 @@ export const TOUR_DOCUMENT_SCHEMA = {
       required: ["subject", "depth", "concepts", "synopsis"],
       description: "Lesson metadata — present when this tour is a saved lesson replay.",
     },
+    annotations: {
+      type: "object",
+      description: "User-generated Q&A annotations keyed by node ID. Each value is an array of question/answer pairs.",
+      additionalProperties: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["selectedText", "question", "answer"],
+          properties: {
+            selectedText: { type: "string", description: "The text the user selected before asking" },
+            question: { type: "string", description: "The user's question" },
+            answer: { type: "string", description: "The AI-generated answer scoped to this explanation and code" },
+          },
+        },
+      },
+    },
   },
 } as const;
 

@@ -29,6 +29,7 @@ export type NavigationCallback = (
     | { type: "investigationEnd" }
     | { type: "openExternal"; url: string }
     | { type: "openFileAtLine"; file: string; line: number }
+    | { type: "askFollowUp"; nodeId: string; selectedText: string; question: string; mode: "tour" | "lesson" | "investigation" }
 ) => void;
 
 export class TourCardPanelProvider {
@@ -100,7 +101,10 @@ export class TourCardPanelProvider {
     });
 
     this.sendCelebrationSetting();
+    this.sendProviderStatus(this.lastProviderStatus);
   }
+
+  private lastProviderStatus = true;
 
   sendCelebrationSetting(): void {
     const setting = vscode.workspace
@@ -135,6 +139,19 @@ export class TourCardPanelProvider {
 
   updateLessonLoadingMessage(message: string): void {
     this.post({ type: "lessonLoadingMessage", message });
+  }
+
+  sendAskFollowUpResponse(nodeId: string, annotation: { selectedText: string; question: string; answer: string }, mode: "tour" | "lesson" | "investigation"): void {
+    this.post({ type: "askFollowUpResponse", nodeId, annotation, mode });
+  }
+
+  sendAskFollowUpError(): void {
+    this.post({ type: "askFollowUpError" });
+  }
+
+  sendProviderStatus(available: boolean): void {
+    this.lastProviderStatus = available;
+    this.post({ type: "providerStatus", available });
   }
 
   updateInvestigationStep(step: InvestigationStep, state: InvestigationSessionState): void {

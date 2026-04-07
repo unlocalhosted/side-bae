@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { TourEngine } from "../../engine/tour-engine.js";
 import { LessonSession } from "../../engine/lesson-session.js";
 import { InvestigationSession } from "../../engine/investigation-session.js";
+import { readFile } from "node:fs/promises";
 import type { AIProvider } from "../../ai/index.js";
 import type { FullLesson } from "../../types/full-lesson.js";
 import type { TourDocument, TourEdge, TourNode } from "../../types/tour.js";
@@ -11,6 +12,7 @@ import { applyDecorations, clearDecorations } from "./decorations.js";
 import type { TourCardPanelProvider } from "./webview-provider.js";
 import * as tourStore from "../../engine/tour-store.js";
 import * as statusBar from "../status-bar.js";
+import { buildFollowUpPrompt } from "../../claude/prompts.js";
 
 const PHASE_LOADING_MESSAGES: Record<string, string> = {
   orient: "Understanding the issue...",
@@ -32,6 +34,8 @@ export class TourPlayer {
   private workspaceRoot: string;
   private webviewProvider: TourCardPanelProvider;
   private activeEditor?: vscode.TextEditor;
+  private aiAdapter: AIProvider | null = null;
+  private askFollowUpInFlight = false;
 
   constructor(
     workspaceRoot: string,
@@ -110,6 +114,9 @@ export class TourPlayer {
           break;
         case "openFileAtLine":
           this.openFileAtLine(action.file, action.line);
+          break;
+        case "askFollowUp":
+          this.handleAskFollowUp(action.nodeId, action.selectedText, action.question, action.mode);
           break;
         case "launchCommand": {
           const allowed = [
@@ -688,6 +695,103 @@ export class TourPlayer {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Failed to apply fix: ${msg}`);
+    }
+  }
+
+  /** Set the AI provider for follow-up Q&A. */
+  setAIAdapter(adapter: AIProvider | null): void {
+    this.aiAdapter = adapter;
+    this.webviewProvider.sendProviderStatus(adapter !== null);
+  }
+
+  // ── Ask About Selection ──
+
+  private async handleAskFollowUp(
+    nodeId: string,
+    selectedText: string,
+    question: string,
+    mode: "tour" | "lesson" | "investigation"
+  ): Promise<void> {
+    if (!this.aiAdapter) {
+      this.webviewProvider.sendAskFollowUpError();
+      return;
+    }
+
+    if (this.askFollowUpInFlight) return;
+    this.askFollowUpInFlight = true;
+
+    try {
+      // Get the explanation text and file content for prompt context
+      let explanation = "";
+      let fileContent = "";
+
+      if (mode === "tour") {
+        const node = this.engine.getNode(nodeId);
+        if (node) {
+          explanation = node.explanation;
+          try {
+            fileContent = await readFile(join(this.workspaceRoot, node.file), "utf-8");
+          } catch {
+            // File might not exist
+          }
+        }
+      } else if (mode === "lesson" && this.lessonSession) {
+        const state = this.lessonSession.getSessionState();
+        const step = state.steps.find(s => s.plan.id === nodeId);
+        if (step?.content) {
+          explanation = step.content.explanation;
+          try {
+            fileContent = await readFile(join(this.workspaceRoot, step.plan.file), "utf-8");
+          } catch {
+            // File might not exist
+          }
+        }
+      } else if (mode === "investigation" && this.investigationSession) {
+        const state = this.investigationSession.getSessionState();
+        if (state.currentStep) {
+          explanation = state.currentStep.content || "";
+          if (state.currentStep.file) {
+            try {
+              fileContent = await readFile(join(this.workspaceRoot, state.currentStep.file), "utf-8");
+            } catch {
+              // File might not exist
+            }
+          }
+        }
+      }
+
+      const prompt = buildFollowUpPrompt(explanation, fileContent, selectedText, question);
+      const response = await this.aiAdapter.generateStepResponse(prompt, {
+        onProgress: () => {},
+        onCancel: () => {},
+      });
+
+      const annotation = {
+        selectedText,
+        question,
+        answer: response.content,
+      };
+
+      // Send the answer back to the webview
+      this.webviewProvider.sendAskFollowUpResponse(nodeId, annotation, mode);
+
+      // Persist to disk for tour mode (immediately, as per PRD)
+      if (mode === "tour") {
+        // Update in-memory tour so annotations survive navigation
+        this.engine.addAnnotation(nodeId, annotation);
+        const tourId = this.engine.getTourId();
+        if (tourId) {
+          tourStore.saveAnnotation(this.workspaceRoot, tourId, nodeId, annotation).catch(() => {
+            // Non-critical
+          });
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Question failed — ${msg}. Try again or rephrase your question.`);
+      this.webviewProvider.sendAskFollowUpError();
+    } finally {
+      this.askFollowUpInFlight = false;
     }
   }
 

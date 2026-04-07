@@ -1,5 +1,11 @@
 import type { LessonLayer, LessonDepth } from "./lesson.js";
 
+export interface TourAnnotation {
+  selectedText: string;
+  question: string;
+  answer: string;
+}
+
 export interface TourEdge {
   target: string;
   label: string;
@@ -56,6 +62,8 @@ export interface TourDocument {
   report?: string;
   /** Lesson metadata — present when this tour is a saved lesson replay */
   lesson?: LessonMeta;
+  /** User-generated Q&A annotations, keyed by node ID */
+  annotations?: Record<string, TourAnnotation[]>;
 }
 
 export class TourValidationError extends Error {
@@ -150,6 +158,7 @@ export function validateTourDocument(data: unknown): TourDocument {
     nodes: tour.nodes,
     report: tour.report,
     lesson: tour.lesson,
+    annotations: tour.annotations,
   };
 
   // Step 1: Walk reachability on the ORIGINAL edges (before cycle stripping)

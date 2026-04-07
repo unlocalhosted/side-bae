@@ -296,7 +296,7 @@
   let currentReport = null;
 
   function renderCard(data) {
-    const { node, breadcrumb, canGoBack, totalNodes, visitedCount, edgeInfo, arrivedVia, summary, isNewTour, report } = data;
+    const { node, breadcrumb, canGoBack, totalNodes, visitedCount, edgeInfo, arrivedVia, summary, isNewTour, report, annotations } = data;
     currentReport = report || null;
 
     // Show summary card on new tour instead of jumping straight to first stop
@@ -418,6 +418,7 @@
             <div class="card-file" title="${escapeHtml(node.file)}:${node.startLine}-${node.endLine}">${escapeHtml(node.file)}:${node.startLine}-${node.endLine}</div>
           </div>
           <div class="card-explanation">${renderMarkdown(node.explanation)}</div>
+          ${renderQnASection(breadcrumb[breadcrumb.length - 1]?.id ?? "", annotations?.[breadcrumb[breadcrumb.length - 1]?.id] || [], "tour")}
           ${suggestedEditHtml}
           ${currentReport && allVisited ? `
             <div class="investigation-report fade-in">
@@ -454,6 +455,11 @@
     if (backBtn) backBtn.addEventListener("click", () => vscode.postMessage({ type: "back" }));
     const stopBtn = document.getElementById("btn-stop");
     if (stopBtn) stopBtn.addEventListener("click", () => vscode.postMessage({ type: "stop" }));
+
+    // Q&A section events + selection listener
+    const currentNodeId = breadcrumb[breadcrumb.length - 1]?.id ?? "";
+    bindQnAEvents(currentNodeId, "tour");
+    attachSelectionListener(".card-explanation", ".card-scroll", currentNodeId, "tour");
 
     // Apply fix button
     const applyBtn = root.querySelector(".apply-fix-btn");
@@ -609,9 +615,13 @@
           ? `<button class="lesson-send-btn" id="lesson-continue" style="width:100%">Continue</button>`
           : "";
 
+        // Q&A section for the lesson step
+        const stepQnAHtml = renderQnASection(step.plan.id, [], "lesson");
+
         contentHtml = `
           <div class="stepper-content">
             ${explanationHtml}
+            ${stepQnAHtml}
             ${promptHtml}
             ${exchangeHtml}
             ${inputHtml}
@@ -646,12 +656,15 @@
       `;
     }).join("");
 
+    const recapHtml = state.isComplete && state.recapData ? renderRecapCard(state.recapData) : "";
+
     root.innerHTML = `
       <div class="panel-header">Learning: ${escapeHtml(state.subject)}</div>
       <div class="card-scroll">
         <div class="lesson-stepper fade-in">
           ${stepsHtml}
         </div>
+        ${recapHtml}
       </div>
       <div class="card-dock">
         <button class="lesson-end-btn" id="lesson-end" style="width:100%">Done</button>
@@ -660,18 +673,90 @@
 
     bindStepperEvents(state);
 
-    // Scroll active step into view only when the step index changes
-    const activeIdx = state.activeStepIndex;
-    if (activeIdx !== lastScrolledStepIndex) {
-      lastScrolledStepIndex = activeIdx;
-      const activeStep = root.querySelector(".stepper-step.active");
-      if (activeStep) {
-        requestAnimationFrame(() => activeStep.scrollIntoView({ behavior: systemReducedMotion ? "auto" : "smooth", block: "nearest" }));
+    // Scroll: when complete, scroll to recap; otherwise scroll to active step
+    if (state.isComplete && state.recapData) {
+      const recapEl = root.querySelector(".lesson-recap");
+      if (recapEl) {
+        requestAnimationFrame(() => recapEl.scrollIntoView({ behavior: systemReducedMotion ? "auto" : "smooth", block: "start" }));
+      }
+    } else {
+      const activeIdx = state.activeStepIndex;
+      if (activeIdx !== lastScrolledStepIndex) {
+        lastScrolledStepIndex = activeIdx;
+        const activeStep = root.querySelector(".stepper-step.active");
+        if (activeStep) {
+          requestAnimationFrame(() => activeStep.scrollIntoView({ behavior: systemReducedMotion ? "auto" : "smooth", block: "nearest" }));
+        }
       }
     }
   }
 
+  function renderRecapCard(recap) {
+    // Concepts section
+    let conceptsHtml = "";
+    if (recap.concepts.length > 0) {
+      const conceptItems = recap.concepts.map((c) => {
+        const iconClass = c.solid ? "solid" : "shaky";
+        const icon = c.solid ? "\u2713" : "?";
+        return `
+          <div class="recap-concept">
+            <span class="recap-concept-icon ${iconClass}">${icon}</span>
+            <span class="recap-concept-name">${escapeHtml(c.name)}</span>
+          </div>
+        `;
+      }).join("");
+
+      conceptsHtml = `
+        <div class="recap-section">
+          <div class="recap-section-title">Concepts</div>
+          ${conceptItems}
+        </div>
+      `;
+    }
+
+    // Predictions section — show up to 5 most interesting moments
+    let predictionsHtml = "";
+    const preds = recap.predictions.slice(0, 5);
+    if (preds.length > 0) {
+      const predItems = preds.map((p) => `
+        <div class="recap-prediction">
+          <div class="recap-prediction-label">${escapeHtml(p.stepTitle)}</div>
+          <div class="recap-prediction-text">You said: "${escapeHtml(p.userSaid.length > 120 ? p.userSaid.slice(0, 120) + "..." : p.userSaid)}"</div>
+          <div class="recap-reality-text">${renderMarkdown(p.aiFeedback.length > 200 ? p.aiFeedback.slice(0, 200) + "..." : p.aiFeedback)}</div>
+        </div>
+      `).join("");
+
+      predictionsHtml = `
+        <div class="recap-section">
+          <div class="recap-section-title">Your journey</div>
+          ${predItems}
+        </div>
+      `;
+    }
+
+    // Score
+    const scoreHtml = recap.score.total > 0
+      ? `<div class="recap-score">${recap.score.solid} of ${recap.score.total} concepts solid</div>`
+      : "";
+
+    return `
+      <div class="lesson-recap card-enter">
+        <div class="recap-section-title" style="font-size:13px; margin-bottom:4px;">Lesson complete</div>
+        ${scoreHtml}
+        ${conceptsHtml}
+        ${predictionsHtml}
+      </div>
+    `;
+  }
+
   function bindStepperEvents(state) {
+    // Q&A events for active lesson step
+    const activeStep = state.steps[state.activeStepIndex];
+    if (activeStep?.plan?.id) {
+      bindQnAEvents(activeStep.plan.id, "lesson");
+      attachSelectionListener(".lesson-content", ".card-scroll", activeStep.plan.id, "lesson");
+    }
+
     // Text send
     const sendBtn = document.getElementById("lesson-send");
     const textarea = document.getElementById("lesson-input");
@@ -903,6 +988,7 @@
           ${trailHtml}
           ${step.title ? `<div class="card-header"><div class="card-title">${escapeHtml(step.title)}</div>${fileHtml}</div>` : fileHtml ? `<div class="card-header">${fileHtml}</div>` : ""}
           ${contentHtml}
+          ${renderQnASection(state.stepIndex?.toString() || "inv-" + (state.turnCount || 0), [], "investigation")}
           ${promptHtml}
           ${diffHtml}
           ${testHtml}
@@ -926,6 +1012,11 @@
   }
 
   function bindInvestigationEvents(_step, _state) {
+    // Q&A events for investigation step
+    const invNodeId = _state.stepIndex?.toString() || "inv-" + (_state.turnCount || 0);
+    bindQnAEvents(invNodeId, "investigation");
+    attachSelectionListener(".investigation-content", ".card-scroll", invNodeId, "investigation");
+
     // Text send
     const sendBtn = document.getElementById("investigation-send");
     const textarea = document.getElementById("investigation-input");
@@ -1028,6 +1119,316 @@
     }
   }
 
+  // ══════════════════════════════════════════════════════════
+  // ASK ABOUT SELECTION — Shared Q&A Module
+  // ══════════════════════════════════════════════════════════
+
+  /** @type {Map<string, Array<{selectedText: string, question: string, answer: string}>>} */
+  const sessionQnA = new Map();
+
+  /** @type {HTMLElement|null} */
+  let activePill = null;
+
+  /** @type {string|null} */
+  let pillSelectedText = null;
+
+  /** @type {boolean} */
+  let hasAIProvider = true;
+
+  // ── Single persistent listeners (avoid leak on re-render) ──
+  let _qnaContainerSelector = null;
+  let _qnaNodeId = null;
+  let _qnaMode = null;
+
+  // Selection listener — attached once at module load
+  document.addEventListener("selectionchange", () => {
+    if (!_qnaContainerSelector) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) { dismissPill(); return; }
+
+    const text = sel.toString().trim();
+    if (text.length < 3 || !/\w/.test(text)) { dismissPill(); return; }
+
+    const range = sel.getRangeAt(0);
+    const startEl = range.startContainer.nodeType === 1
+      ? range.startContainer
+      : range.startContainer.parentElement;
+    const endEl = range.endContainer.nodeType === 1
+      ? range.endContainer
+      : range.endContainer.parentElement;
+    // Both ends must be inside the explanation container
+    if (!startEl || !startEl.closest(_qnaContainerSelector)) { dismissPill(); return; }
+    if (!endEl || !endEl.closest(_qnaContainerSelector)) { dismissPill(); return; }
+
+    pillSelectedText = text;
+    const scrollEl = document.querySelector(".card-scroll");
+    if (scrollEl) showPill(range, scrollEl);
+  });
+
+  // Scroll listener — attached once, dismisses pill on any .card-scroll scroll
+  let _scrollListenerBound = false;
+  function ensureScrollListener() {
+    if (_scrollListenerBound) return;
+    document.addEventListener("scroll", (e) => {
+      if (e.target && /** @type {Element} */ (e.target).classList?.contains("card-scroll")) dismissPill();
+    }, { capture: true, passive: true });
+    _scrollListenerBound = true;
+  }
+
+  /**
+   * Update the selection listener state for the current card/step.
+   * Does NOT add new event listeners — the single persistent listener reads these.
+   */
+  function attachSelectionListener(containerSelector, _scrollSelector, nodeId, mode) {
+    _qnaContainerSelector = containerSelector;
+    _qnaNodeId = nodeId;
+    _qnaMode = mode;
+    ensureScrollListener();
+  }
+
+  function showPill(range, scrollEl) {
+    dismissPill();
+    const rect = range.getBoundingClientRect();
+    const scrollRect = scrollEl.getBoundingClientRect();
+
+    const pill = document.createElement("button");
+    pill.className = "ask-pill";
+    pill.textContent = "Ask";
+    pill.setAttribute("aria-label", "Ask about selected text");
+
+    const pillTop = rect.top - scrollRect.top + scrollEl.scrollTop - 28;
+    const pillLeft = Math.max(4, Math.min(
+      rect.left - scrollRect.left + rect.width / 2 - 20,
+      scrollEl.clientWidth - 52  // pill width ~48px + 4px padding
+    ));
+    pill.style.top = pillTop + "px";
+    pill.style.left = pillLeft + "px";
+
+    pill.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.getSelection()?.removeAllRanges();
+      onPillClick();
+      dismissPill();
+    });
+
+    scrollEl.style.position = "relative";
+    scrollEl.appendChild(pill);
+    activePill = pill;
+  }
+
+  function dismissPill() {
+    if (activePill) {
+      activePill.classList.add("dismissing");
+      const ref = activePill;
+      setTimeout(() => ref.remove(), 100);
+      activePill = null;
+    }
+    pillSelectedText = null;
+  }
+
+  function onPillClick() {
+    const toggle = document.querySelector(".qna-toggle");
+    const body = document.querySelector(".qna-body");
+    if (toggle && body && !body.classList.contains("expanded")) {
+      toggle.classList.add("expanded");
+      body.classList.add("expanded");
+    }
+
+    const input = document.querySelector(".qna-input");
+    if (input && pillSelectedText) {
+      const truncated = pillSelectedText.length > 80 ? pillSelectedText.slice(0, 80) + "..." : pillSelectedText;
+      input.value = `What is ${truncated}?`;
+      input.focus();
+      const qnaSection = document.querySelector(".stop-qna");
+      if (qnaSection) {
+        qnaSection.scrollIntoView({ behavior: systemReducedMotion ? "auto" : "smooth", block: "nearest" });
+      }
+    }
+  }
+
+  // ── Shared helpers ──
+
+  /** Accordion toggle — collapse all, expand clicked if not already open. */
+  function toggleQnAItem(btn) {
+    const answer = btn.nextElementSibling;
+    const wasExpanded = answer.classList.contains("expanded");
+    document.querySelectorAll(".qna-answer.expanded").forEach(a => a.classList.remove("expanded"));
+    document.querySelectorAll(".qna-question[aria-expanded='true']").forEach(q => q.setAttribute("aria-expanded", "false"));
+    if (!wasExpanded) {
+      answer.classList.add("expanded");
+      btn.setAttribute("aria-expanded", "true");
+    }
+  }
+
+  /** Ensure the .qna-list element exists, creating it if needed. */
+  function ensureQnAList() {
+    let list = document.querySelector(".qna-list");
+    if (!list) {
+      list = document.createElement("div");
+      list.className = "qna-list";
+      const bodyEl = document.querySelector(".qna-body");
+      if (bodyEl) bodyEl.insertBefore(list, bodyEl.querySelector(".qna-input-row") || bodyEl.querySelector(".qna-no-provider"));
+    }
+    return list;
+  }
+
+  /** Re-enable Q&A input after response or error. */
+  function reenableQnAInput() {
+    const input = document.getElementById("qna-input");
+    const sendBtn = document.getElementById("qna-send");
+    if (input) { input.disabled = false; input.focus(); }
+    if (sendBtn) sendBtn.disabled = false;
+  }
+
+  // ── Render & Bind ──
+
+  function renderQnASection(nodeId, annotations, mode) {
+    const sessionItems = sessionQnA.get(nodeId) || [];
+    const allItems = [...(annotations || []), ...sessionItems];
+
+    const count = allItems.length;
+    if (count === 0 && !hasAIProvider) return "";
+
+    const itemsHtml = allItems.map((item, i) => `
+      <div class="qna-item" data-qna-index="${i}">
+        <button class="qna-question" aria-expanded="false" aria-controls="qna-answer-${i}">
+          <span class="qna-question-icon">\u25B8</span>
+          <span class="qna-question-text">${escapeHtml(item.question)}</span>
+        </button>
+        <div class="qna-answer" id="qna-answer-${i}">${renderMarkdown(item.answer)}</div>
+      </div>
+    `).join("");
+
+    const inputHtml = hasAIProvider
+      ? `<div class="qna-input-row">
+          <textarea class="qna-input" id="qna-input" placeholder="What does this mean?" rows="1"></textarea>
+          <button class="qna-send" id="qna-send">Ask</button>
+        </div>`
+      : `<div class="qna-no-provider">Set up Claude Code or GitHub Copilot in settings to ask questions about this code.</div>`;
+
+    const toggleLabel = count > 0 ? `${count} question${count === 1 ? "" : "s"}` : "Ask a question";
+
+    return `
+      <div class="stop-qna" data-node-id="${escapeHtml(nodeId)}" data-mode="${mode}">
+        <button class="qna-toggle" aria-expanded="false">
+          <span class="qna-toggle-arrow">\u25B8</span>
+          ${escapeHtml(toggleLabel)}
+        </button>
+        <div class="qna-body">
+          ${count > 0 ? `<div class="qna-list">${itemsHtml}</div>` : ""}
+          ${inputHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  function bindQnAEvents(nodeId, mode) {
+    const toggle = document.querySelector(".qna-toggle");
+    const body = document.querySelector(".qna-body");
+    if (toggle && body) {
+      toggle.addEventListener("click", () => {
+        const expanded = body.classList.toggle("expanded");
+        toggle.classList.toggle("expanded", expanded);
+        toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+      });
+    }
+
+    document.querySelectorAll(".qna-question").forEach((btn) => {
+      btn.addEventListener("click", () => toggleQnAItem(btn));
+    });
+
+    const sendBtn = document.getElementById("qna-send");
+    const input = document.getElementById("qna-input");
+    if (sendBtn && input) {
+      let sending = false;
+      const send = () => {
+        const question = input.value.trim();
+        if (!question || sending) return;
+        sending = true;
+        input.value = "";
+        input.disabled = true;
+        sendBtn.disabled = true;
+
+        const list = ensureQnAList();
+        const loadingItem = document.createElement("div");
+        loadingItem.className = "qna-item qna-item-loading";
+        loadingItem.innerHTML = `
+          <div class="qna-question" style="cursor:default">
+            <span class="qna-question-icon">\u25B8</span>
+            <span class="qna-question-text">${escapeHtml(question)}</span>
+          </div>
+          <div class="qna-loading">
+            <div class="lesson-loading-dots"><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div></div>
+            <span>Looking at the code...</span>
+          </div>
+        `;
+        list.appendChild(loadingItem);
+        list.scrollTop = list.scrollHeight;
+
+        vscode.postMessage({
+          type: "askFollowUp",
+          nodeId,
+          selectedText: pillSelectedText || "",
+          question,
+          mode,
+        });
+      };
+      sendBtn.addEventListener("click", send);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+      });
+    }
+  }
+
+  function handleAskFollowUpResponse(nodeId, annotation, mode) {
+    if (mode !== "tour") {
+      if (!sessionQnA.has(nodeId)) sessionQnA.set(nodeId, []);
+      sessionQnA.get(nodeId).push(annotation);
+    }
+
+    const loadingItem = document.querySelector(".qna-item-loading");
+    if (loadingItem) loadingItem.remove();
+
+    const list = ensureQnAList();
+    const index = list.querySelectorAll(".qna-item").length;
+    const item = document.createElement("div");
+    item.className = "qna-item";
+    item.setAttribute("data-qna-index", String(index));
+    item.innerHTML = `
+      <button class="qna-question" aria-expanded="true" aria-controls="qna-answer-${index}">
+        <span class="qna-question-icon">\u25B8</span>
+        <span class="qna-question-text">${escapeHtml(annotation.question)}</span>
+      </button>
+      <div class="qna-answer expanded" id="qna-answer-${index}">${renderMarkdown(annotation.answer)}</div>
+    `;
+    list.appendChild(item);
+    list.scrollTop = list.scrollHeight;
+
+    item.querySelector(".qna-question").addEventListener("click", function () { toggleQnAItem(this); });
+
+    reenableQnAInput();
+
+    const toggle = document.querySelector(".qna-toggle");
+    if (toggle) {
+      const total = list.querySelectorAll(".qna-item").length;
+      toggle.innerHTML = `<span class="qna-toggle-arrow">\u25B8</span> ${total} question${total === 1 ? "" : "s"}`;
+    }
+  }
+
+  /** Handle error from the extension host — clean up loading state. */
+  function handleAskFollowUpError() {
+    const loadingItem = document.querySelector(".qna-item-loading");
+    if (loadingItem) loadingItem.remove();
+    reenableQnAInput();
+  }
+
+  function clearSessionQnA() {
+    sessionQnA.clear();
+    _qnaContainerSelector = null;
+    _qnaNodeId = null;
+    _qnaMode = null;
+  }
+
   function escapeHtml(text) {
     if (text == null) return "";
     const div = document.createElement("div");
@@ -1083,6 +1484,15 @@
       case "investigationLoadingMessage":
         updateInvestigationLoadingMessage(message.message);
         break;
+      case "askFollowUpResponse":
+        handleAskFollowUpResponse(message.nodeId, message.annotation, message.mode);
+        break;
+      case "askFollowUpError":
+        handleAskFollowUpError();
+        break;
+      case "providerStatus":
+        hasAIProvider = !!message.available;
+        break;
       case "config":
         celebrationsSetting = message.celebrations || "auto";
         canvas.style.display = shouldShowCelebrations() ? "" : "none";
@@ -1091,6 +1501,7 @@
         previousNodeId = null;
         hasSeenAllNodes = false;
         currentReport = null;
+        clearSessionQnA();
         particles = [];
         if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
         ctx.clearRect(0, 0, canvas.width, canvas.height);

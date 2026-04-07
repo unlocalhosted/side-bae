@@ -61,14 +61,16 @@ export function registerNavigationCommands(
     // Next Stop — pick an edge from the current node via QuickPick
     vscode.commands.registerCommand("sideBae.nextEdge", async () => {
       if (!player.isActive()) {
-        vscode.window.showInformationMessage("No active tour.");
+        vscode.window.showInformationMessage(
+          "No active tour. Start one from the sidebar or press " + (process.platform === "darwin" ? "\u2318\u21E7T" : "Ctrl+Shift+T") + "."
+        );
         return;
       }
 
       const edges = player.getAvailableEdges();
       if (edges.length === 0) {
         vscode.window.showInformationMessage(
-          "This is the end of this path. Use Go Back to explore other routes."
+          "End of this branch. Press Back to explore other paths."
         );
         return;
       }

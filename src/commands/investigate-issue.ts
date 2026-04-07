@@ -52,7 +52,7 @@ export function registerInvestigateIssueCommand(
       "sideBae.investigateIssue",
       async () => {
         if (investigating) {
-          vscode.window.showWarningMessage("An investigation is already active.");
+          vscode.window.showWarningMessage("An investigation is already running. Close the panel first to start a new one.");
           return;
         }
         investigating = true;
@@ -76,7 +76,7 @@ export function registerInvestigateIssueCommand(
             const issue = await fetchGitHubIssue(trimmedInput, workspaceRoot);
             if (!issue) {
               vscode.window.showErrorMessage(
-                "Failed to fetch issue. Make sure the gh CLI is installed and authenticated (run gh auth login)."
+                "Could not fetch that issue. Check that the GitHub CLI (gh) is installed and you're logged in — run `gh auth login` in your terminal."
               );
               return;
             }

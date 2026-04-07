@@ -21,7 +21,7 @@
 
 body {
   font-family: var(--vscode-font-family);
-  font-size: var(--vscode-font-size);
+  font-size: var(--vscode-editor-font-size, var(--vscode-font-size));
   color: var(--vscode-foreground);
   background-color: var(--vscode-editor-background);
   line-height: 1.5;
@@ -214,30 +214,30 @@ body {
 
 /* Explanation — the main content, should dominate */
 .card-explanation {
-  font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
+  font-size: inherit; line-height: 1.6; color: var(--vscode-foreground);
   padding: 8px 0; max-width: 65ch;
   border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
   border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
   overflow-wrap: break-word; word-break: break-word;
 }
 /* Shared markdown content styles */
-.card-explanation strong, .report-body strong, .lesson-content strong, .investigation-content strong { font-weight: 600; }
-.card-explanation em, .report-body em, .lesson-content em, .investigation-content em { font-style: italic; }
-.card-explanation .md-inline-code, .report-body .md-inline-code, .lesson-content .md-inline-code, .investigation-content .md-inline-code {
+.card-explanation strong, .report-body strong, .lesson-content strong, .investigation-content strong, .qna-answer strong { font-weight: 600; }
+.card-explanation em, .report-body em, .lesson-content em, .investigation-content em, .qna-answer em { font-style: italic; }
+.card-explanation .md-inline-code, .report-body .md-inline-code, .lesson-content .md-inline-code, .investigation-content .md-inline-code, .qna-answer .md-inline-code {
   font-family: var(--vscode-editor-font-family); font-size: 12px;
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   padding: 1px 4px; border-radius: 3px; word-break: break-all;
 }
-.card-explanation .md-code-block, .report-body .md-code-block, .lesson-content .md-code-block, .investigation-content .md-code-block {
+.card-explanation .md-code-block, .report-body .md-code-block, .lesson-content .md-code-block, .investigation-content .md-code-block, .qna-answer .md-code-block {
   font-family: var(--vscode-editor-font-family); font-size: 12px;
   color: var(--vscode-foreground);
   background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
   border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
   padding: 8px; border-radius: 4px; margin: 6px 0; overflow-x: auto; white-space: pre;
 }
-.card-explanation .md-list, .report-body .md-list, .lesson-content .md-list, .investigation-content .md-list { list-style: none; padding-left: 0; margin: 4px 0; }
-.card-explanation .md-list-item, .report-body .md-list-item, .lesson-content .md-list-item, .investigation-content .md-list-item { padding-left: 12px; position: relative; margin: 2px 0; }
-.card-explanation .md-list-item::before, .report-body .md-list-item::before, .lesson-content .md-list-item::before, .investigation-content .md-list-item::before {
+.card-explanation .md-list, .report-body .md-list, .lesson-content .md-list, .investigation-content .md-list, .qna-answer .md-list { list-style: none; padding-left: 0; margin: 4px 0; }
+.card-explanation .md-list-item, .report-body .md-list-item, .lesson-content .md-list-item, .investigation-content .md-list-item, .qna-answer .md-list-item { padding-left: 12px; position: relative; margin: 2px 0; }
+.card-explanation .md-list-item::before, .report-body .md-list-item::before, .lesson-content .md-list-item::before, .investigation-content .md-list-item::before, .qna-answer .md-list-item::before {
   content: "\2022"; position: absolute; left: 0; color: var(--vscode-descriptionForeground);
 }
 
@@ -334,7 +334,6 @@ body {
   .breadcrumb-item { max-width: 80px; }
   .nav-back-btn .nav-key { display: none; }
   .card-title { font-size: 13px; }
-  .card-explanation { font-size: 12px; }
   .command-hub { padding: 12px; gap: 12px; }
   .hub-action { padding: 8px 10px; gap: 8px; }
   .hub-desc { display: none; }
@@ -667,7 +666,7 @@ body {
 
 /* ── Lesson content (extends shared markdown styles above) ── */
 .lesson-content {
-  font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
+  font-size: inherit; line-height: 1.6; color: var(--vscode-foreground);
   padding: 8px 0; max-width: 65ch;
   overflow-wrap: break-word; word-break: break-word;
 }
@@ -916,7 +915,7 @@ body {
 
 /* ── Investigation content (extends shared markdown styles) ── */
 .investigation-content {
-  font-size: 13px; line-height: 1.6; color: var(--vscode-foreground);
+  font-size: inherit; line-height: 1.6; color: var(--vscode-foreground);
   padding: 8px 0; max-width: 65ch;
   overflow-wrap: break-word; word-break: break-word;
 }
@@ -1026,6 +1025,156 @@ body {
   display: flex; gap: 8px; align-items: center;
 }
 
+/* ══════════════════════════════════════════════════════════
+   ASK ABOUT SELECTION — FLOATING PILL + Q&A SECTION
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Floating Ask pill ── */
+@keyframes askPillIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes askPillOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.ask-pill {
+  position: absolute; z-index: 50;
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 600; font-family: var(--vscode-font-family);
+  background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+  border: none; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  animation: askPillIn 0.12s ease-out;
+  pointer-events: auto;
+}
+.ask-pill:hover { background: var(--vscode-button-hoverBackground); }
+.ask-pill:active { opacity: 0.85; }
+.ask-pill:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.ask-pill.dismissing { animation: askPillOut 0.1s ease-out forwards; pointer-events: none; }
+
+/* ── Q&A section ── */
+.stop-qna {
+  display: flex; flex-direction: column; gap: 6px;
+  padding-top: 4px;
+}
+.qna-toggle {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--vscode-descriptionForeground);
+  background: none; border: none; cursor: pointer; padding: 4px 0;
+  font-family: var(--vscode-font-family); text-align: left;
+}
+.qna-toggle:hover { color: var(--vscode-foreground); }
+.qna-toggle:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.qna-toggle-arrow {
+  display: inline-block; transition: transform 0.12s ease-out; font-size: 10px;
+}
+.qna-toggle.expanded .qna-toggle-arrow { transform: rotate(90deg); }
+
+.qna-body {
+  display: none; flex-direction: column; gap: 6px;
+  overflow: hidden;
+}
+.qna-body.expanded {
+  display: flex;
+  animation: slideUp 0.15s ease-out;
+}
+
+.qna-list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 120px; overflow-y: auto;
+}
+
+/* Individual Q&A item */
+.qna-item {
+  display: flex; flex-direction: column;
+  border-radius: 3px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.05));
+}
+.qna-question {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; cursor: pointer;
+  font-size: 11px; color: var(--vscode-foreground);
+  background: none; border: none; width: 100%;
+  font-family: var(--vscode-font-family); text-align: left;
+}
+.qna-question:hover { background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1)); }
+.qna-question:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.qna-question-icon {
+  font-size: 10px; color: var(--vscode-textLink-foreground); flex-shrink: 0;
+  transition: transform 0.12s ease-out; display: inline-block;
+}
+.qna-question[aria-expanded='true'] .qna-question-icon {
+  transform: rotate(90deg);
+}
+.qna-question-text {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@keyframes qnaAnswerIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.qna-answer {
+  display: none; padding: 6px 8px 8px;
+  font-size: 12px; line-height: 1.5; color: var(--vscode-foreground);
+  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
+  overflow-wrap: break-word; word-break: break-word;
+}
+.qna-answer.expanded {
+  display: block;
+  animation: qnaAnswerIn 0.12s ease-out;
+}
+
+/* Loading dots for Q&A answer */
+.qna-loading {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; font-size: 11px; color: var(--vscode-descriptionForeground);
+}
+
+/* Q&A input */
+.qna-input-row {
+  display: flex; gap: 6px; align-items: flex-start;
+}
+.qna-input {
+  flex: 1; padding: 4px 8px;
+  font-family: var(--vscode-font-family); font-size: 11px; line-height: 1.4;
+  color: var(--vscode-input-foreground); background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
+  border-radius: 3px; outline: none; resize: none;
+  min-height: 24px; max-height: 60px;
+  transition: min-height 0.15s ease-out, border-color 0.15s ease-out;
+}
+.qna-input:focus {
+  border-color: var(--vscode-focusBorder);
+  min-height: 40px;
+}
+.qna-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, rgba(128, 128, 128, 0.5));
+}
+.qna-send {
+  padding: 4px 10px; border: none; border-radius: 3px; cursor: pointer;
+  font-size: 11px; font-family: var(--vscode-font-family); font-weight: 500;
+  background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+  transition: background 0.15s ease-out; white-space: nowrap; flex-shrink: 0;
+  height: 24px;
+}
+.qna-send:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); }
+.qna-send:active:not(:disabled) { opacity: 0.85; }
+.qna-send:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.qna-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.qna-input:disabled {
+  opacity: 0.5; cursor: not-allowed;
+  background: var(--vscode-input-background);
+}
+
+/* No-provider fallback message */
+.qna-no-provider {
+  font-size: 11px; color: var(--vscode-descriptionForeground);
+  padding: 6px 8px; border-radius: 3px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.08));
+  font-style: italic;
+}
+
 /* ── High contrast ── */
 @media (forced-colors: active) {
   .edge-link, .nav-back-btn, .stop-btn, .breadcrumb-item, .summary-start-btn,
@@ -1040,8 +1189,10 @@ body {
   .lesson-choice-btn.choice-correct { border-color: Highlight; }
   .lesson-choice-btn.choice-wrong { border-color: LinkText; }
   .lesson-send-btn, .lesson-end-btn, .lesson-followup-send, .lesson-skip-link,
-  .investigation-confirm-btn, .investigation-action-btn { border: 1px solid ButtonText; }
+  .investigation-confirm-btn, .investigation-action-btn, .ask-pill, .qna-send { border: 1px solid ButtonText; }
   .summary-stop-item { border: 1px solid ButtonText; }
+  .qna-input { border-color: ButtonText; }
+  .qna-question:hover { background: Highlight; color: HighlightText; }
   .test-results { border-color: ButtonText; }
   .pr-card { border-color: Highlight; }
   .takeaway-callout { border-color: currentColor; }

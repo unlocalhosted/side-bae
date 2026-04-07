@@ -488,6 +488,33 @@ Respond in 2-3 sentences. Reference their specific words. If they're right, conf
 Also provide a "summary" field: a single sentence summarizing what was learned in this step (for the collapsed stepper view).`;
 }
 
+export function buildFollowUpPrompt(
+  explanation: string,
+  fileContent: string,
+  selectedText: string,
+  question: string
+): string {
+  const explanationSlice = explanation.length > 800 ? explanation.slice(0, 800) + "..." : explanation;
+  const fileSlice = fileContent.length > 2000 ? fileContent.slice(0, 2000) + "..." : fileContent;
+
+  return `A developer is reading a code explanation and selected the text "${selectedText}" to ask a question.
+
+## The explanation they're reading
+${explanationSlice}
+
+## The code they're looking at
+\`\`\`
+${fileSlice}
+\`\`\`
+
+## Their question
+${question}
+
+## Instructions
+
+Answer in 2-3 concise sentences. Be specific to THIS codebase and THIS code — not generic definitions. Reference actual function names, variables, or patterns from the code above.`;
+}
+
 // Keep the old function name as an alias for backward compatibility during transition
 export function buildLessonSystemPrompt(subject: string): string {
   return `You are a live coding tutor conducting an interactive lesson about: "${subject}"

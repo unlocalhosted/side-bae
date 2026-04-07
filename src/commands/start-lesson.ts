@@ -17,7 +17,7 @@ export function registerStartLessonCommand(
       async (conceptName?: string, entryFile?: string) => {
         if (generating) {
           vscode.window.showWarningMessage(
-            "A lesson is already active."
+            "A lesson is already running. Close the panel first to start a new one."
           );
           return;
         }

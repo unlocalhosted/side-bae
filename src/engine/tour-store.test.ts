@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { saveTour, loadTour, listTours } from "./tour-store.js";
+import { saveTour, loadTour, listTours, saveAnnotation } from "./tour-store.js";
 import type { TourDocument } from "../types/tour.js";
 
 const MOCK_TOUR: TourDocument = {
@@ -64,5 +64,48 @@ describe("TourStore", () => {
 
   it("throws when loading nonexistent tour", async () => {
     await expect(loadTour(tempDir, "nonexistent")).rejects.toThrow();
+  });
+
+  // ── Annotation persistence ──
+
+  it("round-trips tour with annotations", async () => {
+    const tourWithAnnotations: TourDocument = {
+      ...MOCK_TOUR,
+      annotations: {
+        entry: [
+          { selectedText: "auth", question: "What is auth?", answer: "Authentication validates user identity." },
+        ],
+      },
+    };
+    await saveTour(tempDir, tourWithAnnotations);
+    const loaded = await loadTour(tempDir, "auth-flow");
+    expect(loaded.annotations).toEqual(tourWithAnnotations.annotations);
+  });
+
+  it("loads old tour without annotations gracefully", async () => {
+    await saveTour(tempDir, MOCK_TOUR);
+    const loaded = await loadTour(tempDir, "auth-flow");
+    expect(loaded.annotations).toBeUndefined();
+  });
+
+  it("appends annotation incrementally via saveAnnotation", async () => {
+    await saveTour(tempDir, MOCK_TOUR);
+    await saveAnnotation(tempDir, "auth-flow", "entry", {
+      selectedText: "Entry point",
+      question: "What is the entry point?",
+      answer: "Where the auth flow begins.",
+    });
+    const loaded = await loadTour(tempDir, "auth-flow");
+    expect(loaded.annotations?.entry).toHaveLength(1);
+    expect(loaded.annotations?.entry[0].selectedText).toBe("Entry point");
+
+    // Append a second annotation to the same node
+    await saveAnnotation(tempDir, "auth-flow", "entry", {
+      selectedText: "auth.ts",
+      question: "What does auth.ts do?",
+      answer: "Handles authentication logic.",
+    });
+    const loaded2 = await loadTour(tempDir, "auth-flow");
+    expect(loaded2.annotations?.entry).toHaveLength(2);
   });
 });
