@@ -953,7 +953,10 @@ export class TourPlayer {
       );
     }
 
-    this.webviewProvider.updateCard(this.engine.getCardState());
-    this.webviewProvider.reveal();
+    // Guard: engine may have been reset while we were opening the file
+    if (this.engine.isLoaded()) {
+      this.webviewProvider.updateCard(this.engine.getCardState());
+      this.webviewProvider.reveal();
+    }
   }
 }
