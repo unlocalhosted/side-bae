@@ -1167,7 +1167,6 @@
     if (!target) return;
 
     // Build layers with connections between them
-    const layerMap = new Map((data.layers || []).map(l => [l.id, l]));
     const connectionsBySource = new Map();
     for (const conn of (data.connections || [])) {
       if (!connectionsBySource.has(conn.from)) connectionsBySource.set(conn.from, []);

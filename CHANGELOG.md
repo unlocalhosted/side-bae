@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0
+
+### System Atlas
+
+New "Explore This Codebase" mode — a generated walkthrough that gives developers the big picture before diving into code. Like a senior engineer doing a 10-minute screen share.
+
+- **4 progressive phases** — Identity (what is this?) → Architecture (how is it organized?) → Flows (how data moves) → Suggestions (where to go next)
+- **Vertical layer stack** — Architectural layers displayed as cards with connection labels between them, each expandable to show key files
+- **Flow traces** — 3-6 end-to-end capability traces with numbered steps. Click a step to expand inline with a mini-explanation and open the file. "Go deeper" launches a scoped tour.
+- **Cache-first** — Generated once, cached in `.side-bae/atlas.json`, loads instantly on repeat visits
+- **New primary action** — "Explore This Codebase" is now the first action in the command hub and sidebar
+- **Keyboard shortcut** — `Cmd+Shift+E` / `Ctrl+Shift+E`
+- **Full keyboard accessibility** — All layers, flows, and steps navigable via Tab, Enter, Space with ARIA attributes
+
 ## 1.1.0
 
 ### Ask About Selection
