@@ -17,6 +17,8 @@ export function buildTourGenerationPrompt(
 
 The workspace root is the current directory. The reader wants to understand: "${query}"
 ${contextSection}
+First, assess complexity: is this a small feature (a single module, a utility) or a complex system (spanning multiple files, cross-cutting concerns)? Let the answer calibrate your approach — a simple utility deserves a focused 3-4 node tour, not an exhaustive deep-dive. A complex auth flow demands 12+ nodes with full data-flow tracing.
+
 Read the relevant source files. Trace the code paths. Then produce a tour as a JSON object following the provided schema.
 
 ## Voice and tone
@@ -79,6 +81,7 @@ Before generating the tour, ask yourself:
 - Did I name specific design decisions, trade-offs, or patterns?
 - Would a senior developer learn something from reading this?
 - Does every explanation have at least 3-4 sentences of genuine insight?
+- Did I verify every claim by reading the actual code? (Not inferred from file names or assumed from patterns — actually confirmed.)
 
 If any answer is no, go back and read more code.
 
@@ -155,6 +158,8 @@ Node rules:
 - Use kind: "context" for nodes that set the scene — what should happen and how the system normally works
 - Use kind: "problem" for nodes that reveal the bug — contrast "what happens" vs "what should happen"
 - Use kind: "solution" for nodes that propose the fix — include a suggestedEdit with exact oldText/newText
+- When proposing a fix, don't just patch the symptom. Ask: "If we'd known about this bug from the start, what would the code look like?" Redesign the affected code to handle this case naturally, not bolt on a special case.
+- If there are multiple viable fix approaches, briefly note them and explain why you chose the one you did. The reader should understand what alternatives existed.
 - Start with context, narrow to problem, end with solution
 - The tour flows forward: context → problem → solution. No cycles. Each path terminates at a leaf.
 - The entryNode should orient the reader: "Here's how this feature is supposed to work"
@@ -167,7 +172,7 @@ Report rules (the "report" field):
 - Follow open source bug fix PR etiquette:
   - ## Problem — issue summary, observed symptoms, reproduction context
   - ## Root Cause — the specific code path and logic error (reference file:line)
-  - ## Fix — what was changed, why this approach was chosen over alternatives
+  - ## Fix — what was changed, why this approach was chosen over alternatives (briefly note 1-2 alternatives considered)
   - ## Files Changed — bulleted list of files with one-line description of each change
   - ## How to Verify — concrete steps to test the fix
 - Meant to be pasted directly as a PR description
@@ -207,7 +212,7 @@ Work through the bug methodically, showing your work at each step. The user is y
 
 3. **Diagnose** — When you find the root cause, explain it clearly. Contrast what happens vs what should happen. "Here's the problem: when the refresh token expires, the catch block on line 47 treats it the same as an invalid token. An expired session and a forged token get the same 401."
 
-4. **Propose** — Suggest a fix with a concrete diff (suggestedEdit field). Explain WHY it works, not just what it changes. Wait for the user to approve.
+4. **Propose** — Before suggesting a fix, consider: "If we'd known about this bug from the start, what would the code look like?" Don't just patch — redesign the affected area to handle this case naturally. If there are 2-3 viable approaches, briefly sketch them and recommend one with rationale. Present with a concrete diff (suggestedEdit field). Wait for the user to approve.
 
 5. **Verify** — When the user asks to run tests, execute the test command (e.g., \`npm test\`, \`pnpm test:run\`, \`pytest\`). Report results honestly. If tests fail, explain what broke and adjust.
 
@@ -360,7 +365,15 @@ For each learnable topic, identify:
 
 Return 4-10 topics, ordered from most foundational to most advanced.
 Do not include generic things like "project structure" or "configuration" unless they demonstrate genuinely interesting patterns.
-Focus on topics where the implementation itself is worth studying — where a developer would say "I want to learn how they did that."
+
+## Quality bar
+
+Each topic must pass at least one of these filters:
+- **High-signal**: The implementation reveals a technique most developers wouldn't know — studying it teaches something transferable
+- **High-impact**: Understanding this is essential to working in the codebase — getting it wrong causes significant confusion
+- **High-craft**: The code demonstrates exceptional design quality — it's worth studying as an example of how to build things well
+
+If a topic doesn't pass any of these, drop it. 5 high-quality topics beat 10 that include filler.
 
 Before finalizing, verify: did you actually read the code for each topic, or are you inferring from file names? If a topic seemed interesting but you couldn't confirm by reading the implementation, drop it rather than guessing.`;
 }
@@ -379,7 +392,7 @@ Create a structured lesson plan. Each step should focus on a specific code regio
 ## Plan structure
 
 Order steps from foundational to advanced:
-1. First steps: set the scene — what does this feature/module do?
+1. First steps: set the scene — what does this feature/module do? Start with the **data structures** (types, schemas, core interfaces). Once the learner understands the shapes, the logic becomes obvious. The right data structure is the foundation — teach it before teaching behavior.
 2. Middle steps: how is it built, what patterns are used, what decisions were made?
 3. Later steps: the clever parts — optimizations, patterns, edge case handling
 4. Final step should be the most interesting/advanced concept
@@ -737,6 +750,10 @@ Write like a sharp friend walking someone through a codebase over coffee. Be dir
 - Does each flow trace follow a REAL code path you verified, or did you infer any steps?
 - Did you note boundaries — where subsystems connect and what assumptions they make?
 - If you couldn't trace a connection fully, did you note the gap honestly?
+
+## Prove it works
+
+Every claim must be verified by reading the actual code — not inferred from file names, not assumed from patterns, not extrapolated from one function to another. Before stating "\`functionX\` calls \`functionY\`", read both files and confirm. Before referencing line 47, verify line 47 contains what you think. Trust artifacts, not assumptions.
 
 ## Rules
 - Reference real files with accurate line numbers — verify by reading the file
