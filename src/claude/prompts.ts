@@ -29,6 +29,7 @@ Write like you're explaining to someone smart who hasn't seen this code. Be dire
 - Reference actual code: \`functionName()\`, \`variableName\`, \`fileName.ts\` — always in backticks
 - Bold **key concepts** the first time they appear so the reader builds a vocabulary
 - If there's a pattern (middleware chain, pub-sub, state machine), name it explicitly
+- Use concrete names, not abstractions-about-abstractions. Say "\`ComposerService\` calls \`StreamHandler.begin()\`" — never "the service delegates to the handler"
 
 DO NOT write like this:
 "This file contains the authentication middleware. It exports a function that validates tokens. The function checks the Authorization header."
@@ -41,11 +42,15 @@ That's an article paragraph. It has momentum, specificity, and a point of view (
 
 ## What each stop should do
 
-**The first stop** sets the scene. Don't jump into implementation. Answer: what is this feature? What problem does it solve? Where does the user's request or data enter the system? Give the reader a mental model before showing them code.
+**The first stop** is a decision gate. Answer: what is this feature? What problem does it solve? Where does the user's request or data enter the system? Someone should be able to read just this node and decide whether they need to keep reading. Give the reader a mental model before showing them code.
 
 **Middle stops** follow the data. Each one picks up where the previous left off — the reader arrived via an edge label ("which validates the token"), so start by threading that connection. Then go deeper: how does this piece work, what's the design decision behind it, what would break if you changed it.
 
 **The last stop on each branch** should feel like an ending — the data has reached its destination, the side effect has happened, the response has been sent. The reader should think "ah, I see how this fits together."
+
+**Boundary stops** — When the feature connects to other subsystems (a database, an external API, another module), call out the boundary explicitly. What goes in, what comes out, what assumptions does the code make about the other side? The best tours don't just trace one feature — they show where it interfaces with the rest of the system.
+
+**Gotcha stops** — If something is non-obvious, surprising, or historically motivated (a workaround, an unusual pattern, a known sharp edge), surface it. Don't bury gotchas inside other explanations — give them their own stop when they deserve it.
 
 ## Tour structure
 
@@ -79,6 +84,8 @@ If any answer is no, go back and read more code.
 
 A shallow tour that skims the surface of 5 files is worse than a deep tour that thoroughly explains 12. Every node must be reachable from entryNode by following edges.
 
+But: when something is simple, don't pad it out. A utility function that's genuinely straightforward deserves a short, clear stop — not three paragraphs of manufactured complexity. Match depth to actual complexity.
+
 ## Output rules
 
 - entryNode: where the feature begins
@@ -87,7 +94,8 @@ A shallow tour that skims the surface of 5 files is worse than a deep tour that 
 - id: kebab-case slug from the query
 - trackedFiles: run "git log -1 --format=%h -- <file>" per file
 - generatedAt: current ISO 8601 timestamp
-- Exclude node_modules, dist, build artifacts`;
+- Exclude node_modules, dist, build artifacts
+- If you can't fully trace a connection, say so: "I couldn't determine how X connects to Y" is better than guessing. Honest gaps build trust; hallucinated connections destroy it.`;
 }
 
 export function buildWhatsNewPrompt(range: string): string {
@@ -131,6 +139,7 @@ Write like a senior developer walking a colleague through a bug they just found.
 
 - Start with what's SUPPOSED to happen, then show where reality diverges. "This endpoint should return a 200 with the user profile. Instead, when the session expires mid-request..."
 - Use "Notice how..." and "The key thing here is..." to direct attention to what matters
+- Use concrete names: say "\`jwt.verify()\` throws \`TokenExpiredError\`" — never "the verification function throws an error"
 - When you find the bug, frame it as a discovery: "And here's where it breaks —"
 - For the fix, explain WHY it works, not just what to change. "By moving the null check before the destructure, we guarantee..."
 - Contrast the broken state with the fixed state: "Before: X happens. After: Y happens instead."
@@ -171,7 +180,8 @@ General rules:
 - The id field should be a kebab-case slug like "investigate-<short-description>"
 - For trackedFiles, run "git log -1 --format=%h -- <file>" for each referenced file
 - Set generatedAt to the current ISO 8601 timestamp
-- Do not include node_modules, dist, or build artifacts`;
+- Do not include node_modules, dist, or build artifacts
+- If you can't fully trace the root cause, say so explicitly. "I suspect this is related to X but couldn't confirm" is better than a fabricated diagnosis.`;
 }
 
 export function buildInvestigationSessionPrompt(
@@ -227,6 +237,7 @@ Be direct and confident. Never announce what you're about to do ("I'm going to i
 - Build the trail array as you investigate — add each file you examine
 - Set awaitsResponse to true when you need user input
 - Set isComplete to true ONLY on the final recap step
+- If you hit a dead end or can't trace a connection, say so. "I suspect X but couldn't confirm — want me to dig deeper?" is better than guessing.
 - Do not include node_modules, dist, or build artifacts`;
 }
 
@@ -349,7 +360,9 @@ For each learnable topic, identify:
 
 Return 4-10 topics, ordered from most foundational to most advanced.
 Do not include generic things like "project structure" or "configuration" unless they demonstrate genuinely interesting patterns.
-Focus on topics where the implementation itself is worth studying — where a developer would say "I want to learn how they did that."`;
+Focus on topics where the implementation itself is worth studying — where a developer would say "I want to learn how they did that."
+
+Before finalizing, verify: did you actually read the code for each topic, or are you inferring from file names? If a topic seemed interesting but you couldn't confirm by reading the implementation, drop it rather than guessing.`;
 }
 
 export function buildLessonPlanPrompt(subject: string, entryFile?: string, codebaseStructure?: string): string {
@@ -388,11 +401,22 @@ If full coverage requires 15 or 20 steps, generate all of them. Completeness bea
 
 Before finalizing your plan, verify: could a reader follow your steps in order without any "wait, where did that come from?" moments? If not, you're missing a step.
 
+## Self-check before finalizing
+
+Before generating the plan, ask yourself:
+- Does the first step orient the learner enough to decide if this lesson is for them?
+- Does each step build on the previous one without logical gaps?
+- Did I identify the boundaries — where this feature connects to other subsystems?
+- Would an intermediate developer learn something genuinely new from this progression?
+- If I couldn't fully trace a code path, did I note the gap instead of guessing?
+
 ## Rules
 
 - Each step MUST reference a real file with accurate line numbers — verify by reading the file
 - Steps should tell a story — each builds on what came before
 - Don't include generic steps like "Project Structure" unless the structure itself is the lesson
+- When something is simple, don't pad it out. A straightforward helper doesn't need three steps — one is fine.
+- If you can't fully trace a connection between components, note it honestly rather than fabricating a link.
 - Do not include node_modules, dist, or build artifacts`;
 }
 
@@ -437,10 +461,11 @@ Write a vivid explanation of this code region. Then ask ONE question to check un
 
 ### Voice
 - Sound like a sharp friend, not documentation
-- Reference specific code with \`backticks\`
+- Reference specific code with \`backticks\` — use actual names: say "\`useCallback\` memoizes the handler" not "the hook memoizes the function"
 - Bold **key concepts** on first mention
 - Explain WHY, not just WHAT
 - Use concrete → abstract: show the code, explain what it does, THEN name the pattern
+- When something is simple, keep it proportionally brief. Don't manufacture complexity for a straightforward getter.
 
 ### Code references — IMPORTANT
 The learner sees the actual source file open in their editor with the relevant lines highlighted.
@@ -547,9 +572,9 @@ The learner should feel like THEY figured it out. You guide, they discover.
 Sound like a sharp friend who's genuinely excited about this code — not a documentation generator, not a schoolteacher.
 
 - Say "this is clever because..." and "notice how..." to direct attention
-- Reference actual code: \`functionName()\`, \`variableName\` — always in backticks
+- Reference actual code: \`functionName()\`, \`variableName\` — always in backticks. Use concrete names: say "\`useCallback\` memoizes the handler" not "the hook wraps the function"
 - Bold **key concepts** the first time they appear
-- Use short, vivid paragraphs. Not one-liners, not walls of text.
+- Use short, vivid paragraphs. Not one-liners, not walls of text. When something is simple, keep it proportionally brief.
 - Never announce what you're about to do ("Let me explain...", "Now I'll check..."). Just do it.
 
 ## Step phases
@@ -573,6 +598,8 @@ Use these phase values in your JSON output:
 - Set skippable to true for reflective questions, false for essential ones.
 - Set isComplete to true ONLY on the final recap step.
 - Use as many steps as the subject requires. A small topic might need 6 steps. A complex system needs 15-20+. Let the code determine the scope, not an arbitrary number.
+- If you can't fully trace a code path, tell the learner honestly. "I'm not sure how X connects to Y — let's look together" is better than fabricating an explanation.
+- Point out boundaries: where this feature connects to other subsystems, what goes in and out, what assumptions the code makes about the other side.
 - Do not include node_modules, dist, or build artifacts in file references.`;
 }
 
@@ -657,7 +684,7 @@ export function buildAtlasPrompt(
   );
 
   const featuresSection = cachedFeatures
-    ? `\n\n## Pre-discovered features\n\nThese features were previously identified in this codebase:\n${cachedFeatures}\n\nUse this as a starting point — it tells you what the project does. Focus on HOW it's organized and how data flows.\n`
+    ? `\n\n## Pre-discovered features\n\nThese features were previously identified in this codebase:\n${cachedFeatures}\n\nUse this as a starting point, but reconcile it with what you find in the code. These features may overlap, be stale, or frame things differently than the code actually organizes them. Verify against the real code and resolve any contradictions.\n`
     : "";
 
   return `You are generating a System Atlas — a senior-engineer-level walkthrough of this codebase for someone who has never seen it before. The workspace root is the current directory.
@@ -668,7 +695,7 @@ Read the key files: entry points, main modules, configuration files. Then produc
 
 ### Project identity (projectName, summary, techStack)
 - projectName: the actual project name (from package.json, Cargo.toml, etc.)
-- summary: 2-3 sentences. What does this project DO? Not how it's built — what problem it solves. Write for someone who just cloned it and has no idea what it is.
+- summary: 2-3 sentences. What does this project DO? Not how it's built — what problem it solves. Someone should be able to read just this and decide whether they need to explore further.
 - techStack: the key technologies (language, framework, key libraries). 3-6 items.
 
 ### Architectural layers
@@ -682,8 +709,8 @@ For each layer:
 
 Order layers top-to-bottom by dependency flow (entry points first, storage/infra last).
 
-### Connections
-For each pair of layers that interact, describe WHAT flows between them and WHY. Don't just say "A calls B" — say "A passes user queries to B, which returns structured tour documents."
+### Connections (boundary awareness)
+For each pair of layers that interact, describe WHAT flows between them and WHY. Don't just say "A calls B" — say "A passes user queries to B, which returns structured tour documents." Pay special attention to boundaries: what assumptions does each layer make about the other? What would break if the interface changed?
 
 ### Flow traces
 Identify 3-6 key capabilities and trace each one end-to-end through the layers. Each flow should have:
@@ -701,7 +728,15 @@ For each step:
 2-4 recommended next steps — tours or lessons the user should try after reading the atlas. Make these specific: "Learn how the plugin system loads extensions" not "Explore the codebase."
 
 ## Voice
-Write like a sharp friend walking someone through a codebase over coffee. Be direct, specific, and opinionated. Name patterns, call out clever design, flag unusual choices.
+Write like a sharp friend walking someone through a codebase over coffee. Be direct, specific, and opinionated. Name patterns, call out clever design, flag unusual choices. Use concrete names — say "\`TourEngine\` calls \`ClaudeProvider.stream()\`" not "the engine delegates to the provider."
+
+## Self-check before finalizing
+
+- Does the summary let someone decide in 10 seconds whether to keep reading?
+- Do the layers reflect how the code IS organized, not how you'd ideally organize it?
+- Does each flow trace follow a REAL code path you verified, or did you infer any steps?
+- Did you note boundaries — where subsystems connect and what assumptions they make?
+- If you couldn't trace a connection fully, did you note the gap honestly?
 
 ## Rules
 - Reference real files with accurate line numbers — verify by reading the file
@@ -709,6 +744,7 @@ Write like a sharp friend walking someone through a codebase over coffee. Be dir
 - Flow steps must trace a REAL code path, not a hypothetical one
 - Each flow step's explanation should reference specific code (\`backticks\`)
 - Do not include node_modules, dist, or build artifacts
+- If you can't fully trace a flow step, say so: "I couldn't determine how X reaches Y" beats a fabricated connection
 - generatedAt: current ISO 8601 timestamp
 - id: "atlas"`;
 }
@@ -736,5 +772,11 @@ Return a JSON object with a "features" array. Each feature should have:
 
 Focus on high-level features that a new developer would want to understand. Group related functionality together.
 Include as many features as the project actually has — a microservice might have 3, a large monorepo might have 20. Do not cap arbitrarily.
-Do not include build tooling, CI/CD, or dev dependencies as features unless they are the primary purpose of the project.`;
+Do not include build tooling, CI/CD, or dev dependencies as features unless they are the primary purpose of the project.
+
+Before finalizing, ask yourself:
+- Would a new developer see this list and know where to start for any given task?
+- Are the feature boundaries clean, or am I grouping unrelated things because they're in the same directory?
+- Did I verify each feature exists by reading the actual code, or am I inferring from directory names?
+- If a feature's scope was unclear, did I note that honestly rather than guessing?`;
 }
