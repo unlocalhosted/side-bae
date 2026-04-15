@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.3.0
+
+### Inline Ask Input
+
+Select text in any tour explanation, lesson step, or investigation finding and a floating input appears right above your selection — no more scrolling to the bottom QnA section. The question is pre-filled and editable; hit Enter to ask. The answer still appears in the bottom Q&A accordion with a loading indicator.
+
+### Smarter AI Prompts
+
+Major prompt quality improvements across all generation modes, inspired by techniques from [poteto/how](https://github.com/poteto/how) and [poteto/brainmaxxing](https://github.com/poteto/brainmaxxing):
+
+- **Honest gaps** — AI admits what it couldn't trace instead of hallucinating connections
+- **Self-verification checklists** — feature discovery, lesson plans, and atlas verify their own output before returning
+- **Boundary awareness** — tours and lessons now surface where features connect to other subsystems
+- **Gotcha stops** — tours get dedicated stops for non-obvious behavior and sharp edges
+- **Complexity triage** — tours assess feature complexity first and calibrate depth accordingly
+- **Fix alternatives** — investigations consider 2-3 approaches before recommending a fix
+- **Redesign-first fixes** — investigations ask "what would this look like if we'd known about this bug?" instead of patching symptoms
+- **Data structures first** — lessons start with types and schemas before teaching behavior
+- **Quality bar** — learnable concepts must be high-signal, high-impact, or high-craft
+- **Prove it works** — atlas and tours verify every claim by reading actual code, not inferring from file names
+
 ## 1.2.0
 
 ### System Atlas
