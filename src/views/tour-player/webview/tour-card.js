@@ -1464,9 +1464,12 @@
 
     pill.addEventListener("click", (e) => {
       e.preventDefault();
+      // Capture position and text before clearing selection & dismissing
+      const capturedText = pillSelectedText;
+      const pillTopPos = parseFloat(pill.style.top) || pillTop;
       window.getSelection()?.removeAllRanges();
-      onPillClick();
       dismissPill();
+      onPillClick(scrollEl, pillTopPos, capturedText);
     });
 
     scrollEl.style.position = "relative";
@@ -1484,24 +1487,133 @@
     pillSelectedText = null;
   }
 
-  function onPillClick() {
+  /** @type {HTMLElement|null} */
+  let activeInlineInput = null;
+
+  function onPillClick(scrollEl, pillTopPos, capturedText) {
+    if (!scrollEl || !capturedText) return;
+    // Show inline input at the same vertical position where the pill was
+    showInlineInput(scrollEl, pillTopPos, capturedText);
+  }
+
+  function showInlineInput(scrollEl, top, selectedText) {
+    dismissInlineInput();
+
+    const container = document.createElement("div");
+    container.className = "ask-inline";
+    container.style.top = Math.max(0, top) + "px";
+
+    const truncated = selectedText.length > 80 ? selectedText.slice(0, 80) + "..." : selectedText;
+
+    const input = document.createElement("textarea");
+    input.className = "ask-inline-input";
+    input.placeholder = "Ask about this selection...";
+    input.rows = 1;
+    input.value = `What is ${truncated}?`;
+
+    const sendBtn = document.createElement("button");
+    sendBtn.className = "ask-inline-send";
+    sendBtn.textContent = "Ask";
+
+    const dismissBtn = document.createElement("button");
+    dismissBtn.className = "ask-inline-dismiss";
+    dismissBtn.textContent = "\u00D7";
+    dismissBtn.setAttribute("aria-label", "Dismiss");
+
+    container.appendChild(input);
+    container.appendChild(sendBtn);
+    container.appendChild(dismissBtn);
+
+    scrollEl.style.position = "relative";
+    scrollEl.appendChild(container);
+    activeInlineInput = container;
+
+    // Focus and select the pre-filled text so the user can easily replace it
+    requestAnimationFrame(() => {
+      input.focus();
+      input.select();
+    });
+
+    // Submit handler — sends the question, dismisses inline, and shows answer at bottom
+    const submit = () => {
+      const question = input.value.trim();
+      if (!question) return;
+      dismissInlineInput();
+      submitInlineQuestion(question, selectedText);
+    };
+
+    sendBtn.addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+      if (e.key === "Escape") dismissInlineInput();
+    });
+    dismissBtn.addEventListener("click", () => dismissInlineInput());
+  }
+
+  function dismissInlineInput() {
+    if (activeInlineInput) {
+      activeInlineInput.classList.add("dismissing");
+      const ref = activeInlineInput;
+      setTimeout(() => ref.remove(), 100);
+      activeInlineInput = null;
+    }
+  }
+
+  /** Submit from inline input: expand the bottom QnA section & post the message */
+  function submitInlineQuestion(question, selectedText) {
+    const nodeId = _qnaNodeId;
+    const mode = _qnaMode;
+    if (!nodeId || !mode) return;
+
+    // Expand the bottom QnA section so the user sees the answer appear there
     const toggle = document.querySelector(".qna-toggle");
     const body = document.querySelector(".qna-body");
     if (toggle && body && !body.classList.contains("expanded")) {
       toggle.classList.add("expanded");
       body.classList.add("expanded");
+      toggle.setAttribute("aria-expanded", "true");
     }
 
-    const input = document.querySelector(".qna-input");
-    if (input && pillSelectedText) {
-      const truncated = pillSelectedText.length > 80 ? pillSelectedText.slice(0, 80) + "..." : pillSelectedText;
-      input.value = `What is ${truncated}?`;
-      input.focus();
-      const qnaSection = document.querySelector(".stop-qna");
-      if (qnaSection) {
-        qnaSection.scrollIntoView({ behavior: systemReducedMotion ? "auto" : "smooth", block: "nearest" });
-      }
+    // Disable the bottom input while the inline question is in-flight
+    const bottomInput = document.getElementById("qna-input");
+    const bottomSend = document.getElementById("qna-send");
+    if (bottomInput) bottomInput.disabled = true;
+    if (bottomSend) bottomSend.disabled = true;
+
+    // Add loading indicator to the QnA list
+    const list = ensureQnAList();
+    const loadingItem = document.createElement("div");
+    loadingItem.className = "qna-item qna-item-loading";
+    loadingItem.innerHTML = `
+      <div class="qna-question" style="cursor:default">
+        <span class="qna-question-icon">\u25B8</span>
+        <span class="qna-question-text">${escapeHtml(question)}</span>
+      </div>
+      <div class="qna-loading">
+        <div class="lesson-loading-dots"><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div><div class="lesson-loading-dot"></div></div>
+        <span>Looking at the code...</span>
+      </div>
+    `;
+    list.appendChild(loadingItem);
+    list.scrollTop = list.scrollHeight;
+
+    // Scroll the QnA section into view
+    const qnaSection = document.querySelector(".stop-qna");
+    if (qnaSection) {
+      qnaSection.scrollIntoView({ behavior: systemReducedMotion ? "auto" : "smooth", block: "nearest" });
     }
+
+    // Store selectedText for the response handler
+    pillSelectedText = selectedText;
+
+    // Post message to extension
+    vscode.postMessage({
+      type: "askFollowUp",
+      nodeId,
+      selectedText: selectedText || "",
+      question,
+      mode,
+    });
   }
 
   // ── Shared helpers ──
@@ -1685,6 +1797,7 @@
     _qnaContainerSelector = null;
     _qnaNodeId = null;
     _qnaMode = null;
+    dismissInlineInput();
   }
 
   function escapeHtml(text) {
