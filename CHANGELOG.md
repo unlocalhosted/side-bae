@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1
+
+### Tour Webview Stability
+
+- Fixed a VS Code/Cursor webview lifecycle race where opening or starting a tour could briefly show the panel and then close it immediately.
+- Added opt-in Side Bae lifecycle diagnostics for future panel/debug investigations.
+- Added the missing `/side-bae-atlas` skill file and tightened generation prompts/schema for release consistency.
+
 ## 1.3.0
 
 ### Inline Ask Input
