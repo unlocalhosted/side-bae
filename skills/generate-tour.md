@@ -27,6 +27,14 @@ You are writing an interactive article about a codebase. Not documentation. Not 
 
 Read the relevant source files. Trace the code paths. Then produce a tour as a JSON file.
 
+Before writing JSON, do a private coverage pass:
+- Identify the entry point, data objects, state changes, side effects, and final outcomes for the requested feature
+- List the real branches in the flow: happy path, failure path, read/write split, async callback, or UI-to-backend boundary
+- Decide which files and symbols are required to explain those branches without gaps
+- Drop anything you cannot verify from code; do not fill gaps with architecture guesses
+
+Do not output this coverage pass. Use it to make sure the tour is complete.
+
 ### Voice and tone
 
 Write like you're explaining to someone smart who hasn't seen this code. Be direct, be specific, have opinions. Sound like a real person — not a documentation generator.
@@ -37,6 +45,7 @@ Write like you're explaining to someone smart who hasn't seen this code. Be dire
 - Reference actual code: `functionName()`, `variableName`, `fileName.ts` — always in backticks
 - Bold **key concepts** the first time they appear so the reader builds a vocabulary
 - If there's a pattern (middleware chain, pub-sub, state machine), name it explicitly
+- Use concrete names, not abstractions-about-abstractions. Say "`ComposerService` calls `StreamHandler.begin()`" — not "the service delegates to the handler"
 
 DO NOT write like this:
 "This file contains the authentication middleware. It exports a function that validates tokens. The function checks the Authorization header."
@@ -63,6 +72,10 @@ The tour is a tree — it can branch but never loops back. Each branch terminate
 **Middle stops** follow the data. Each one picks up where the previous left off — the reader arrived via an edge label ("which validates the token"), so start by threading that connection. Then go deeper: how does this piece work, what's the design decision behind it, what would break if you changed it.
 
 **The last stop on each branch** should feel like an ending — the data has reached its destination, the side effect has happened, the response has been sent. The reader should think "ah, I see how this fits together."
+
+**Boundary stops** matter. When the feature crosses into another subsystem — storage, UI, external API, scheduler, command handler, worker, or framework adapter — say what crosses the boundary, who owns the contract, and what assumptions would break if that contract changed.
+
+**Gotcha stops** deserve their own node when the code has a surprising workaround, race condition guard, unusual ordering, or non-obvious invariant. Do not bury the sharp edge inside a generic explanation.
 
 ### Formatting
 
@@ -119,8 +132,9 @@ Write the output as a JSON file to `.side-bae/{id}.tour.json` where `{id}` is a 
 
 ### Rules
 
-- Every node must reference a real file with accurate 1-based line numbers. Don't guess them: after reading the file, confirm each `startLine`/`endLine` against the editor's gutter — `grep -n 'symbolName' <file>` is the fastest way to pin the exact line of a function or symbol. Wrong line numbers make the tour highlight the wrong code, so this is worth double-checking.
+- Every node must reference a real file with accurate 1-based line numbers. Don't guess them: after reading the file, confirm each `startLine`/`endLine` against a line-numbered reader or search result. Wrong line numbers make the tour highlight the wrong code, so this is worth double-checking.
 - Node IDs should be kebab-case descriptive names
+- Keep line ranges focused on the code being explained. Prefer the smallest region that contains the key symbol, branch, or protocol; avoid highlighting whole files.
 - `trackedFiles` is optional and needs no git hashes — Side Bae derives the file list from the nodes. Do not run `git log` per file.
 - For `generatedAt`, run `date -u +%Y-%m-%dT%H:%M:%SZ` to get the real timestamp — don't write one from memory
 - Exclude node_modules, dist, build artifacts
@@ -135,6 +149,7 @@ Write the output as a JSON file to `.side-bae/{id}.tour.json` where `{id}` is a 
 4. Do edge labels read naturally as continuations of the previous explanation?
 5. Does the first stop set context before diving into code?
 6. Do leaf nodes feel like natural endings, not abrupt stops?
+7. Did you explicitly cover every real branch you identified in the private coverage pass?
 
 ## Example
 
@@ -147,9 +162,6 @@ For a query "how does the tour player work", the output file `.side-bae/tour-pla
   "name": "The Tour Player",
   "query": "how does the tour player work",
   "generatedAt": "2026-04-02T10:00:00Z",
-  "trackedFiles": [
-    { "path": "src/views/tour-player/tour-player.ts", "lastCommit": "abc1234" }
-  ],
   "entryNode": "player-entry",
   "nodes": {
     "player-entry": {

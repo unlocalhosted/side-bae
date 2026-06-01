@@ -40,7 +40,7 @@ export interface TourNode {
 
 export interface TrackedFile {
   path: string;
-  lastCommit: string;
+  lastCommit?: string;
 }
 
 export interface LessonMeta {

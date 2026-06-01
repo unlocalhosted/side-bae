@@ -17,6 +17,7 @@ import * as statusBar from "./views/status-bar.js";
 import * as tourStore from "./engine/tour-store.js";
 import { SideBaeFileWatcher } from "./engine/file-watcher.js";
 import { requireClaude } from "./commands/preflight.js";
+import { showDiagnostics } from "./diagnostics.js";
 
 function getProvider(workspaceRoot: string): AIProvider {
   const config = vscode.workspace.getConfiguration("sideBae");
@@ -153,6 +154,9 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("sideBae.refreshFeatures", () => {
       featureTreeProvider.refresh();
+    }),
+    vscode.commands.registerCommand("sideBae.showDiagnostics", () => {
+      showDiagnostics();
     }),
     vscode.commands.registerCommand("sideBae.discoverFeatures", () => {
       featureTreeProvider.discoverFeatures();

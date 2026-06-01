@@ -1,6 +1,7 @@
 .vscode/**
 .github/**
 .claude/**
+.side-bae/**
 src/**
 docs/**
 *.vsix

@@ -6,7 +6,6 @@ export const TOUR_DOCUMENT_SCHEMA = {
     "name",
     "query",
     "generatedAt",
-    "trackedFiles",
     "entryNode",
     "nodes",
   ],
@@ -27,9 +26,11 @@ export const TOUR_DOCUMENT_SCHEMA = {
     },
     trackedFiles: {
       type: "array",
+      description:
+        "Optional list of relative file paths referenced by the tour. Omit this when unsure; Side Bae derives it from nodes.",
       items: {
         type: "object",
-        required: ["path", "lastCommit"],
+        required: ["path"],
         properties: {
           path: {
             type: "string",
@@ -37,7 +38,7 @@ export const TOUR_DOCUMENT_SCHEMA = {
           },
           lastCommit: {
             type: "string",
-            description: "Short git commit hash at generation time",
+            description: "Optional legacy short git commit hash. Usually omit.",
           },
         },
       },
@@ -204,7 +205,8 @@ export const RECENT_CHANGES_SCHEMA = {
           },
           date: {
             type: "string",
-            description: "Relative date of the most recent commit (e.g., '3 days ago')",
+            description:
+              "Absolute date of the most recent commit in this group as YYYY-MM-DD. The UI renders relative text at display time.",
           },
           commits: {
             type: "array",
@@ -248,7 +250,6 @@ export const LESSON_PLAN_SCHEMA = {
 
 export const STEP_CONTENT_SCHEMA = {
   type: "object",
-  required: ["explanation"],
   properties: {
     explanation: {
       type: "string",

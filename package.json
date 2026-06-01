@@ -91,6 +91,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "sideBae.showDiagnostics",
+        "title": "Show Diagnostics",
+        "category": "Side Bae",
+        "icon": "$(output)"
+      },
+      {
         "command": "sideBae.discoverFeatures",
         "title": "Scan Codebase for Features",
         "category": "Side Bae",
@@ -311,6 +317,11 @@
             "Never show confetti or animations"
           ],
           "description": "Control confetti and celebration animations"
+        },
+        "sideBae.debugLifecycle": {
+          "type": "boolean",
+          "default": false,
+          "description": "Write verbose Side Bae webview lifecycle diagnostics to the Side Bae output channel."
         }
       }
     },

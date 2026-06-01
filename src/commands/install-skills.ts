@@ -14,6 +14,7 @@ const SKILL_FILES: Record<string, string> = {
   "discover-features.md": "side-bae-features.md",
   "discover-concepts.md": "side-bae-concepts.md",
   "whats-new.md": "side-bae-whats-new.md",
+  "explore-atlas.md": "side-bae-atlas.md",
 };
 
 const STATE_KEY_GLOBAL = "sideBae.skillFilesHash.global";

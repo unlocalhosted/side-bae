@@ -16,10 +16,18 @@ Examples:
 ## Instructions
 
 1. Interpret the time range naturally. Examples: "this week" -> `--since=1.week.ago`, "last 5 commits" -> `-5`
-2. Run `git log` with appropriate flags. Include author and changed files.
+2. Run `git log` with appropriate flags. Include short SHA, absolute date, author, subject, and changed files. Use `git log --date=short --format="%h %ad %an %s" --name-only <range-flags>` as the default shape.
 3. Group commits by author first — one author's commits in a time window almost always form a coherent feature or fix.
 4. Within each author's commits, identify logical changes (a feature, bugfix, refactor, or chore). Merge commits that are clearly part of the same work.
 5. If multiple authors touched the same files for the same work, merge into a single change.
+
+Before writing JSON, do a private grouping pass:
+- Drop merge commits and bot-only noise unless they are the only activity
+- Merge commits that are part of the same user-visible change even if filenames differ
+- Split same-author commits when they clearly represent unrelated work
+- Make sure every non-noise commit in the selected range is represented by exactly one change
+
+Do not output this grouping pass. Use it to avoid missing or double-counting work.
 
 ## Output Schema
 

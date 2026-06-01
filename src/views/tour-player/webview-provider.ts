@@ -5,6 +5,9 @@ import type { TourCardState } from "../../engine/tour-engine.js";
 import type { LessonSessionState, StepContent, StepResponse } from "../../types/lesson.js";
 import type { InvestigationStep, InvestigationSessionState } from "../../types/investigation.js";
 import type { SystemAtlas, AtlasLayer, AtlasConnection, AtlasFlow, AtlasSuggestion } from "../../types/atlas.js";
+import { logDiagnostic, logStack } from "../../diagnostics.js";
+
+const TOUR_CARD_COLUMN = vscode.ViewColumn.Beside;
 
 export type NavigationCallback = (
   action:
@@ -12,6 +15,7 @@ export type NavigationCallback = (
     | { type: "back" }
     | { type: "forward" }
     | { type: "stop" }
+    | { type: "panelClosed" }
     | { type: "dismissSummary" }
     | { type: "applyFix"; nodeId: string; oldText: string; newText: string }
     | { type: "copyReport"; report: string }
@@ -38,7 +42,8 @@ export class TourCardPanelProvider {
   private panel: vscode.WebviewPanel | null = null;
   private onNavigation?: NavigationCallback;
   private ready = false;
-  private pendingMessages: Record<string, unknown>[] = [];
+  private retainedMessages = new Map<string, Record<string, unknown>>();
+  private lastTitle = "Side Bae";
 
   constructor(private extensionUri: vscode.Uri) {}
 
@@ -46,22 +51,40 @@ export class TourCardPanelProvider {
     this.onNavigation = callback;
   }
 
-  /** Open (or reveal) the tour card panel beside the active editor. */
+  /** Open (or reveal) the tour card panel in the walkthrough column. */
   open(title: string): void {
+    this.lastTitle = title;
+    logDiagnostic("webview.open", {
+      title,
+      hasPanel: Boolean(this.panel),
+      ready: this.ready,
+      retainedMessages: this.retainedMessages.size,
+    });
     if (this.panel) {
       this.panel.title = title;
-      this.panel.reveal(vscode.ViewColumn.Beside, true);
       return;
     }
 
     this.ready = false;
     this.disposed = false;
-    this.pendingMessages = [];
+    this.retainedMessages.clear();
 
+    this.createPanel(false);
+    this.sendCelebrationSetting();
+    this.sendProviderStatus(this.lastProviderStatus);
+  }
+
+  private createPanel(preserveFocus: boolean): void {
+    this.ready = false;
+    logDiagnostic("webview.createPanel", {
+      title: this.lastTitle,
+      preserveFocus,
+      column: "Beside",
+    });
     this.panel = vscode.window.createWebviewPanel(
       "sideBae.tourCard",
-      title,
-      { viewColumn: vscode.ViewColumn.Two, preserveFocus: true },
+      this.lastTitle,
+      { viewColumn: TOUR_CARD_COLUMN, preserveFocus },
       {
         enableScripts: true,
         retainContextWhenHidden: true,
@@ -72,15 +95,17 @@ export class TourCardPanelProvider {
     this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
 
     this.panel.webview.onDidReceiveMessage((message) => {
+      logDiagnostic("webview.receiveMessage", {
+        type: String(message?.type ?? "unknown"),
+      });
       if (message.type === "ready") {
         this.ready = true;
-        const hadPending = this.pendingMessages.length > 0;
-        for (const msg of this.pendingMessages) {
+        logDiagnostic("webview.ready", {
+          title: this.lastTitle,
+          retainedMessages: this.retainedMessages.size,
+        });
+        for (const msg of this.retainedMessages.values()) {
           this.panel?.webview.postMessage(msg);
-        }
-        this.pendingMessages = [];
-        if (hadPending) {
-          this.panel?.reveal(vscode.ViewColumn.Beside, true);
         }
         return;
       }
@@ -94,16 +119,19 @@ export class TourCardPanelProvider {
       // Guard against stale dispose: if a new panel was created between
       // dispose() and this async callback, don't wipe the new panel's state
       if (this.panel !== createdPanel) return;
+      logDiagnostic("webview.onDidDispose", {
+        title: this.lastTitle,
+        ready: this.ready,
+        intentional: this.disposed,
+        retainedMessages: this.retainedMessages.size,
+      });
       this.panel = null;
       this.ready = false;
-      this.pendingMessages = [];
+      this.retainedMessages.clear();
       if (this.onNavigation) {
-        this.onNavigation({ type: "stop" });
+        this.onNavigation({ type: "panelClosed" });
       }
     });
-
-    this.sendCelebrationSetting();
-    this.sendProviderStatus(this.lastProviderStatus);
   }
 
   private lastProviderStatus = true;
@@ -194,22 +222,27 @@ export class TourCardPanelProvider {
     this.post({ type: "investigationLoadingMessage", message });
   }
 
-  /** Ensure the panel is visible without stealing focus from the editor. */
-  reveal(): void {
-    this.panel?.reveal(vscode.ViewColumn.Beside, true);
-  }
-
   clear(): void {
     this.post({ type: "clear" });
   }
 
+  getViewColumn(): vscode.ViewColumn | undefined {
+    return this.panel?.viewColumn;
+  }
+
   dispose(): void {
+    logStack("webview.dispose called", {
+      title: this.lastTitle,
+      hasPanel: Boolean(this.panel),
+      ready: this.ready,
+      retainedMessages: this.retainedMessages.size,
+    });
     this.disposed = true;
+    this.retainedMessages.clear();
     if (this.panel) {
       const p = this.panel;
       this.panel = null;
       this.ready = false;
-      this.pendingMessages = [];
       p.dispose();
     }
   }
@@ -218,13 +251,30 @@ export class TourCardPanelProvider {
 
   private post(msg: Record<string, unknown>): void {
     if (this.disposed) return;
+    this.rememberMessage(msg);
+    logDiagnostic("webview.post", {
+      type: String(msg.type ?? "unknown"),
+      hasPanel: Boolean(this.panel),
+      ready: this.ready,
+      retainedMessages: this.retainedMessages.size,
+    });
     if (this.ready && this.panel) {
       this.panel.webview.postMessage(msg);
-    } else if (this.panel) {
-      this.pendingMessages.push(msg);
     }
-    // If no panel exists at all, message is silently dropped — this is
-    // expected when the user closes the panel while an operation is running.
+    // If the panel is not ready yet, the retained state will be replayed when
+    // the webview sends its ready handshake.
+  }
+
+  private rememberMessage(msg: Record<string, unknown>): void {
+    const key = this.getMessageKey(msg);
+    this.retainedMessages.set(key, msg);
+  }
+
+  private getMessageKey(msg: Record<string, unknown>): string {
+    const type = String(msg.type ?? "unknown");
+    if ("stepIndex" in msg) return `${type}:${String(msg.stepIndex)}`;
+    if ("nodeId" in msg) return `${type}:${String(msg.nodeId)}:${String(msg.mode ?? "")}`;
+    return type;
   }
 
   private getHtmlForWebview(webview: vscode.Webview): string {

@@ -14,6 +14,7 @@ import type { TourCardPanelProvider } from "./webview-provider.js";
 import * as tourStore from "../../engine/tour-store.js";
 import * as statusBar from "../status-bar.js";
 import { buildFollowUpPrompt } from "../../claude/prompts.js";
+import { logDiagnostic, logStack } from "../../diagnostics.js";
 
 const PHASE_LOADING_MESSAGES: Record<string, string> = {
   orient: "Understanding the issue...",
@@ -47,6 +48,7 @@ export class TourPlayer {
     this.webviewProvider = webviewProvider;
 
     this.webviewProvider.setNavigationCallback(async (action) => {
+      logDiagnostic("player.navigationAction", { type: action.type });
       switch (action.type) {
         case "navigate":
           await this.navigateToNode(action.nodeId);
@@ -59,6 +61,9 @@ export class TourPlayer {
           break;
         case "stop":
           this.stopTour();
+          break;
+        case "panelClosed":
+          this.detachView();
           break;
         case "dismissSummary": {
           // User clicked "Begin walkthrough" — NOW open the file for the first time
@@ -142,6 +147,22 @@ export class TourPlayer {
   }
 
   async startTour(tour: TourDocument): Promise<void> {
+    logDiagnostic("player.startTour", {
+      tourId: tour.id,
+      name: tour.name,
+      nodes: Object.keys(tour.nodes).length,
+      hadLesson: Boolean(this.lessonSession),
+      hadInvestigation: Boolean(this.investigationSession),
+      atlasActive: this.atlasActive,
+      engineLoaded: this.engine.isLoaded(),
+    });
+    if (this.lessonSession) this.endLesson(false);
+    if (this.investigationSession) this.endInvestigation(false);
+    if (this.activeEditor) clearDecorations(this.activeEditor);
+    this.atlasActive = false;
+    this.navigating = false;
+    this.askFollowUpInFlight = false;
+
     const hasKindNodes = Object.values(tour.nodes).some((n) => n.kind);
     const title = hasKindNodes
       ? `Investigating: ${tour.query}`
@@ -152,7 +173,11 @@ export class TourPlayer {
 
     // 2. Load engine (navigates to entry node internally)
     this.engine.load(tour);
-    this.setTourActiveContext(true);
+    // The summary card is a preview, not an active walkthrough. Keeping the
+    // active context false here prevents global tour keybindings (especially
+    // Escape -> stopTour) from closing the webview while VS Code is dismissing
+    // command palette/sidebar/notification UI around the newly opened panel.
+    this.setTourActiveContext(false);
 
     // 3. Send the summary card state — no file opened yet.
     //    The panel is the only thing in the editor area, so the webview
@@ -186,7 +211,14 @@ export class TourPlayer {
     }
   }
 
-  stopTour(): void {
+  stopTour(disposePanel = true): void {
+    logStack("player.stopTour called", {
+      disposePanel,
+      engineLoaded: this.engine.isLoaded(),
+      atlasActive: this.atlasActive,
+      hasLesson: Boolean(this.lessonSession),
+      hasInvestigation: Boolean(this.investigationSession),
+    });
     if (this.activeEditor) {
       clearDecorations(this.activeEditor);
     }
@@ -194,9 +226,25 @@ export class TourPlayer {
     this.atlasActive = false;
     this.navigating = false;
     this.askFollowUpInFlight = false;
-    if (this.lessonSession) this.endLesson();
-    if (this.investigationSession) this.endInvestigation();
-    this.webviewProvider.dispose();
+    if (this.lessonSession) this.endLesson(disposePanel);
+    if (this.investigationSession) this.endInvestigation(disposePanel);
+    if (disposePanel) this.webviewProvider.dispose();
+    this.setTourActiveContext(false);
+  }
+
+  private detachView(): void {
+    logDiagnostic("player.detachView", {
+      engineLoaded: this.engine.isLoaded(),
+      atlasActive: this.atlasActive,
+      hasLesson: Boolean(this.lessonSession),
+      hasInvestigation: Boolean(this.investigationSession),
+    });
+    if (this.activeEditor) {
+      clearDecorations(this.activeEditor);
+    }
+    this.activeEditor = undefined;
+    this.navigating = false;
+    this.askFollowUpInFlight = false;
     this.setTourActiveContext(false);
   }
 
@@ -314,7 +362,6 @@ export class TourPlayer {
         this.webviewProvider.sendStepContent(stepIndex, content);
         await this.openStepFile(stepIndex);
         await this.autoSaveLesson();
-        this.webviewProvider.reveal();
         this.triggerPrefetch();
       }
     } catch (err) {
@@ -389,10 +436,11 @@ export class TourPlayer {
     try {
       const doc = await vscode.workspace.openTextDocument(fileUri);
       const editor = await vscode.window.showTextDocument(doc, {
-        viewColumn: vscode.ViewColumn.One,
+        viewColumn: this.getCodeViewColumn(),
         preserveFocus: true,
       });
       this.activeEditor = editor;
+      this.setTourActiveContext(true);
 
       const range = new vscode.Range(
         new vscode.Position(step.startLine - 1, 0),
@@ -419,7 +467,7 @@ export class TourPlayer {
     }
   }
 
-  private endLesson(): void {
+  private endLesson(disposePanel = true): void {
     if (this.lessonSession) {
       this.lessonSession.cancelPrefetch();
       this.saveLessonAsTour();
@@ -427,7 +475,7 @@ export class TourPlayer {
 
     if (this.activeEditor) clearDecorations(this.activeEditor);
     this.lessonSession = null;
-    this.webviewProvider.dispose();
+    if (disposePanel) this.webviewProvider.dispose();
     this.setTourActiveContext(false);
   }
 
@@ -533,7 +581,7 @@ export class TourPlayer {
       try {
         const doc = await vscode.workspace.openTextDocument(fileUri);
         const editor = await vscode.window.showTextDocument(doc, {
-          viewColumn: vscode.ViewColumn.One,
+          viewColumn: this.getCodeViewColumn(),
           preserveFocus: true,
         });
         this.activeEditor = editor;
@@ -605,7 +653,7 @@ export class TourPlayer {
     }
   }
 
-  private endInvestigation(): void {
+  private endInvestigation(disposePanel = true): void {
     if (this.investigationSession) {
       try {
         const tour = this.investigationSession.toTourDocument();
@@ -623,7 +671,7 @@ export class TourPlayer {
 
     if (this.activeEditor) clearDecorations(this.activeEditor);
     this.investigationSession = null;
-    this.webviewProvider.dispose();
+    if (disposePanel) this.webviewProvider.dispose();
     this.setTourActiveContext(false);
   }
 
@@ -641,7 +689,7 @@ export class TourPlayer {
     try {
       const doc = await vscode.workspace.openTextDocument(fileUri);
       const editor = await vscode.window.showTextDocument(doc, {
-        viewColumn: vscode.ViewColumn.One,
+        viewColumn: this.getCodeViewColumn(),
         preserveFocus: true,
       });
       const pos = new vscode.Position(Math.max(0, line - 1), 0);
@@ -930,7 +978,19 @@ export class TourPlayer {
     vscode.commands.executeCommand("setContext", "sideBae.tourActive", active);
   }
 
+  private getCodeViewColumn(): vscode.ViewColumn {
+    return this.webviewProvider.getViewColumn() === vscode.ViewColumn.One
+      ? vscode.ViewColumn.Beside
+      : vscode.ViewColumn.One;
+  }
+
   private async showNode(node: TourNode): Promise<void> {
+    logDiagnostic("player.showNode", {
+      file: node.file,
+      startLine: node.startLine,
+      endLine: node.endLine,
+      navigating: this.navigating,
+    });
     if (this.navigating) return;
     this.navigating = true;
 
@@ -946,7 +1006,7 @@ export class TourPlayer {
       if (!this.engine.isLoaded()) return;
 
       const editor = await vscode.window.showTextDocument(doc, {
-        viewColumn: vscode.ViewColumn.One,
+        viewColumn: this.getCodeViewColumn(),
         preserveFocus: true,
       });
 
@@ -968,7 +1028,6 @@ export class TourPlayer {
       applyDecorations(editor, node);
 
       this.webviewProvider.updateCard(this.engine.getCardState());
-      this.webviewProvider.reveal();
     } catch {
       if (this.engine.isLoaded()) {
         vscode.window.showWarningMessage(

@@ -21,6 +21,8 @@ First, assess complexity: is this a small feature (a single module, a utility) o
 
 Read the relevant source files. Trace the code paths. Then produce a tour as a JSON object following the provided schema.
 
+Before writing JSON, do a private coverage pass: identify the entry point, data objects, state changes, side effects, final outcomes, and real branches. Use that pass to decide which files and symbols are required. Do not output the pass, and do not fill unverified gaps with architecture guesses.
+
 ## Voice and tone
 
 Write like you're explaining to someone smart who hasn't seen this code. Be direct, be specific, have opinions. Sound like a real person — not a documentation generator.
@@ -95,7 +97,7 @@ But: when something is simple, don't pad it out. A utility function that's genui
 - Each node: real file, accurate 1-based line numbers
 - Node IDs: kebab-case descriptive names
 - id: kebab-case slug from the query
-- trackedFiles: run "git log -1 --format=%h -- <file>" per file
+- trackedFiles: optional. Omit it, or include only { "path": "relative/file.ts" } entries. Do not spend time running git history per file; Side Bae derives this from nodes when omitted.
 - generatedAt: current ISO 8601 timestamp
 - Exclude node_modules, dist, build artifacts
 - If you can't fully trace a connection, say so: "I couldn't determine how X connects to Y" is better than guessing. Honest gaps build trust; hallucinated connections destroy it.`;
@@ -106,7 +108,7 @@ export function buildWhatsNewPrompt(range: string): string {
 
 Steps:
 1. Interpret the time range naturally. Examples: "this week" → --since=1.week.ago, "last 5 commits" → -5, "since Monday" → --since=last.monday, "since v2.0" → v2.0..HEAD
-2. Run git log with the appropriate flags. Include author and changed files: git log --format="%h %an %s" --name-only <range-flags>
+2. Run git log with the appropriate flags. Include author, absolute commit date, and changed files: git log --date=short --format="%h %ad %an %s" --name-only <range-flags>
 3. Group commits by author first — one author's commits in a time window almost always form a coherent feature or fix. This is the primary clustering signal.
 4. Within each author's commits, identify logical changes (a feature, bugfix, refactor, or chore). Merge commits that are clearly part of the same work.
 5. If multiple authors touched the same files for the same logical change (co-authored work), merge into a single change with the primary author noted.
@@ -115,7 +117,7 @@ Return a JSON object with a "changes" array, ordered most recent first. Each cha
 - name: Short descriptive name (e.g., "Redesigned tour card UI", "Fixed session timeout bug")
 - summary: One-line description of what this change accomplishes
 - author: The primary author's name
-- date: Relative date of the most recent commit in this change (e.g., "3 days ago", "yesterday")
+- date: Absolute date of the most recent commit in this change as YYYY-MM-DD, taken from git log --date=short. Do not write a relative phrase; the UI renders relative text at display time.
 - commits: Array of short commit SHAs grouped into this change
 - files: Array of files touched (relative paths from workspace root, deduplicated)
 
@@ -135,6 +137,8 @@ Issue details:
 ${issueBody}
 
 Scan the codebase to understand the issue, locate the root cause, and propose a fix. Produce a tour as a JSON object following the provided schema.
+
+Before writing JSON, keep a private investigation ledger: expected behavior, observed failure path, evidence, related callers or sibling paths, and why the fix addresses the root cause. Do not output the ledger. If you cannot prove the root cause from the available code, say so instead of inventing a definitive fix.
 
 ## Voice and tone
 
@@ -183,7 +187,7 @@ General rules:
 - Edge labels describe the relationship (e.g., "Where it breaks", "See the fix")
 - Node IDs should be kebab-case descriptive names
 - The id field should be a kebab-case slug like "investigate-<short-description>"
-- For trackedFiles, run "git log -1 --format=%h -- <file>" for each referenced file
+- trackedFiles is optional. Omit it, or include only { "path": "relative/file.ts" } entries. Do not spend time running git history per file; Side Bae derives this from nodes when omitted.
 - Set generatedAt to the current ISO 8601 timestamp
 - Do not include node_modules, dist, or build artifacts
 - If you can't fully trace the root cause, say so explicitly. "I suspect this is related to X but couldn't confirm" is better than a fabricated diagnosis.`;
@@ -344,6 +348,8 @@ export function buildLearnableConceptsPrompt(codebaseStructure?: string): string
 ${contextSection}
 This could be ANY type of codebase: a UI library, a game engine, a compiler, a CLI tool, a backend framework, a build system — anything. Look for what makes this codebase interesting and well-crafted.
 
+Before writing JSON, do a private quality pass: confirm each topic is backed by code you actually read, remove topics that are merely features with "how" prepended, and prefer one strong topic over several overlapping topics that teach the same pattern.
+
 Look for:
 - Architecture patterns (how the system is structured and why)
 - Algorithm implementations (clever or elegant solutions)
@@ -388,6 +394,8 @@ export function buildLessonPlanPrompt(subject: string, entryFile?: string, codeb
   return `You are creating a lesson plan for teaching about: "${subject}"
 ${entryHint}${contextSection}
 Create a structured lesson plan. Each step should focus on a specific code region that teaches a concept. Use as many steps as the subject ACTUALLY requires — a small utility might need 4 steps, but a complex system spanning many files needs 15+. Do not cap arbitrarily. Completeness is more important than brevity.
+
+Before writing the plan, do a private coverage pass: identify prerequisite concepts, data shapes, entry points, core behavior, edge cases, and final outcomes. If a later step depends on an idea that has not been introduced or is not visible in the highlighted code, add the missing intermediate step. Do not output this pass.
 
 ## Plan structure
 
@@ -704,6 +712,8 @@ export function buildAtlasPrompt(
 ${contextSection}${featuresSection}
 Read the key files: entry points, main modules, configuration files. Then produce a JSON object following the provided schema.
 
+Before writing JSON, do a private reconciliation pass: every flow step must belong to a real layer, every connection must be supported by a verified call/data handoff/persisted artifact/command/route/event/import boundary, and every suggestion must point at a concrete capability found in the flows or layers.
+
 ## What to produce
 
 ### Project identity (projectName, summary, techStack)
@@ -779,6 +789,8 @@ Look at:
 - Entry points (main files, route definitions, command handlers)
 - Exported modules and their purposes
 - README, docs, and configuration files
+
+Before writing JSON, do a private dedupe pass: merge overlapping features, split same-directory capabilities when they serve different outcomes, verify every path, and decide whether each item belongs as a top-level feature or child.
 
 Return a JSON object with a "features" array. Each feature should have:
 - name: Short feature name (e.g., "Authentication", "Payment Processing")

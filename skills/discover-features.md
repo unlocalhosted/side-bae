@@ -21,6 +21,14 @@ Scan the codebase systematically. Look at:
 
 Focus on high-level features that a new developer would want to understand. Group related functionality together. Think about what a developer would see in a table of contents for this codebase.
 
+Before writing JSON, do a private dedupe pass:
+- Merge overlapping features that describe the same capability from different files
+- Split features that share a directory but serve different user or system outcomes
+- Verify every `path` by reading or listing it; omit `path` when you cannot verify it
+- Check whether a feature should be a child of another feature instead of a top-level sibling
+
+Do not output this pass. Use it to keep the sidebar complete without duplicates.
+
 ### What counts as a feature
 
 A "feature" is a user-facing capability or a major internal system. Examples: "Authentication", "Payment Processing", "Real-time Notifications", "Search Engine", "CLI Commands".
@@ -66,3 +74,4 @@ Write the output to `.side-bae/features.json`. That file is the only deliverable
 - Children are optional — use them for features with clear sub-components (no nested children)
 - Descriptions should be specific, not generic — "Validates JWT tokens and manages user sessions" is better than "Handles authentication"
 - Order features by importance/centrality to the project, not alphabetically
+- Every `path` must point to a real file or directory. If there is no clear primary path, omit it rather than guessing.

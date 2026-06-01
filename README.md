@@ -66,6 +66,7 @@ Side Bae ships with skill files that work as slash commands in Claude Code, or a
 | `/side-bae-features` | Feature map for the sidebar |
 | `/side-bae-concepts` | Learnable topics and patterns |
 | `/side-bae-whats-new` | Recent changes from git history |
+| `/side-bae-atlas` | System atlas with layers, connections, and flow traces |
 
 No built-in AI backend required. The extension watches `.side-bae/` and loads new files as they appear — a notification prompts you to open them.
 

@@ -18,6 +18,14 @@ You are creating a complete, self-contained lesson. This means generating BOTH t
 
 Read the relevant source files. Understand the subject thoroughly before planning. Follow imports. Read callers, not just definitions. Understand the connections between files.
 
+Before writing JSON, do a private coverage pass:
+- Identify the prerequisite concepts the learner must understand before the subject makes sense
+- Trace the implementation from data shapes and entry points through behavior, edge cases, and final outcomes
+- Mark every place where a later step depends on an earlier idea
+- Add a step for any missing prerequisite or intermediate transition; do not rely on the learner to infer it
+
+Do not output this coverage pass. Use it to prevent gaps in the lesson.
+
 ### Step 2: Plan the lesson
 
 Create as many steps as the subject requires, ordered from foundational to advanced. A small utility might need 4 steps; a complex system needs 15-20+. Do NOT cap arbitrarily.
@@ -70,6 +78,8 @@ If full coverage requires 15 or 20 steps, generate all of them. Completeness bea
 
 Before finalizing, verify: could a reader follow your steps in order without any "wait, where did that come from?" moments? If not, you're missing a step.
 
+Every later explanation must build on something already introduced, visible in the highlighted code, or explicitly named in that step. If you use a concept like "message protocol", "state machine", "adapter", or "cache invalidation" before teaching it, add the missing earlier step.
+
 ### Self-check before outputting
 
 1. Does the lesson cover the subject end-to-end, not just the obvious parts?
@@ -78,6 +88,7 @@ Before finalizing, verify: could a reader follow your steps in order without any
 4. Do explanations reference code inline (no fenced code blocks)?
 5. Could a learner follow the steps sequentially without knowledge gaps?
 6. Is every file path real and every line number accurate?
+7. Did the private coverage pass reveal any prerequisite, branch, or edge case that is missing from the final step list?
 
 ## Output Schema
 
@@ -120,7 +131,7 @@ Write the output to `.side-bae/{id}.full-lesson.json` where `{id}` is a kebab-ca
 
 ### Rules
 
-- Every step must reference a real file with accurate 1-based line numbers. Don't guess them: after reading the file, confirm `startLine`/`endLine` against the editor's gutter (`grep -n 'symbolName' <file>` pins a symbol's exact line). Wrong line numbers highlight the wrong code while the learner reads.
+- Every step must reference a real file with accurate 1-based line numbers. Don't guess them: after reading the file, confirm `startLine`/`endLine` against a line-numbered reader or search result. Wrong line numbers highlight the wrong code while the learner reads.
 - For `generatedAt`, run `date -u +%Y-%m-%dT%H:%M:%SZ` to get the real timestamp — don't write one from memory
 - Step IDs: "step-1", "step-2", etc.
 - Mix choice and text questions — never all one type. Aim for 40-60% text.

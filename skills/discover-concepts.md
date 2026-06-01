@@ -28,6 +28,14 @@ Scan broadly first, then read the most interesting files deeply. Look for:
 
 Focus on topics where the implementation itself is worth studying — where a developer would say "I want to learn how they did that."
 
+Before writing JSON, do a private quality pass:
+- Confirm each topic is backed by code you actually read, not just a promising filename
+- Remove topics that are merely features with "how" prepended
+- Prefer one strong topic over several overlapping topics that teach the same pattern
+- Make sure foundational topics come before advanced topics that depend on them
+
+Do not output this pass. Use it to keep the Learn section high-signal.
+
 ## Output Schema
 
 Write the output to `.side-bae/learnable-concepts.json`. That file is the only deliverable — write it to disk; don't paste the JSON into the chat.
@@ -53,3 +61,4 @@ Write the output to `.side-bae/learnable-concepts.json`. That file is the only d
 - `entryFile` must be a real file that exists — verify by reading it
 - `concepts` should be specific named patterns (e.g., "Observer Pattern", "Intersection Observer API", "Memoization"), not vague descriptions
 - `description` should focus on what the developer LEARNS, not what the code DOES — "How to efficiently render large lists with O(1) memory" is better than "Renders large lists"
+- Do not include a topic unless the code demonstrates something transferable, important to navigation, or unusually well-crafted
