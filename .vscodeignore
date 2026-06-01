@@ -21,6 +21,12 @@ pnpm-lock.yaml
 **/*.map
 .githooks/**
 
+# README/marketing assets (demo.gif, screenshots) are viewed on GitHub/Marketplace,
+# not from the package — ship only the extension icon.
+media/**
+!media/icon.png
+!media/icon.svg
+
 # Exclude all node_modules except the Claude SDK (external, loaded at runtime)
 node_modules/**
 !node_modules/@anthropic-ai/

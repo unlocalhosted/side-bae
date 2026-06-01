@@ -4,6 +4,12 @@
 
 Open a new project. Ask a question. Navigate the answer through real code.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/unlocalhosted/side-bae/main/media/demo.gif" alt="Side Bae in action — ask a question and walk the answer through real code" width="840">
+</p>
+
+> Works with **Claude Code** or **GitHub Copilot** — or any AI chat, via portable skill files. Generated walkthroughs are saved as JSON you can replay offline or commit to share with your team.
+
 ## Install
 
 Download the latest `.vsix` from [Releases](https://github.com/unlocalhosted/side-bae/releases) and install:
@@ -20,6 +26,14 @@ windsurf --install-extension side-bae.vsix
 ```
 
 Or use the command palette: `Extensions: Install from VSIX...`
+
+## Quickstart
+
+1. Make sure **Claude Code** (`claude login`) or **GitHub Copilot** is available — Side Bae auto-detects either.
+2. Open any project and press `Cmd+Shift+T` / `Ctrl+Shift+T`.
+3. Ask a question — *"how does authentication work?"* — and walk the answer through the real code.
+
+Prefer slash commands or another AI tool? Run **Side Bae: Install Skill Files**, then `/side-bae-tour how does authentication work` in Claude Code. See [Skill files](#skill-files-use-with-any-ai-chat) below.
 
 ## Two ways to use it
 
@@ -80,6 +94,10 @@ Type a question, wait ~30 seconds, and get an interactive walkthrough through th
 - **Saved walkthroughs** in `.side-bae/` — replay instantly without any AI calls, or commit to git and share with your team
 
 **Navigate:** `Alt+Down` to follow a path, `Alt+Left` to go back, `Alt+Right` to go forward, `Escape` to stop.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/unlocalhosted/side-bae/main/media/side-bar.png" alt="A generated tour in the Side Bae sidebar — stops, explanations, and clickable edges" width="320">
+</p>
 
 ---
 
