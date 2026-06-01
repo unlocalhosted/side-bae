@@ -2,6 +2,17 @@
 
 Generate an interactive code tour that guides a developer through a codebase feature. The output is a JSON file consumed by the Side Bae VS Code extension.
 
+## Output contract — read this first
+
+Produce **exactly one JSON file** at `.side-bae/{id}.tour.json`, matching the Side Bae schema at the end of this document. That file is the only deliverable.
+
+⚠️ **This is NOT Microsoft CodeTour.** Do not emit the CodeTour format. Concretely, the output must NOT contain:
+- `"$schema": "https://aka.ms/codetour-schema"` — or any `$schema` field at all
+- a flat `"steps"` array, or a single `"line"` / `"description"` per step
+- a `.tour` filename — it must be written to `.side-bae/<id>.tour.json`
+
+A Side Bae tour is a **graph**: a `nodes` map keyed by id, an `entryNode`, and `edges` connecting nodes. Each node carries `startLine`/`endLine` and an `explanation`. Everything below about voice, narrative arc, and markdown formatting describes the prose **inside each node's `explanation` string** — it does not change the file's shape.
+
 ## How to use
 
 ```
@@ -86,9 +97,9 @@ Write the output as a JSON file to `.side-bae/{id}.tour.json` where `{id}` is a 
   "id": "string — kebab-case unique identifier",
   "name": "string — human-readable tour name",
   "query": "string — the original question",
-  "generatedAt": "string — ISO 8601 timestamp",
+  "generatedAt": "string — ISO 8601 timestamp from `date -u +%Y-%m-%dT%H:%M:%SZ`",
   "trackedFiles": [
-    { "path": "string — relative file path", "lastCommit": "string — short git hash" }
+    { "path": "string — relative file path (optional; omit and Side Bae derives it from the nodes)" }
   ],
   "entryNode": "string — ID of the first node",
   "nodes": {
@@ -108,10 +119,10 @@ Write the output as a JSON file to `.side-bae/{id}.tour.json` where `{id}` is a 
 
 ### Rules
 
-- Every node must reference a real file with accurate 1-based line numbers — verify by reading the file
+- Every node must reference a real file with accurate 1-based line numbers. Don't guess them: after reading the file, confirm each `startLine`/`endLine` against the editor's gutter — `grep -n 'symbolName' <file>` is the fastest way to pin the exact line of a function or symbol. Wrong line numbers make the tour highlight the wrong code, so this is worth double-checking.
 - Node IDs should be kebab-case descriptive names
-- Run `git log -1 --format=%h -- <file>` per file for trackedFiles
-- Set generatedAt to current ISO 8601 timestamp
+- `trackedFiles` is optional and needs no git hashes — Side Bae derives the file list from the nodes. Do not run `git log` per file.
+- For `generatedAt`, run `date -u +%Y-%m-%dT%H:%M:%SZ` to get the real timestamp — don't write one from memory
 - Exclude node_modules, dist, build artifacts
 - Each explanation must have genuine insight — if it only restates what the code does, rewrite it to explain WHY
 - Every node must be reachable from the entryNode by following edges

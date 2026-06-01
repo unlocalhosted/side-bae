@@ -197,5 +197,18 @@ export function validateTourDocument(data: unknown): TourDocument {
   }
   stripCycles(result.entryNode);
 
+  // Derive trackedFiles from the reachable nodes when the author didn't supply
+  // them. The file list is the useful part; git hashes aren't read anywhere, so
+  // generators shouldn't pay N `git log` calls to populate them.
+  if (result.trackedFiles.length === 0) {
+    const seenPaths = new Set<string>();
+    for (const node of Object.values(result.nodes)) {
+      if (node.file && !seenPaths.has(node.file)) {
+        seenPaths.add(node.file);
+      }
+    }
+    result.trackedFiles = [...seenPaths].map((path) => ({ path, lastCommit: "" }));
+  }
+
   return result;
 }

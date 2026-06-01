@@ -1,6 +1,11 @@
 import { readdir, readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { validateTourDocument, type TourAnnotation, type TourDocument } from "../types/tour.js";
+import {
+  isCodeTourDocument,
+  convertCodeTourToTour,
+  codeTourIdFromFileName,
+} from "./codetour-compat.js";
 import type { FeatureTreeNode } from "../types/feature-tree.js";
 import type { RecentChange } from "../types/recent-changes.js";
 import type { LearnableConcept, LessonPlan, LessonStepState } from "../types/lesson.js";
@@ -39,7 +44,44 @@ export async function loadTour(
 ): Promise<TourDocument> {
   const filePath = getTourPath(workspaceRoot, tourId);
   const content = await readFile(filePath, "utf-8");
-  return validateTourDocument(JSON.parse(content));
+  return coerceTourDocument(JSON.parse(content), tourId);
+}
+
+/**
+ * Normalize parsed tour JSON into a validated TourDocument, transparently
+ * converting Microsoft CodeTour content if a `.tour.json` happens to hold it.
+ */
+function coerceTourDocument(data: unknown, idHint: string): TourDocument {
+  if (isCodeTourDocument(data)) {
+    return validateTourDocument(
+      convertCodeTourToTour(data, {
+        id: codeTourIdFromFileName(idHint),
+        generatedAt: new Date().toISOString(),
+      })
+    );
+  }
+  return validateTourDocument(data);
+}
+
+/**
+ * Read a raw CodeTour file (e.g. `feature.tour`) from `.side-bae/`, convert it to
+ * Side Bae's native format, and persist it as `{id}.tour.json`. Returns the
+ * converted tour. The original `.tour` file is left untouched.
+ */
+export async function ingestCodeTourFile(
+  workspaceRoot: string,
+  fileName: string
+): Promise<TourDocument> {
+  const filePath = join(getTourDir(workspaceRoot), fileName);
+  const content = await readFile(filePath, "utf-8");
+  const tour = validateTourDocument(
+    convertCodeTourToTour(JSON.parse(content), {
+      id: codeTourIdFromFileName(fileName),
+      generatedAt: new Date().toISOString(),
+    })
+  );
+  await saveTour(workspaceRoot, tour);
+  return tour;
 }
 
 // Sequential write queue to prevent concurrent read-modify-write on the same file

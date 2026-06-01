@@ -2,6 +2,12 @@
 
 Generate an investigation tour that traces a bug from symptoms to root cause to fix. The output is a JSON file consumed by the Side Bae VS Code extension.
 
+## Output contract — read this first
+
+Produce **exactly one JSON file** at `.side-bae/{id}.tour.json`, matching the Side Bae schema at the end of this document. That file is the only deliverable.
+
+⚠️ **This is NOT Microsoft CodeTour.** Do not emit `"$schema": "https://aka.ms/codetour-schema"`, a flat `"steps"` array, or a `.tour` filename. A Side Bae tour is a **graph**: a `nodes` map keyed by id, an `entryNode`, and `edges`, where each node carries `startLine`/`endLine`, an `explanation`, and a `kind` of `context` / `problem` / `solution`. The voice and formatting guidance below describes the prose inside each `explanation` string — it does not change the file's shape.
+
 ## How to use
 
 ```
@@ -79,9 +85,9 @@ Write the output as a JSON file to `.side-bae/{id}.tour.json` where `{id}` is li
   "id": "investigate-short-description",
   "name": "Investigation: human-readable title",
   "query": "the original issue description",
-  "generatedAt": "ISO 8601 timestamp",
+  "generatedAt": "ISO 8601 timestamp from `date -u +%Y-%m-%dT%H:%M:%SZ`",
   "trackedFiles": [
-    { "path": "relative/file/path.ts", "lastCommit": "abc1234" }
+    { "path": "relative/file/path.ts (optional; omit and Side Bae derives it from the nodes)" }
   ],
   "entryNode": "node-id-of-first-stop",
   "nodes": {
@@ -107,13 +113,13 @@ Write the output as a JSON file to `.side-bae/{id}.tour.json` where `{id}` is li
 
 ### Rules
 
-- Every node must reference a real file with accurate 1-based line numbers
-- `suggestedEdit.oldText` must be an exact substring of the current file content — verify by reading the file
+- Every node must reference a real file with accurate 1-based line numbers. Don't guess them: after reading the file, confirm each `startLine`/`endLine` against the editor's gutter (`grep -n` is the fastest way to pin a symbol's line). Wrong line numbers highlight the wrong code.
+- `suggestedEdit.oldText` must be a **byte-exact** substring of the current file — copy it verbatim, including the exact leading indentation. Do not reflow, re-tab, trim, or abbreviate with `...`; Side Bae applies the fix with an exact string match, so any drift silently fails. Keep the snippet small (the few lines that actually change).
 - Node IDs should be kebab-case descriptive names
 - Edge labels describe the investigation flow: "Where it breaks", "The root cause", "The fix"
 - The `entryNode` should orient the reader: "Here's how this feature is supposed to work"
-- Run `git log -1 --format=%h -- <file>` per file for trackedFiles
-- Set generatedAt to current ISO 8601 timestamp
+- `trackedFiles` is optional and needs no git hashes — Side Bae derives the file list from the nodes. Do not run `git log` per file.
+- For `generatedAt`, run `date -u +%Y-%m-%dT%H:%M:%SZ` to get the real timestamp — don't write one from memory
 - Exclude node_modules, dist, build artifacts
 
 ## Example

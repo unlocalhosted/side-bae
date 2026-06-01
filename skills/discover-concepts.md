@@ -2,6 +2,8 @@
 
 Analyze a codebase and identify the most interesting and teachable aspects — things a developer could deeply learn from by studying the implementation.
 
+> **Concepts vs. features:** this command finds what's worth *learning* from how the code is built — teachable patterns and techniques, for the sidebar's Learn section. If you instead want a map of what the codebase *does* (its capabilities), that's a different command, `/side-bae-features`. Don't produce a plain feature list here.
+
 ## How to use
 
 ```
@@ -28,7 +30,7 @@ Focus on topics where the implementation itself is worth studying — where a de
 
 ## Output Schema
 
-Write the output to `.side-bae/learnable-concepts.json`.
+Write the output to `.side-bae/learnable-concepts.json`. That file is the only deliverable — write it to disk; don't paste the JSON into the chat.
 
 ```json
 [

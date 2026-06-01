@@ -1,9 +1,9 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { saveTour, loadTour, listTours, saveAnnotation, saveAtlas, loadAtlas } from "./tour-store.js";
-import type { TourDocument } from "../types/tour.js";
+import { saveTour, loadTour, listTours, saveAnnotation, saveAtlas, loadAtlas, ingestCodeTourFile } from "./tour-store.js";
+import { validateTourDocument, type TourDocument } from "../types/tour.js";
 import type { SystemAtlas } from "../types/atlas.js";
 
 const MOCK_TOUR: TourDocument = {
@@ -108,6 +108,97 @@ describe("TourStore", () => {
     });
     const loaded2 = await loadTour(tempDir, "auth-flow");
     expect(loaded2.annotations?.entry).toHaveLength(2);
+  });
+});
+
+// ── trackedFiles derivation ──
+
+describe("trackedFiles derivation", () => {
+  it("derives trackedFiles from reachable node files when omitted", () => {
+    const tour = validateTourDocument({
+      id: "t",
+      name: "T",
+      query: "q",
+      entryNode: "a",
+      trackedFiles: [],
+      nodes: {
+        a: { file: "src/a.ts", startLine: 1, endLine: 2, title: "A", explanation: "x", edges: [{ target: "b", label: "to b" }] },
+        b: { file: "src/b.ts", startLine: 1, endLine: 2, title: "B", explanation: "y", edges: [] },
+      },
+    });
+    expect(tour.trackedFiles).toEqual([
+      { path: "src/a.ts", lastCommit: "" },
+      { path: "src/b.ts", lastCommit: "" },
+    ]);
+  });
+
+  it("keeps author-provided trackedFiles untouched", () => {
+    const tour = validateTourDocument({
+      id: "t",
+      name: "T",
+      query: "q",
+      entryNode: "a",
+      trackedFiles: [{ path: "custom.ts", lastCommit: "abc123" }],
+      nodes: {
+        a: { file: "src/a.ts", startLine: 1, endLine: 2, title: "A", explanation: "x", edges: [] },
+      },
+    });
+    expect(tour.trackedFiles).toEqual([{ path: "custom.ts", lastCommit: "abc123" }]);
+  });
+});
+
+// ── CodeTour ingestion ──
+
+const MOCK_CODETOUR = {
+  $schema: "https://aka.ms/codetour-schema",
+  title: "Bots As Session Clients",
+  description: "How the Slack bot is a thin client.",
+  steps: [
+    { file: "src/index.ts", line: 55, title: "Create", description: "It creates a session." },
+    { file: "src/index.ts", line: 127, title: "Prompt", description: "It sends a prompt." },
+  ],
+};
+
+describe("CodeTour ingestion", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "side-bae-codetour-test-"));
+    await mkdir(join(tempDir, ".side-bae"), { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("transcodes a raw .tour file and persists it as native .tour.json", async () => {
+    await writeFile(
+      join(tempDir, ".side-bae", "bots-as-session-clients.tour"),
+      JSON.stringify(MOCK_CODETOUR),
+      "utf-8"
+    );
+
+    const tour = await ingestCodeTourFile(tempDir, "bots-as-session-clients.tour");
+    expect(tour.id).toBe("bots-as-session-clients");
+    expect(tour.entryNode).toBe("step-1");
+    expect(Object.keys(tour.nodes)).toHaveLength(2);
+
+    // The converted tour is now a first-class native tour on disk.
+    const reloaded = await loadTour(tempDir, "bots-as-session-clients");
+    expect(reloaded).toEqual(tour);
+  });
+
+  it("loadTour transparently converts CodeTour content stored in a .tour.json", async () => {
+    await writeFile(
+      join(tempDir, ".side-bae", "legacy.tour.json"),
+      JSON.stringify(MOCK_CODETOUR),
+      "utf-8"
+    );
+
+    const loaded = await loadTour(tempDir, "legacy");
+    expect(loaded.entryNode).toBe("step-1");
+    expect(loaded.nodes["step-1"].file).toBe("src/index.ts");
+    expect(loaded.nodes["step-1"].edges).toEqual([{ target: "step-2", label: "next" }]);
   });
 });
 

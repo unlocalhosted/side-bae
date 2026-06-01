@@ -88,7 +88,7 @@ Write the output to `.side-bae/{id}.full-lesson.json` where `{id}` is a kebab-ca
   "version": 1,
   "id": "string — kebab-case identifier",
   "subject": "string — what this lesson teaches",
-  "generatedAt": "string — ISO 8601 timestamp",
+  "generatedAt": "string — ISO 8601 timestamp from `date -u +%Y-%m-%dT%H:%M:%SZ`",
   "depth": "foundational | intermediate | advanced",
   "concepts": ["string — named concepts/patterns covered"],
   "synopsis": "string — one-paragraph summary of what the learner will gain",
@@ -120,7 +120,8 @@ Write the output to `.side-bae/{id}.full-lesson.json` where `{id}` is a kebab-ca
 
 ### Rules
 
-- Every step must reference a real file with accurate 1-based line numbers — verify by reading the file
+- Every step must reference a real file with accurate 1-based line numbers. Don't guess them: after reading the file, confirm `startLine`/`endLine` against the editor's gutter (`grep -n 'symbolName' <file>` pins a symbol's exact line). Wrong line numbers highlight the wrong code while the learner reads.
+- For `generatedAt`, run `date -u +%Y-%m-%dT%H:%M:%SZ` to get the real timestamp — don't write one from memory
 - Step IDs: "step-1", "step-2", etc.
 - Mix choice and text questions — never all one type. Aim for 40-60% text.
 - `modelAnswer` is REQUIRED for all text questions — it's the learner's only feedback in offline mode

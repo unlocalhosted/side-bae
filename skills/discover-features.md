@@ -2,6 +2,8 @@
 
 Analyze a codebase and identify its major features and capabilities. The output is a JSON file consumed by the Side Bae VS Code extension's sidebar.
 
+> **Features vs. concepts:** this command maps what the codebase *does* — its capabilities, for the sidebar's feature tree. If you instead want what's worth *learning* from how it's built (teachable patterns and techniques), that's a different command, `/side-bae-concepts`. Don't produce a list of learnable topics here.
+
 ## How to use
 
 ```
@@ -35,7 +37,7 @@ Use `children` for features with clear sub-components (e.g., "Authentication" mi
 
 ## Output Schema
 
-Write the output to `.side-bae/features.json`.
+Write the output to `.side-bae/features.json`. That file is the only deliverable — write it to disk; don't paste the JSON into the chat.
 
 ```json
 [

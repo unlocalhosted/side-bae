@@ -7,6 +7,7 @@ import type { FullLessonSummary } from "../types/full-lesson.js";
 import * as tourStore from "../engine/tour-store.js";
 import * as statusBar from "./status-bar.js";
 import { requireClaude } from "../commands/preflight.js";
+import { formatRelativeDate } from "../utils.js";
 
 // ── Semantic icon mapping ──
 // Maps feature name keywords to codicons for visual variety
@@ -395,7 +396,7 @@ export class FeatureTreeProvider
           c.name,
           vscode.TreeItemCollapsibleState.None
         );
-        item.description = `${c.author} \u00B7 ${c.date}`;
+        item.description = `${c.author} \u00B7 ${formatRelativeDate(c.date)}`;
         item.tooltip = `${c.name}\n${c.summary}\n\nAuthor: ${c.author}\nCommits: ${c.commits.join(", ")}\nFiles: ${c.files.join(", ")}\n\nClick to generate a tour (takes a moment)`;
         item.command = {
           command: "sideBae.generateTour",

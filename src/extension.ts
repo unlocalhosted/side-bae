@@ -115,6 +115,18 @@ export async function activate(context: vscode.ExtensionContext) {
         );
       }
     },
+    onCodeTourFile: async (fileName) => {
+      // Silently transcode a Microsoft CodeTour file into native format. The
+      // resulting .tour.json fires onNewTour above, which handles the prompt —
+      // so we don't notify here and avoid a double prompt.
+      try {
+        await tourStore.ingestCodeTourFile(workspaceRoot, fileName);
+      } catch {
+        vscode.window.showWarningMessage(
+          `Side Bae: found "${fileName}" but couldn't convert it from CodeTour format — it may still be writing or is malformed.`
+        );
+      }
+    },
     onSidebarRefresh: () => featureTreeProvider.refresh(),
   });
   fileWatcher.start();

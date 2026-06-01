@@ -7,6 +7,8 @@ const TOUR_DIR = ".side-bae";
 export interface FileWatcherCallbacks {
   onNewTour: (tourId: string) => void;
   onNewFullLesson: (lessonId: string) => void;
+  /** A raw Microsoft CodeTour file (`*.tour`) appeared — transcode it to native format. */
+  onCodeTourFile: (fileName: string) => void;
   onSidebarRefresh: () => void;
 }
 
@@ -81,6 +83,10 @@ export class SideBaeFileWatcher {
         // Tour was updated, not created — refresh sidebar without "New tour" prompt
         this.callbacks.onSidebarRefresh();
       }
+    } else if (filename.endsWith(".tour")) {
+      // Raw CodeTour file (vsls-contrib.codetour). Transcode to native format;
+      // the resulting .tour.json then flows through the .tour.json branch above.
+      this.callbacks.onCodeTourFile(filename);
     } else if (
       filename === "features.json" ||
       filename === "learnable-concepts.json" ||

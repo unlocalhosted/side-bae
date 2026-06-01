@@ -23,7 +23,7 @@ Examples:
 
 ## Output Schema
 
-Write the output to `.side-bae/whats-new.json`.
+Write the output to `.side-bae/whats-new.json`. That file is the only deliverable — write it to disk; don't paste the JSON into the chat.
 
 ```json
 [
@@ -31,7 +31,7 @@ Write the output to `.side-bae/whats-new.json`.
     "name": "string — short descriptive name (e.g., 'Redesigned tour card UI')",
     "summary": "string — one-line description",
     "author": "string — primary author's name",
-    "date": "string — relative date (e.g., '3 days ago')",
+    "date": "string — the change's most recent commit date, absolute, as YYYY-MM-DD",
     "commits": ["string — short commit SHAs"],
     "files": ["string — relative file paths, deduplicated"]
   }
@@ -44,6 +44,7 @@ Write the output to `.side-bae/whats-new.json`.
 - If more than 15 commits, group aggressively by author + topic
 - If fewer than 3 commits, each commit can be its own change
 - Order most recent first
+- `date` must be an **absolute** date (`YYYY-MM-DD`) taken from the group's most recent commit — get it from `git log --date=short --format=%ad`. Never write a relative phrase like "3 days ago": it's baked in at generation time and goes stale. Side Bae renders it relative ("3 days ago") at display time.
 - Don't include merge commits or automated commits (dependabot, CI bots) unless they are the only activity
 - `summary` should explain what the change accomplishes for the user, not describe files touched
 - `name` should be specific: "Redesigned tour card UI" not "UI changes"
