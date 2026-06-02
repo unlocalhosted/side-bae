@@ -7,3 +7,6 @@ dist/
 *.vsix
 .vscode-test/
 out/
+
+# Generated Side Bae output (tours/lessons created while dogfooding on this repo)
+.side-bae/

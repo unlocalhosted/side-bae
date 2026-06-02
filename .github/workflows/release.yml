@@ -9,7 +9,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -32,6 +32,6 @@ jobs:
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
       - name: Upload VSIX to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: side-bae.vsix
