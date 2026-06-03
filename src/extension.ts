@@ -161,6 +161,9 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("sideBae.discoverFeatures", () => {
       featureTreeProvider.discoverFeatures();
     }),
+    vscode.commands.registerCommand("sideBae.copyTourPrompt", async (item: unknown) => {
+      await featureTreeProvider.copyTourPrompt(item);
+    }),
     vscode.commands.registerCommand("sideBae.deleteTour", async (item: unknown) => {
       const tour = item as { kind?: string; tourId?: string; name?: string };
       if (!tour?.tourId || tour.kind !== "tour") return;

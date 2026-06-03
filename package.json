@@ -108,6 +108,12 @@
         "category": "Side Bae"
       },
       {
+        "command": "sideBae.copyTourPrompt",
+        "title": "Copy Tour Prompt",
+        "category": "Side Bae",
+        "icon": "$(copy)"
+      },
+      {
         "command": "sideBae.whatsNew",
         "title": "What's New",
         "category": "Side Bae",
@@ -225,11 +231,20 @@
           "command": "sideBae.deleteTour",
           "when": "viewItem == tour",
           "group": "inline"
+        },
+        {
+          "command": "sideBae.copyTourPrompt",
+          "when": "viewItem == feature",
+          "group": "inline"
         }
       ],
       "commandPalette": [
         {
           "command": "sideBae.deleteTour",
+          "when": "false"
+        },
+        {
+          "command": "sideBae.copyTourPrompt",
           "when": "false"
         },
         {

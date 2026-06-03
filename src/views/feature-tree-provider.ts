@@ -114,6 +114,16 @@ export class FeatureTreeProvider
     this._onDidChangeTreeData.fire(undefined);
   }
 
+  async copyTourPrompt(item: unknown): Promise<void> {
+    const feature = (item as { kind?: string; feature?: FeatureTreeNode })?.feature;
+    if (!feature) return;
+
+    const pathHint = feature.path ? ` Start near ${feature.path}.` : "";
+    const prompt = `/side-bae-tour ${feature.name} - ${feature.description}.${pathHint}`;
+    await vscode.env.clipboard.writeText(prompt);
+    vscode.window.showInformationMessage(`Copied tour prompt for "${feature.name}".`);
+  }
+
   async discoverFeatures(): Promise<void> {
     if (this.isLoading) return;
     this.isLoading = true;
@@ -332,6 +342,7 @@ export class FeatureTreeProvider
         item.iconPath = explored
           ? new vscode.ThemeIcon(iconId, new vscode.ThemeColor("charts.green"))
           : new vscode.ThemeIcon(iconId);
+        item.contextValue = "feature";
         return item;
       }
       case "tour": {
