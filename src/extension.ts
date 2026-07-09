@@ -16,7 +16,7 @@ import { disposeDecorations } from "./views/tour-player/decorations.js";
 import * as statusBar from "./views/status-bar.js";
 import * as tourStore from "./engine/tour-store.js";
 import { SideBaeFileWatcher } from "./engine/file-watcher.js";
-import { requireClaude } from "./commands/preflight.js";
+import { requireAIProvider } from "./commands/preflight.js";
 import { showDiagnostics } from "./diagnostics.js";
 
 function getProvider(workspaceRoot: string): AIProvider {
@@ -25,6 +25,7 @@ function getProvider(workspaceRoot: string): AIProvider {
     provider: config.get<ProviderChoice>("provider", "auto"),
     workspaceRoot,
     model: config.get<string>("model", "haiku"),
+    codexModel: config.get<string>("codexModel", ""),
     maxBudgetUsd: config.get<number>("maxBudgetUsd", 0.5),
   });
 }
@@ -41,10 +42,10 @@ export async function activate(context: vscode.ExtensionContext) {
   let adapter = getProvider(workspaceRoot);
 
   // Reusable pre-flight check
-  const checkClaude = () => adapter.checkStatus();
+  const checkProvider = () => adapter.checkStatus();
 
   // Check on activation (non-blocking)
-  requireClaude(checkClaude);
+  requireAIProvider(checkProvider);
 
   // Status bar indicator
   context.subscriptions.push(statusBar.init());
@@ -57,7 +58,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Feature tree
   const featureTreeProvider = new FeatureTreeProvider(
     () => adapter,
-    checkClaude,
+    checkProvider,
     workspaceRoot
   );
   context.subscriptions.push(
@@ -68,13 +69,13 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   // Commands
-  registerGenerateTourCommand(context, () => adapter, player, workspaceRoot, checkClaude);
+  registerGenerateTourCommand(context, () => adapter, player, workspaceRoot, checkProvider);
   registerNavigationCommands(context, player, workspaceRoot);
-  registerWhatsNewCommand(context, () => adapter, featureTreeProvider, checkClaude);
-  registerInvestigateIssueCommand(context, () => adapter, player, workspaceRoot, checkClaude);
-  registerStartLessonCommand(context, () => adapter, player, checkClaude);
+  registerWhatsNewCommand(context, () => adapter, featureTreeProvider, checkProvider);
+  registerInvestigateIssueCommand(context, () => adapter, player, workspaceRoot, checkProvider);
+  registerStartLessonCommand(context, () => adapter, player, checkProvider);
   registerScanLearnableCommand(context, featureTreeProvider);
-  registerExploreAtlasCommand(context, () => adapter, player, workspaceRoot, checkClaude);
+  registerExploreAtlasCommand(context, () => adapter, player, workspaceRoot, checkProvider);
   registerInstallSkillsCommand(context, workspaceRoot);
 
   // Non-blocking: check if installed skill files are outdated

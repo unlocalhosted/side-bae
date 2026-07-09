@@ -8,7 +8,7 @@ Open a new project. Ask a question. Navigate the answer through real code.
   <img src="https://raw.githubusercontent.com/unlocalhosted/side-bae/main/media/demo.gif" alt="Side Bae in action — ask a question and walk the answer through real code" width="840">
 </p>
 
-> Works with **Claude Code** or **GitHub Copilot** — or any AI chat, via portable skill files. Generated walkthroughs are saved as JSON you can replay offline or commit to share with your team.
+> Works with **Codex CLI**, **Claude Code**, or **GitHub Copilot** — or any AI chat, via portable skill files. Generated walkthroughs are saved as JSON you can replay offline or commit to share with your team.
 
 ## Install
 
@@ -29,11 +29,11 @@ Or use the command palette: `Extensions: Install from VSIX...`
 
 ## Quickstart
 
-1. Make sure **Claude Code** (`claude login`) or **GitHub Copilot** is available — Side Bae auto-detects either.
+1. Make sure **Codex CLI** (`codex login`), **Claude Code** (`claude login`), or **GitHub Copilot** is available — Side Bae auto-detects them.
 2. Open any project and press `Cmd+Shift+T` / `Ctrl+Shift+T`.
 3. Ask a question — *"how does authentication work?"* — and walk the answer through the real code.
 
-Prefer slash commands or another AI tool? Run **Side Bae: Install Skill Files**, then `/side-bae-tour how does authentication work` in Claude Code. See [Skill files](#skill-files-use-with-any-ai-chat) below.
+Prefer slash commands or another AI tool? Run **Side Bae: Install Skill Files** to install Claude Code slash-command files, or copy those prompts into another AI chat. See [Skill files](#skill-files-use-with-any-ai-chat) below.
 
 ## Two ways to use it
 
@@ -43,16 +43,17 @@ Side Bae works in two modes. Pick whichever fits your setup — or use both.
 
 The extension calls an AI backend directly to generate tours, lessons, and investigations on demand. Requires one of:
 
+- [Codex CLI](https://developers.openai.com/codex/) — install and run `codex login` (supports all features through your existing Codex access; no OpenAI API key required)
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) — install and run `claude login` (supports all features)
 - [GitHub Copilot](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) — works via VS Code's Language Model API (tours, lessons, discovery — no investigation)
 
-Side Bae auto-detects which is available (tries Copilot first, then Claude Code). Override with the `sideBae.provider` setting.
+Side Bae auto-detects which is available (tries Copilot first, then Codex, then Claude Code). Override with the `sideBae.provider` setting.
 
-> **Note:** Investigate Issue requires Claude Code. If you only have Copilot, tours, lessons, feature discovery, and What's New all work — but the interactive debugger needs Claude Code's tool-use capabilities.
+> **Note:** Investigate Issue requires Codex CLI or Claude Code. If you only have Copilot, tours, lessons, feature discovery, and What's New all work — but the interactive debugger needs a local coding-agent CLI.
 
 ### Skill files (use with any AI chat)
 
-Side Bae ships with skill files that work as slash commands in Claude Code, or as prompt instructions for any AI chat (Cursor, Windsurf, ChatGPT, etc.). The AI generates `.side-bae/*.json` files, and the extension picks them up automatically.
+Side Bae ships with skill files that work as slash commands in Claude Code, or as prompt instructions for any AI chat (Cursor, Windsurf, ChatGPT, etc.). Codex users should normally use the built-in Codex CLI provider above; skill files are the portable fallback path. The AI generates `.side-bae/*.json` files, and the extension picks them up automatically.
 
 **Setup:** Run **Side Bae: Install Skill Files** from the command palette. Choose global (`~/.claude/commands/`) or per-project (`.claude/commands/`).
 
@@ -141,7 +142,7 @@ Clone any codebase you admire and learn from it with a live AI tutor. The AI wal
 
 Paste a bug description and debug it collaboratively with AI. The AI investigates step by step, shows its work, and asks for your guidance.
 
-> **Requires Claude Code.** Investigation uses tool-calling capabilities only available with the Claude Code provider. If you're using Copilot, this feature is not available.
+> **Requires Codex CLI or Claude Code.** Investigation uses local coding-agent tool capabilities. If you're using Copilot, this feature is not available.
 
 **How to start:** Click "Investigate Issue" in the command hub or sidebar menu. Paste or describe the bug.
 **Skill file:** `/side-bae-investigate login fails with 401 after session timeout`
@@ -171,7 +172,9 @@ See what changed in recent commits at a glance, explained in plain language.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `sideBae.provider` | `auto` | AI backend: `auto` (detect best available), `claude-code`, or `copilot` |
+| `sideBae.provider` | `auto` | AI backend: `auto` (detect best available), `codex`, `claude-code`, or `copilot` |
+| `sideBae.codexPath` | _(auto-detect)_ | Path to Codex CLI binary. Leave empty unless auto-detection fails. |
+| `sideBae.codexModel` | _(Codex default)_ | Optional Codex model override. Leave empty to use your Codex CLI default. |
 | `sideBae.model` | `haiku` | Claude model: `haiku` (fast), `sonnet` (balanced), `opus` (thorough) |
 | `sideBae.maxBudgetUsd` | `0.5` | Max cost per AI request (USD) |
 | `sideBae.claudePath` | _(auto-detect)_ | Path to Claude CLI binary. Leave empty unless auto-detection fails. |

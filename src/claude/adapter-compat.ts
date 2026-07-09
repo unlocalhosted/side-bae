@@ -1,9 +1,9 @@
 /**
  * Standalone checkClaudeStatus for backward compatibility.
  *
- * extension.ts calls checkClaudeStatus(workspaceRoot) as a free function.
- * The new ClaudeCodeProvider has this as a method, but we keep this wrapper
- * so the old import path works until consumers migrate to AIProvider.
+ * Older callers may import checkClaudeStatus(workspaceRoot) as a free function.
+ * ClaudeCodeProvider has this as a method, but we keep this wrapper so the old
+ * import path works until consumers migrate to AIProvider.
  */
 
 import { ClaudeCodeProvider } from "../ai/claude-code-provider.js";

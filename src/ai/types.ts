@@ -10,6 +10,7 @@ export interface GenerationProgress {
  * Providers ignore fields they don't support.
  *
  * Claude Code uses: effort, maxTurns, tools, resumeSessionId, persistSession.
+ * Codex CLI uses: resumeSessionId, persistSession.
  * VS Code LM ignores all of these.
  */
 export interface QueryOptions {

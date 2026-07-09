@@ -1,7 +1,7 @@
 {
   "name": "side-bae",
   "displayName": "Side Bae",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "AI-powered codebase onboarding via guided code tours",
   "publisher": "unlocalhosted",
   "license": "MIT",
@@ -292,16 +292,28 @@
           "type": "string",
           "enum": [
             "auto",
+            "codex",
             "claude-code",
             "copilot"
           ],
           "default": "auto",
           "enumDescriptions": [
-            "Auto-detect: try Copilot first, fall back to Claude Code",
+            "Auto-detect: try Copilot, then Codex, then Claude Code",
+            "Use Codex CLI (uses your existing `codex login`)",
             "Use Claude Code CLI (requires Claude subscription)",
             "Use GitHub Copilot (requires Copilot subscription)"
           ],
           "description": "AI backend for code analysis"
+        },
+        "sideBae.codexPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Codex CLI binary. Leave empty to auto-detect. Set this if the extension can't find Codex (run `which codex` in your terminal to find the path)."
+        },
+        "sideBae.codexModel": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Codex model override. Leave empty to use your Codex CLI default."
         },
         "sideBae.claudePath": {
           "type": "string",
@@ -348,7 +360,7 @@
       },
       {
         "view": "sideBae.featureTree",
-        "contents": "Get the big picture first — see how this codebase is organized, how data flows, and where to start.\n\n[$(globe) Explore This Codebase](command:sideBae.exploreAtlas)\n\nOr ask about something specific.\n\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\n\nNo Claude or Copilot? Use skill files with any AI chat.\n\n[$(cloud-download) Install Skill Files](command:sideBae.installSkillFiles)",
+        "contents": "Get the big picture first — see how this codebase is organized, how data flows, and where to start.\n\n[$(globe) Explore This Codebase](command:sideBae.exploreAtlas)\n\nOr ask about something specific.\n\n[$(compass) Ask About a Feature](command:sideBae.generateTour)\n\nNo Codex, Claude, or Copilot? Use skill files with any AI chat.\n\n[$(cloud-download) Install Skill Files](command:sideBae.installSkillFiles)",
         "when": "workbenchState != empty && !sideBae.hasContent"
       }
     ]

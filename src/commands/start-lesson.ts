@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
-import { requireClaude } from "./preflight.js";
+import { requireAIProvider } from "./preflight.js";
 
 export function registerStartLessonCommand(
   context: vscode.ExtensionContext,
   getAdapter: () => AIProvider,
   player: TourPlayer,
-  checkClaude: () => Promise<AIProviderStatus>
+  checkProvider: () => Promise<AIProviderStatus>
 ): void {
   let generating = false;
 
@@ -24,7 +24,7 @@ export function registerStartLessonCommand(
         generating = true;
 
         try {
-          if (!(await requireClaude(checkClaude))) return;
+          if (!(await requireAIProvider(checkProvider))) return;
 
           const subject =
             conceptName ??

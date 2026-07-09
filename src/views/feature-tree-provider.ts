@@ -6,7 +6,7 @@ import type { LearnableConcept } from "../types/lesson.js";
 import type { FullLessonSummary } from "../types/full-lesson.js";
 import * as tourStore from "../engine/tour-store.js";
 import * as statusBar from "./status-bar.js";
-import { requireClaude } from "../commands/preflight.js";
+import { requireAIProvider } from "../commands/preflight.js";
 import { formatRelativeDate } from "../utils.js";
 
 // ── Semantic icon mapping ──
@@ -98,7 +98,7 @@ export class FeatureTreeProvider
 
   constructor(
     private getAdapter: () => AIProvider,
-    private checkClaude: () => Promise<AIProviderStatus>,
+    private checkProvider: () => Promise<AIProviderStatus>,
     private workspaceRoot: string
   ) {}
 
@@ -133,7 +133,7 @@ export class FeatureTreeProvider
     this._onDidChangeTreeData.fire(undefined);
     statusBar.show("Discovering features...");
 
-    if (!(await requireClaude(this.checkClaude))) {
+    if (!(await requireAIProvider(this.checkProvider))) {
       this.isLoading = false;
       statusBar.hide();
       this._onDidChangeTreeData.fire(undefined);
@@ -254,7 +254,7 @@ export class FeatureTreeProvider
     this._onDidChangeTreeData.fire(undefined);
     statusBar.show("Scanning for learnable topics...");
 
-    if (!(await requireClaude(this.checkClaude))) {
+    if (!(await requireAIProvider(this.checkProvider))) {
       this.learnableLoading = false;
       statusBar.hide();
       this._onDidChangeTreeData.fire(undefined);

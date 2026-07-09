@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0
+
+### Codex CLI Provider
+
+- Added **Codex CLI** as a first-class AI backend. Users can select `codex` or keep `auto`, then run Side Bae through their existing `codex login` without an OpenAI API key.
+- Auto-detection now checks Copilot, then Codex, then Claude Code.
+- Added `sideBae.codexPath` and `sideBae.codexModel` settings for Codex-specific setup.
+- Updated provider setup, login prompts, README copy, and no-provider fallback text to include Codex while keeping skill-file docs clear about their Claude slash-command install path.
+
 ## 1.3.1
 
 ### Tour Webview Stability

@@ -3,14 +3,14 @@ import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
 import * as tourStore from "../engine/tour-store.js";
 import * as statusBar from "../views/status-bar.js";
-import { requireClaude } from "./preflight.js";
+import { requireAIProvider } from "./preflight.js";
 
 export function registerExploreAtlasCommand(
   context: vscode.ExtensionContext,
   getAdapter: () => AIProvider,
   player: TourPlayer,
   workspaceRoot: string,
-  checkClaude: () => Promise<AIProviderStatus>
+  checkProvider: () => Promise<AIProviderStatus>
 ): void {
   let generating = false;
 
@@ -36,7 +36,7 @@ export function registerExploreAtlasCommand(
         generating = true;
 
         try {
-          if (!(await requireClaude(checkClaude))) return;
+          if (!(await requireAIProvider(checkProvider))) return;
 
           statusBar.show("Exploring codebase...");
           await vscode.window.withProgress(

@@ -8,6 +8,7 @@
 import type { AIProvider, AIProviderStatus } from "./provider.js";
 import type { GenerationProgress, QueryOptions } from "./types.js";
 import { ClaudeCodeProvider } from "./claude-code-provider.js";
+import { CodexCliProvider } from "./codex-cli-provider.js";
 import { VSCodeLMProvider } from "./vscode-lm-provider.js";
 import type { TourDocument } from "../types/tour.js";
 import type { FeatureTreeNode } from "../types/feature-tree.js";
@@ -16,12 +17,13 @@ import type { LessonPlanStep, StepContent, StepResponse, LearnableConcept } from
 import type { InvestigationStep } from "../types/investigation.js";
 import type { SystemAtlas } from "../types/atlas.js";
 
-export type ProviderChoice = "claude-code" | "copilot" | "auto";
+export type ProviderChoice = "claude-code" | "codex" | "copilot" | "auto";
 
 export interface ProviderConfig {
   provider: ProviderChoice;
   workspaceRoot: string;
   model?: string;
+  codexModel?: string;
   maxBudgetUsd?: number;
 }
 
@@ -33,6 +35,11 @@ export function createProvider(config: ProviderConfig): AIProvider {
         model: config.model,
         maxBudgetUsd: config.maxBudgetUsd,
       });
+    case "codex":
+      return new CodexCliProvider({
+        workspaceRoot: config.workspaceRoot,
+        model: config.codexModel,
+      });
     case "copilot":
       return new VSCodeLMProvider({
         workspaceRoot: config.workspaceRoot,
@@ -43,7 +50,7 @@ export function createProvider(config: ProviderConfig): AIProvider {
 }
 
 /**
- * Auto-detecting provider. Probes Copilot first, falls back to Claude Code.
+ * Auto-detecting provider. Probes Copilot first, then Codex, then Claude Code.
  * Resolution happens lazily on first checkStatus() or domain method call.
  */
 class AutoProvider implements AIProvider {
@@ -147,7 +154,17 @@ class AutoProvider implements AIProvider {
       return copilot;
     }
 
-    // Fall back to Claude Code
+    // Try Codex CLI next — it uses the user's existing `codex login`.
+    const codex = new CodexCliProvider({
+      workspaceRoot: this.config.workspaceRoot,
+      model: this.config.codexModel,
+    });
+    const codexStatus = await codex.checkStatus();
+    if (codexStatus.available && codexStatus.authenticated) {
+      return codex;
+    }
+
+    // Fall back to Claude Code.
     return new ClaudeCodeProvider({
       workspaceRoot: this.config.workspaceRoot,
       model: this.config.model,

@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import type { TourPlayer } from "../views/tour-player/tour-player.js";
-import { requireClaude } from "./preflight.js";
+import { requireAIProvider } from "./preflight.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -43,7 +43,7 @@ export function registerInvestigateIssueCommand(
   getAdapter: () => AIProvider,
   player: TourPlayer,
   workspaceRoot: string,
-  checkClaude: () => Promise<AIProviderStatus>
+  checkProvider: () => Promise<AIProviderStatus>
 ): void {
   let investigating = false;
 
@@ -58,7 +58,14 @@ export function registerInvestigateIssueCommand(
         investigating = true;
 
         try {
-          if (!(await requireClaude(checkClaude))) return;
+          if (!(await requireAIProvider(checkProvider))) return;
+          const adapter = getAdapter();
+          if (!adapter.capabilities.investigation) {
+            vscode.window.showErrorMessage(
+              "Investigate Issue requires Codex CLI or Claude Code. Switch Side Bae: Provider in Settings."
+            );
+            return;
+          }
 
           const input = await vscode.window.showInputBox({
             prompt: "Paste a GitHub issue URL or describe the bug",
@@ -87,7 +94,7 @@ export function registerInvestigateIssueCommand(
             issueBody = trimmedInput.slice(0, 10000);
           }
 
-          await player.startInvestigation(getAdapter(), issueTitle, issueBody);
+          await player.startInvestigation(adapter, issueTitle, issueBody);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Failed to start investigation: ${message}`);

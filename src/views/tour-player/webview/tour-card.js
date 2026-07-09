@@ -1674,7 +1674,7 @@
           <textarea class="qna-input" id="qna-input" placeholder="What does this mean?" rows="1"></textarea>
           <button class="qna-send" id="qna-send">Ask</button>
         </div>`
-      : `<div class="qna-no-provider">Set up Claude Code or GitHub Copilot in settings to ask questions about this code.</div>`;
+      : `<div class="qna-no-provider">Set up Codex, Claude Code, or GitHub Copilot in settings to ask questions about this code.</div>`;
 
     const toggleLabel = count > 0 ? `${count} question${count === 1 ? "" : "s"}` : "Ask a question";
 

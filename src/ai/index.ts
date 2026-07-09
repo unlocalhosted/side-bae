@@ -9,6 +9,9 @@ export type { GenerationProgress, QueryOptions } from "./types.js";
 export { ClaudeCodeProvider } from "./claude-code-provider.js";
 export type { ClaudeCodeProviderOptions } from "./claude-code-provider.js";
 
+export { CodexCliProvider } from "./codex-cli-provider.js";
+export type { CodexCliProviderOptions } from "./codex-cli-provider.js";
+
 export { VSCodeLMProvider } from "./vscode-lm-provider.js";
 export type { VSCodeLMProviderOptions } from "./vscode-lm-provider.js";
 

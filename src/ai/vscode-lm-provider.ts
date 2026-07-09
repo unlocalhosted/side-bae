@@ -122,7 +122,7 @@ export class VSCodeLMProvider implements AIProvider {
     _options?: QueryOptions
   ): Promise<InvestigationStep & { sessionId?: string }> {
     throw new Error(
-      "Investigation requires Claude Code. Switch provider in Settings → Side Bae → Provider."
+      "Investigation requires Codex CLI or Claude Code. Switch provider in Settings → Side Bae → Provider."
     );
   }
 

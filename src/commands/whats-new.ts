@@ -1,19 +1,19 @@
 import * as vscode from "vscode";
 import type { AIProvider, AIProviderStatus } from "../ai/index.js";
 import type { FeatureTreeProvider } from "../views/feature-tree-provider.js";
-import { requireClaude } from "./preflight.js";
+import { requireAIProvider } from "./preflight.js";
 
 export function registerWhatsNewCommand(
   context: vscode.ExtensionContext,
   getAdapter: () => AIProvider,
   featureTreeProvider: FeatureTreeProvider,
-  checkClaude: () => Promise<AIProviderStatus>
+  checkProvider: () => Promise<AIProviderStatus>
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "sideBae.whatsNew",
       async () => {
-        if (!(await requireClaude(checkClaude))) return;
+        if (!(await requireAIProvider(checkProvider))) return;
 
         const range = await vscode.window.showInputBox({
           prompt: "Show changes from when?",
